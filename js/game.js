@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { MAT, CATALOG, CATS, makeFurniture, makeAnimal, makeWilli, makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge, makeGarden } from './models.js';
+import { MAT, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, lookCanvas, lookTexture, makeFurniture, makeAnimal, makeWilli, makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge, makeGarden } from './models.js';
 
 /* ---------- Konstanten ---------- */
 const PLAT_Y = 2.2, E_H = 2.4, FLOOR_H = 2.0, MAXF = 10;
@@ -28,7 +28,7 @@ const TENANTS = [
 const flLabel = i => i === 0 ? 'E' : String(i);
 
 /* ---------- Zustand ---------- */
-let state = { floors: 0, rooms: {}, nuts: 0, bridge: false, garden: false, night: false, cutaway: false, fulfilled: {} };
+let state = { floors: 0, rooms: {}, nuts: 0, bridge: false, garden: false, night: false, cutaway: false, fulfilled: {}, wallpaper: {}, flooring: {} };
 try { const s = localStorage.getItem('wipfelkratzer-v1'); if (s) state = Object.assign(state, JSON.parse(s)); } catch (e) {}
 let saveT = 0;
 const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem('wipfelkratzer-v1', JSON.stringify(state)); } catch (e) {} }, 300); };
@@ -111,6 +111,9 @@ for (let i = 100; i < 122; i++) {
 }
 const sign = makeSign('Wipfelkratzer'); sign.position.set(4.8, 0, 5.6); sign.rotation.y = 0.45; sign.userData.type = 'sign'; scene.add(sign);
 const willi = makeWilli(); willi.position.set(-3.8, 0, 4.8); willi.rotation.y = 0.5; willi.scale.setScalar(1.25); willi.userData.type = 'willi'; scene.add(willi);
+const moki = makeAnimal('eichhoernchen'); moki.scale.setScalar(1.3); moki.position.set(6, 0, 6); moki.userData.type = 'moki'; scene.add(moki);
+const MOKI_WP = [new THREE.Vector3(6, 0, 6), new THREE.Vector3(-6.5, 0, 6.5), new THREE.Vector3(-7.5, 0, -5), new THREE.Vector3(7.5, 0, -5.5)];
+let mokiI = 0, mokiWait = 1.5;
 const magpie = new THREE.Group(); const magInner = makeMagpie(); magInner.rotation.y = -Math.PI / 2; magpie.add(magInner); scene.add(magpie);
 const bridge = makeBridge(5.6); bridge.position.set(8.7, 0.08, riverZ(8.7)); bridge.rotation.y = Math.PI / 2; bridge.visible = state.bridge; scene.add(bridge);
 const garden = makeGarden(); garden.position.set(-8, 0, 2); garden.rotation.y = 0.5; garden.visible = state.garden; scene.add(garden);
@@ -120,7 +123,7 @@ const garden = makeGarden(); garden.position.set(-8, 0, 2); garden.rotation.y = 
   mesh(new THREE.BoxGeometry(9.8, 0.34, 6.8), MAT.wood, 0, PLAT_Y - 0.17, 0, g);
   [[-4, -2.4], [4, -2.4], [-4, 2.4], [4, 2.4], [0, 0]].forEach(([x, z]) => {
     mesh(new THREE.CylinderGeometry(0.5, 0.7, PLAT_Y, 12), MAT.woodD, x, PLAT_Y / 2 - 0.1, z, g); });
-  const lad = new THREE.Group(); g.add(lad); lad.position.set(3.4, PLAT_Y / 2, 3.9); lad.rotation.x = 0.34;
+  const lad = new THREE.Group(); g.add(lad); lad.position.set(3.4, PLAT_Y / 2 + 0.1, 3.85); lad.rotation.x = -0.3;
   [-0.22, 0.22].forEach(x => mesh(new THREE.CylinderGeometry(0.045, 0.045, PLAT_Y + 0.5, 8), MAT.wood, x, 0, 0, lad));
   for (let i = 0; i < 5; i++) mesh(new THREE.BoxGeometry(0.44, 0.05, 0.05), MAT.woodL, 0, -1 + i * 0.5, 0, lad);
 }
@@ -138,9 +141,12 @@ for (let i = 0; i <= MAXF; i++) {
   const g = new THREE.Group(); g.position.y = floorY(i);
   g.position.x = (rnd(i) - 0.5) * 0.12; g.rotation.y = (rnd(i + 20) - 0.5) * 0.05;
   const w = W(i), d = D(i), h = H(i);
+  const wallMat = MAT.plasterIn.clone(), floorMat = MAT.woodL.clone();
+  g.userData.wallMat = wallMat; g.userData.floorMat = floorMat;
   mesh(new THREE.BoxGeometry(w + 0.12, 0.14, d + 0.12), MAT.woodL, 0, 0.07, 0, g);
-  mesh(new THREE.BoxGeometry(w - 0.24, h, 0.12), MAT.plasterIn, 0, h / 2, -d / 2 + 0.06, g);
-  [-1, 1].forEach(s => mesh(new THREE.BoxGeometry(0.12, h, d), s > 0 ? MAT.plaster : MAT.plasterIn, s * (w / 2 - 0.06), h / 2, 0, g));
+  mesh(new THREE.BoxGeometry(w - 0.24, 0.02, d - 0.24), floorMat, 0, 0.145, 0, g).castShadow = false;
+  mesh(new THREE.BoxGeometry(w - 0.24, h, 0.12), wallMat, 0, h / 2, -d / 2 + 0.06, g);
+  [-1, 1].forEach(s => mesh(new THREE.BoxGeometry(0.12, h, d), s > 0 ? MAT.plaster : wallMat, s * (w / 2 - 0.06), h / 2, 0, g));
   g.userData.ceil = mesh(new THREE.BoxGeometry(w - 0.3, 0.1, d - 0.3), MAT.plasterIn, 0, h - 0.13, 0, g); g.userData.ceil.castShadow = false;
   const front = new THREE.Group(); front.position.z = d / 2 - 0.06; g.add(front); g.userData.front = front;
   mesh(new THREE.BoxGeometry(w - 0.24, h, 0.12), MAT.plaster, 0, h / 2, 0, front);
@@ -149,8 +155,29 @@ for (let i = 0; i <= MAXF; i++) {
   for (let k = 0; k < nw; k++) {
     const x = (k - (nw - 1) / 2) * (w / (nw + 0.6));
     if (i === 0 && k === Math.floor(nw / 2)) { mesh(makeArchGeo(1.1, 1.8), matWin, x - 0, 0, 0.08, front); continue; }
+    if (i > 0 && k === nw - 1) continue;
     const win = mesh(makeArchGeo(0.5, 0.8), matWin.clone(), x, h * 0.24, 0.08, front);
     g.userData.wins.push(win);
+  }
+  if (i > 0) {
+    const dx = ((nw - 1) / 2) * (w / (nw + 0.6));
+    mesh(makeArchGeo(0.7, 1.35), MAT.woodD, dx, 0, 0.08, front);
+    mesh(new THREE.BoxGeometry(0.62, 1.22, 0.04), MAT.wood, dx, 0.61, 0.13, front);
+    [-0.2, 0, 0.2].forEach(px => mesh(new THREE.BoxGeometry(0.03, 1.2, 0.02), MAT.woodD, dx + px, 0.61, 0.155, front));
+    mesh(new THREE.SphereGeometry(0.04, 10, 8), MAT.gold, dx - 0.22, 0.62, 0.17, front);
+    const lo = i - 1, hp = H(lo), wl = W(lo), dl = D(lo), sx = wl / 2 + 0.5;
+    const stairs = new THREE.Group(); g.add(stairs); g.userData.stairs = stairs;
+    const n = 9;
+    for (let s = 0; s < n; s++) { const t = (s + 0.5) / n;
+      mesh(new THREE.BoxGeometry(0.9, 0.1, dl / n + 0.04), MAT.woodL, sx, -hp + t * hp, -dl / 2 + t * dl, stairs);
+      if (s % 2 === 0) mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.55, 6), MAT.wood, sx + 0.4, -hp + t * hp + 0.3, -dl / 2 + t * dl, stairs); }
+    const rail = mesh(new THREE.BoxGeometry(0.05, 0.05, Math.hypot(dl, hp) + 0.2), MAT.woodD, sx + 0.4, -hp / 2 + 0.58, 0, stairs);
+    rail.rotation.x = -Math.atan2(hp, dl);
+    mesh(new THREE.CylinderGeometry(0.04, 0.05, hp, 8), MAT.woodD, sx + 0.4, -hp / 2, -dl / 2, stairs);
+    mesh(new THREE.BoxGeometry(sx + 0.5 - w / 2 + 0.3, 0.1, 1.1), MAT.woodL, (sx + 0.5 + w / 2 - 0.3) / 2, 0.02, d / 2 + 0.5, stairs);
+    mesh(new THREE.BoxGeometry(0.9, 0.1, 1.1), MAT.woodL, sx, 0.02, d / 2 + 0.5, stairs);
+    [sx + 0.4, w / 2 - 0.2].forEach(px => mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.55, 6), MAT.wood, px, 0.3, d / 2 + 1.0, stairs));
+    mesh(new THREE.BoxGeometry(sx + 0.6 - w / 2 + 0.2, 0.05, 0.05), MAT.woodD, (sx + 0.4 + w / 2 - 0.2) / 2, 0.58, d / 2 + 1.0, stairs);
   }
   [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) =>
     mesh(new THREE.CylinderGeometry(0.09, 0.11, h + 0.2, 10), MAT.woodD, sx * (w / 2 - 0.02), h / 2, sz * (d / 2 - 0.02), g));
@@ -190,15 +217,27 @@ function cellPos(k, cell) { const { w, d } = dims(k); const cols = colsOf(k);
   const col = cell % cols, row = Math.floor(cell / cols);
   return { x: -w / 2 + (col + 0.5) * (w / cols), z: -d / 2 + (row + 0.5) * (d / 2) }; }
 function parentOf(k) { return k === 'roof' ? roofG : floorGroups[k]; }
-function baseY(k) { return k === 'roof' ? 0.18 : 0.14; }
+function baseY(k) { return k === 'roof' ? 0.18 : 0.155; }
 
 const DECO = new Set(['vase', 'teekanne', 'kerze', 'buecher', 'nussschale']);
+const wallZ = k => -D(k) / 2 + 0.125;
+function applyLook(k) {
+  if (k === 'roof') return; const g = floorGroups[k];
+  const wp = state.wallpaper[k], fl = state.flooring[k];
+  g.userData.wallMat.map = wp ? lookTexture('wall', wp) : null; g.userData.wallMat.color.set(wp ? 0xffffff : 0xf8ecd0); g.userData.wallMat.needsUpdate = true;
+  g.userData.floorMat.map = fl ? lookTexture('floor', fl) : null; g.userData.floorMat.color.set(fl ? 0xffffff : 0xd8b078); g.userData.floorMat.needsUpdate = true;
+}
+function setLook(kind, id) {
+  if (!edit || edit.k === 'roof') return;
+  (kind === 'wall' ? state.wallpaper : state.flooring)[edit.k] = id;
+  applyLook(edit.k); sfx.pop(); save();
+}
 const bounds = k => k === 'roof' ? { x: ROOF_W / 2 - 0.3, z: ROOF_D / 2 - 0.3 } : { x: W(k) / 2 - 0.3, z: D(k) / 2 - 0.3 };
 function surfaceYAt(k, x, z, exclude) {
   const parent = parentOf(k); parent.updateWorldMatrix(true, false);
   const wp = parent.localToWorld(new THREE.Vector3(x, 0, z));
   let top = null; const bb = new THREE.Box3();
-  itemMeshes[k].forEach(m => { if (m === exclude || DECO.has(m.userData.pick.entry.id)) return;
+  itemMeshes[k].forEach(m => { if (m === exclude || DECO.has(m.userData.pick.entry.id) || WALL_ITEMS.has(m.userData.pick.entry.id)) return;
     bb.setFromObject(m);
     if (wp.x > bb.min.x - 0.06 && wp.x < bb.max.x + 0.06 && wp.z > bb.min.z - 0.06 && wp.z < bb.max.z + 0.06) {
       const ly = parent.worldToLocal(new THREE.Vector3(bb.max.x, bb.max.y, bb.max.z)).y;
@@ -207,6 +246,9 @@ function surfaceYAt(k, x, z, exclude) {
 }
 const SURFACES = ['tisch', 'regal', 'schrank', 'klavier', 'nusskiste'];
 function clampEntry(k, m, en) {
+  if (WALL_ITEMS.has(en.id)) { const hw = W(k) / 2 - 0.55, hh = H(k);
+    en.x = Math.max(-hw, Math.min(hw, en.x)); en.y = Math.max(0.45, Math.min(hh - 0.55, en.y ?? 1.1)); en.z = wallZ(k); en.rot = 0;
+    m.position.set(en.x, en.y, en.z); m.rotation.y = 0; return; }
   const wallX = k === 'roof' ? ROOF_W / 2 - 0.1 : W(k) / 2 - 0.13;
   const wallZ = k === 'roof' ? ROOF_D / 2 - 0.1 : D(k) / 2 - 0.13;
   const bb = new THREE.Box3().setFromObject(m);
@@ -226,7 +268,7 @@ function placeItemMesh(k, entry) {
   return m;
 }
 function freeCell(k, from = 0) { const total = colsOf(k) * 2;
-  const used = new Set(roomOf(k).filter(e => !DECO.has(e.id)).map(e => e.cell));
+  const used = new Set(roomOf(k).filter(e => !DECO.has(e.id) && !WALL_ITEMS.has(e.id)).map(e => e.cell));
   for (let n = 0; n < total; n++) { const c = (from + n) % total; if (!used.has(c)) return c; } return -1; }
 
 /* ---------- UI-Refs ---------- */
@@ -240,7 +282,7 @@ function updateHUD() { $('nuts').textContent = state.nuts; $('floors').textConte
 }
 
 /* ---------- Katalog ---------- */
-let thumbs = {}; const animalThumbs = {}; let williThumb = '', damThumb = '';
+let thumbs = {}; const animalThumbs = {}; let williThumb = '', damThumb = '', mokiThumb = '';
 function makeThumbs() {
   const r2 = new THREE.WebGLRenderer({ alpha: true, antialias: true }); r2.setSize(160, 160);
   const s2 = new THREE.Scene();
@@ -259,6 +301,7 @@ function makeThumbs() {
     animalThumbs[i] = snap(o, 0.4, 0.55, 1.5); });
   { const wg = makeWilli(); williThumb = snap(wg, 0.5, 0.7, 1.4); }
   { const dg = makeDam(); damThumb = snap(dg, 0.8, 0.8, 1.2); }
+  { const mg = makeAnimal('eichhoernchen'); mokiThumb = snap(mg, 0.4, 0.55, 1.5); }
   r2.dispose();
 }
 function renderCatalog() {
@@ -270,6 +313,13 @@ function renderCatalog() {
     b.textContent = label; b.className = id === catTab ? 'on' : '';
     b.onclick = () => { catTab = id; renderCatalog(); }; tabs.appendChild(b); });
   const wrap = $('catalog-items'); wrap.innerHTML = '';
+  if (catTab === 'farbe' || catTab === 'boden') {
+    const kind = catTab === 'farbe' ? 'wall' : 'floor';
+    (kind === 'wall' ? WALLS : FLOORS).forEach(l => { const d = document.createElement('div'); d.className = 'item look';
+      d.innerHTML = `<img src="${lookCanvas(kind, l.id).toDataURL()}" alt=""><span>${l.name}</span>`;
+      d.onclick = () => setLook(kind, l.id); wrap.appendChild(d); });
+    return;
+  }
   CATALOG.filter(it => it.cat === catTab).forEach(it => {
     const d = document.createElement('div'); d.className = 'item';
     d.innerHTML = `<img src="${thumbs[it.id] || ''}" alt=""><span>${it.name}</span>`;
@@ -334,16 +384,21 @@ function addItem(id) {
   if (!edit) return;
   const k = edit.k;
   const cell = freeCell(k);
-  if (cell < 0 && !DECO.has(id)) { toast('Die Wohnung ist schon ganz voll!'); return; }
+  if (cell < 0 && !DECO.has(id) && !WALL_ITEMS.has(id)) { toast('Die Wohnung ist schon ganz voll!'); return; }
   const p = cellPos(k, Math.max(cell, 0));
   const entry = { id, cell: Math.max(cell, 0), x: p.x, z: p.z, rot: 0 };
+  if (WALL_ITEMS.has(id)) { entry.z = wallZ(k); entry.y = id === 'fenster' ? 1.05 : 1.2;
+    const taken = roomOf(k).filter(e => WALL_ITEMS.has(e.id)).map(e => e.x);
+    const hw = W(k) / 2 - 0.6; let best = 0, bd = -1;
+    for (let x = -hw; x <= hw; x += 0.4) { const dmin = taken.length ? Math.min(...taken.map(t => Math.abs(t - x))) : 99; if (dmin > bd) { bd = dmin; best = x; } }
+    entry.x = best; }
   if (DECO.has(id)) {
     let surf = null;
     if (selected && selected.k === k && SURFACES.includes(selected.entry.id)) surf = selected.mesh;
     else surf = itemMeshes[k].find(m => SURFACES.includes(m.userData.pick.entry.id));
     if (surf) { entry.x = surf.position.x + (Math.random() - 0.5) * 0.15; entry.z = surf.position.z + (Math.random() - 0.5) * 0.15; }
   }
-  entry.y = DECO.has(id) ? surfaceYAt(k, entry.x, entry.z) : baseY(k);
+  entry.y = WALL_ITEMS.has(id) ? entry.y : DECO.has(id) ? surfaceYAt(k, entry.x, entry.z) : baseY(k);
   roomOf(k).push(entry);
   const m = placeItemMesh(k, entry);
   clampEntry(k, m, entry);
@@ -451,6 +506,9 @@ function renderAnimals() {
     const status = tenantIn(i) ? '<span class="in">Eingezogen!</span>' : '<small>wartet noch auf die Wohnung</small>';
     d.innerHTML = `<img src="${animalThumbs[i] || ''}" alt=""><b>${t.name}</b><small>Stock ${flLabel(i)}</small>${status}`;
     grid.appendChild(d); });
+  const d = document.createElement('div'); d.className = 'acard';
+  d.innerHTML = `<img src="${mokiThumb}" alt=""><b>Móki das Eichhörnchen</b><small>flitzt ums Haus</small><span class="in">Besucher</span>`;
+  grid.appendChild(d);
 }
 $('btn-animals').onclick = () => { $('extras-menu').classList.remove('open'); renderAnimals(); $('animals').classList.add('open'); };
 $('btn-aniclose').onclick = () => $('animals').classList.remove('open');
@@ -565,6 +623,7 @@ const sfx = {
     [880, 1108, 1318, big ? 1760 : 0].forEach((f, i) => f && tone(f, t + i * 0.09, 0.5, 'triangle', 0.1)); },
   splash() { if (!AC) return; noiseBurst(AC.currentTime, 0.5, 2800, 260, 0.22); },
   whoosh() { if (!AC) return; noiseBurst(AC.currentTime, 0.28, 500, 2400, 0.07); },
+  shutter() { if (!AC) return; const t = AC.currentTime; noiseBurst(t, 0.04, 6000, 1500, 0.3); noiseBurst(t + 0.07, 0.05, 3000, 800, 0.25); },
 };
 $('btn-music').onclick = () => { musicOn = !musicOn; $('btn-music').textContent = musicOn ? 'Musik aus' : 'Musik an'; };
 
@@ -614,13 +673,14 @@ renderer.domElement.addEventListener('pointerup', e => {
     if (th.length) { let o = th[0].object; while (o && !(o.userData && o.userData.type === 'tenant')) o = o.parent;
       if (o) { tenantTalk(o.userData.floor); return; } }
   }
-  const hits = ray.intersectObjects([...hitboxes, sign, willi, dam], true);
+  const hits = ray.intersectObjects([...hitboxes, sign, willi, dam, moki], true);
   for (const h of hits) {
     let o = h.object; while (o && !(o.userData && o.userData.type)) o = o.parent;
     if (!o) continue; const u = o.userData;
     if (u.type === 'sign') { renderResidents(); $('residents').classList.add('open'); return; }
     if (u.type === 'willi') { williTalk(); return; }
     if (u.type === 'dam') { damTalk(); return; }
+    if (u.type === 'moki') { mokiTalk(); return; }
     if (u.type === 'roof') { enterEdit('roof'); return; }
     if (u.type === 'floor') { if (u.floor <= state.floors) { enterEdit(u.floor); return; } continue; }
   }
@@ -633,14 +693,14 @@ $('btn-catalog').onclick = () => {
   $('catalog').classList.toggle('open'); };
 $('btn-catclose').onclick = () => $('catalog').classList.remove('open');
 $('btn-extras').onclick = () => $('extras-menu').classList.toggle('open');
-$('btn-move').onclick = () => { if (!selected) return;
+$('btn-move').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.id)) return;
   const c = freeCell(selected.k, selected.entry.cell + 1);
   if (c < 0) { toast('Kein Platz frei!'); return; }
   const en = selected.entry; en.cell = c; const p = cellPos(selected.k, c);
   en.x = p.x; en.z = p.z; en.y = DECO.has(en.id) ? surfaceYAt(selected.k, p.x, p.z, selected.mesh) : baseY(selected.k);
   selected.mesh.position.set(en.x, en.y, en.z);
   selHelper.update(); sfx.pop(); save(); };
-$('btn-rot').onclick = () => { if (!selected) return;
+$('btn-rot').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.id)) return;
   selected.entry.rot += Math.PI / 2;
   selected.mesh.rotation.y = selected.entry.rot;
   clampEntry(selected.k, selected.mesh, selected.entry);
@@ -653,6 +713,7 @@ addEventListener('keydown', e => {
   const st = { ArrowLeft: [-0.12, 0], ArrowRight: [0.12, 0], ArrowUp: [0, -0.12], ArrowDown: [0, 0.12] }[e.key];
   const en = selected.entry;
   if (st) { e.preventDefault();
+    if (WALL_ITEMS.has(en.id)) { en.x += st[0]; en.y = (en.y ?? 1.1) - st[1]; clampEntry(selected.k, selected.mesh, en); selHelper.update(); save(); return; }
     en.x += st[0]; en.z += st[1];
     clampEntry(selected.k, selected.mesh, en);
     en.y = DECO.has(en.id) ? surfaceYAt(selected.k, en.x, en.z, selected.mesh) : baseY(selected.k);
@@ -698,6 +759,50 @@ function damTalk() {
   bubbleUntil = clock.elapsedTime + 5;
   sfx.splash();
 }
+const MOKI_TEXTS = [
+  'Ich bin Móki! Ich flitze schneller als Else fliegen kann!',
+  'Hast du Haselnüsse? Ich sammle sie für den Winter.',
+  'Von ganz oben auf dem Wipfelkratzer sieht man den ganzen Wald!',
+  'Psst — nachts leuchten die Fenster so schön.',
+];
+let mokiI2 = 0;
+function mokiTalk() {
+  bubbleTarget = moki; bubbleH = 1.1; mokiWait = Math.max(mokiWait, 4);
+  bubbleEl.innerHTML = `<img src="${mokiThumb}" alt="Móki"><span><b>Móki</b><br>${MOKI_TEXTS[mokiI2++ % MOKI_TEXTS.length]}</span>`;
+  bubbleEl.classList.add('show');
+  bubbleUntil = clock.elapsedTime + 4.5;
+  sfx.pop();
+}
+
+/* ---------- Fotos ---------- */
+let photos = [];
+try { photos = JSON.parse(localStorage.getItem('wipfelkratzer-fotos') || '[]'); } catch (e) {}
+function savePhotos() { try { localStorage.setItem('wipfelkratzer-fotos', JSON.stringify(photos)); } catch (e) { toast('Die Galerie ist voll — lösche ein paar Fotos.'); } }
+function takePhoto() {
+  renderer.render(scene, camera);
+  const src = renderer.domElement, s = Math.min(1, 800 / src.width);
+  const c = document.createElement('canvas'); c.width = Math.round(src.width * s); c.height = Math.round(src.height * s);
+  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+  photos.unshift({ url: c.toDataURL('image/jpeg', 0.72), text: '', t: Date.now() });
+  if (photos.length > 20) photos.length = 20;
+  savePhotos();
+  const f = $('flash'); f.classList.add('on'); requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove('on')));
+  sfx.shutter(); toast('Klick! Foto ist in der Galerie.');
+}
+function renderGallery() {
+  const grid = $('photo-grid'); grid.innerHTML = '';
+  if (!photos.length) { grid.innerHTML = '<div class="empty">Noch keine Fotos. Drücke unten auf «Foto»!</div>'; return; }
+  photos.forEach((p, i) => { const d = document.createElement('div'); d.className = 'photo';
+    const dt = new Date(p.t);
+    d.innerHTML = `<img src="${p.url}" alt=""><textarea placeholder="Was ist auf dem Foto?">${p.text.replace(/</g, '&lt;')}</textarea><small>${dt.toLocaleDateString('de-CH')} ${dt.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</small><button class="danger">Löschen</button>`;
+    d.querySelector('textarea').oninput = e => { p.text = e.target.value; savePhotos(); };
+    d.querySelector('button').onclick = () => { photos.splice(i, 1); savePhotos(); renderGallery(); };
+    grid.appendChild(d); });
+}
+$('btn-photo').onclick = takePhoto;
+$('btn-gallery').onclick = () => { $('extras-menu').classList.remove('open'); renderGallery(); $('gallery').classList.add('open'); };
+$('btn-galclose').onclick = () => $('gallery').classList.remove('open');
+$('gallery').onclick = e => { if (e.target === $('gallery')) $('gallery').classList.remove('open'); };
 
 $('btn-start').onclick = () => { initAudio(); $('intro').classList.add('hidden'); };
 
@@ -707,6 +812,7 @@ Object.keys(state.rooms).forEach(k => {
   roomOf(key).forEach(e => placeItemMesh(key, e));
 });
 for (let i = 0; i <= MAXF; i++) if (tenantIn(i)) spawnTenant(i, true);
+for (let i = 0; i <= MAXF; i++) applyLook(i);
 applyNight(state.night ? 1 : 0);
 applyFronts();
 makeThumbs();
@@ -731,6 +837,11 @@ function tick() {
     d.g.rotation.y += dt * (0.8 + (d.ph % 3) * 0.5); });
   spinners.forEach(w => w.rotation.z += dt * 2.4);
   willi.position.y = Math.abs(Math.sin(t * 1.6)) * 0.03;
+  { const tgt = MOKI_WP[mokiI]; const dxm = tgt.x - moki.position.x, dzm = tgt.z - moki.position.z, dist = Math.hypot(dxm, dzm);
+    if (mokiWait > 0) { mokiWait -= dt; moki.position.y = 0; if (mokiWait <= 0) mokiI = (mokiI + 1) % MOKI_WP.length; }
+    else if (dist < 0.1) { mokiWait = 1.5 + Math.random() * 2.5; moki.rotation.y = Math.atan2(-moki.position.x, -moki.position.z); }
+    else { const sp = Math.min(dist, 2.6 * dt); moki.position.x += dxm / dist * sp; moki.position.z += dzm / dist * sp;
+      moki.rotation.y = Math.atan2(dxm, dzm); moki.position.y = Math.abs(Math.sin(t * 11)) * 0.14; } }
   const arm = willi.userData.arm;
   arm.rotation.z = t < buildingUntil ? Math.sin(t * 16) * 0.7 - 0.3 : Math.sin(t * 1.6) * 0.06;
   if (bubbleEl.classList.contains('show')) {

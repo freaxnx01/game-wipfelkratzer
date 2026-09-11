@@ -45,6 +45,7 @@ There is a single continuous 3D scene with overlaid HTML/CSS UI panels. There is
 - **Forest**: 60 tall trees (height 11–24) at radius 17–43, plus 22 short trees at radius 13–25. Two exclusion rules: skip if within 4.5 of the river centerline, within 5.5 of the garden spot, **and skip if `z > 3 && |x| < 16`** — this keeps a clear viewing corridor in front of the tower. Trees beyond radius 27 have shadow casting disabled for performance.
 - **Beaver lodge (dam)**: at `(-7, 0, riverZ(-7) - 1.2)`, rotated `.6`. A flattened dome plus 28 sticks placed on a golden-angle spiral (`a = i·2.399`) oriented tangentially, plus 3 thick logs. Clickable.
 - **Willi (the beaver)** at `(-3.8, 0, 4.8)`, rotation `.5`, scale `1.25`. Idle bob + hammer arm animation. Clickable.
+- **Móki the squirrel** patrols four waypoints around the tower (`(6,0,6) → (-6.5,0,6.5) → (-7.5,0,-5) → (7.5,0,-5.5)`) at 2.6 units/s, hopping (`|sin(t·11)|·0.14`), pausing 1.5–4 s at each corner and turning to face the tower. Clickable — 4 rotating lines.
 - **Sign** at `(4.8, 0, 5.6)`, rotation `.45` — a canvas-textured wooden board reading "Wipfelkratzer" / "Firma Biberzahn". Clickable → opens residents list.
 - **Magpie ("Else")** circles the tower continuously carrying a small red bucket: radius `10 + floors·0.4`, angular speed `0.3 rad/s`, height `topY() + 2.6 + sin(t·0.7)·0.4`, wings flap at `sin(t·9)`.
 - **Bridge** (hidden until built) at `(8.7, 0.08, riverZ(8.7))`, rotated 90°.
@@ -62,27 +63,31 @@ Wrapping flex row, gap 10px:
 | **Extras** | Toggles the extras popover |
 | **Nacht / Tag** | Toggles day/night over a 1.2 s tween |
 | **Wände weg / Wände hin** | Cutaway mode — hides all front walls, book-style cross-section |
+| **Foto** | Screenshot of the current 3D view → gallery (white flash + shutter SFX) |
 | **Musik aus / Musik an** | Mutes the generative music (SFX stay on) |
 
 ### 5. Extras popover (`#extras-menu`, above the toolbar)
-Vertical panel, 260px: **Brücke bauen**, **Garten & Spielplatz**, **Bewohner-Schild**, **Tier-Übersicht**, **Dachparty feiern!** (hidden until 10 floors + top tenant present), **Neu anfangen** (danger; requires a second click within 4 s, label changes to "Wirklich alles löschen?").
+Vertical panel, 260px: **Brücke bauen**, **Garten & Spielplatz**, **Bewohner-Schild**, **Tier-Übersicht**, **Fotogalerie**, **Dachparty feiern!** (hidden until 10 floors + top tenant present), **Neu anfangen** (danger; requires a second click within 4 s, label changes to "Wirklich alles löschen?").
 
 ### 6. Edit mode
 Entered by tapping a built floor or the roof.
 - Camera flies to a front-on view of that floor over 0.9 s (smoothstep easing); the previous camera pose is saved and restored on exit.
 - All floors **above** the edited one are hidden; the roof is hidden; that floor's **front wall and ceiling** are hidden.
 - **Edit bar** (top-center): floor label + tenant name ("3 — Familie Siebenschläfer") or "Wohnung einrichten", a **Tipp** button, and a primary **Fertig** button.
-- **Catalog drawer** (right, `min(320px, 88vw)`, full height): tab pills + a 3-column grid of item cards. Each card shows a **runtime-rendered thumbnail** of the actual 3D model (rendered once at startup into a 160² offscreen WebGL renderer, stored as a data URL) plus the German name.
+- **Catalog drawer** (right, `min(320px, 88vw)`, full height): tab pills + a 3-column grid of item cards. Each card shows a **runtime-rendered thumbnail** of the actual 3D model (rendered once at startup into a 160² offscreen WebGL renderer, stored as a data URL) plus the German name. The **Tapete** and **Boden** tabs instead show 128² canvas-generated pattern swatches; clicking one re-textures that room's walls or floor immediately.
 - **Selection bar** (above the toolbar, shown when an object is selected): **Verschieben** (jump to next free grid cell), **Drehen** (90° step), **Weg damit** (delete).
 
 ### 7. Residents dialog (`#residents`)
 Modal over a scrim. Lists floors 10 → E; each row is a floor badge + either the tenant name (bold), "zurzeit frei" (italic, faded), or "noch nicht gebaut".
 
 ### 8. Animal overview (`#animals`)
-Modal, `min(580px, 94vw)`. Auto-fill grid of cards `minmax(150px, 1fr)`: rendered portrait of the tenant group, name, "Stock N", and either green "Eingezogen!" or "wartet noch auf die Wohnung".
+Modal, `min(580px, 94vw)`. Auto-fill grid of cards `minmax(150px, 1fr)`: rendered portrait of the tenant group, name, "Stock N", and either green "Eingezogen!" or "wartet noch auf die Wohnung". Móki is appended as a card labelled "Besucher".
+
+### 8b. Photo gallery (`#gallery`)
+Modal, `min(760px, 94vw)`. Auto-fill grid `minmax(210px, 1fr)` of photo cards: 16:9 JPEG thumbnail, an editable `<textarea>` for the child's caption (saves on every keystroke), the capture date/time in `de-CH` format, and a danger **Löschen** button. Empty state: "Noch keine Fotos. Drücke unten auf «Foto»!"
 
 ### 9. Speech bubble (`#bubble`)
-World-anchored HTML bubble (projected each frame from the target's world position), `border-radius: 16px 16px 16px 4px`, containing a 52px circular rendered portrait plus text. Used by Willi (6 rotating lines from the book), the beaver lodge (3 lines), and tenants (name + current wish/status). Auto-hides after 4–5 s.
+World-anchored HTML bubble (projected each frame from the target's world position), `border-radius: 16px 16px 16px 4px`, containing a 52px circular rendered portrait plus text. Used by Willi (6 rotating lines from the book), the beaver lodge (3 lines), Móki (4 lines), and tenants (name + current wish/status). Auto-hides after 4–5 s.
 
 ### 10. Toast (`#toast`)
 Bottom-center panel, fades in/out (opacity + 20px translate, .3 s), auto-hides after 2.8 s.
@@ -98,9 +103,19 @@ Bottom-center panel, fades in/out (opacity + 20px translate, .3 s), auto-hides a
 - Tapping a floor enters edit mode. Tapping an item selects it (red `BoxHelper`). Tapping empty space deselects.
 - Adding an item: spawns at the next free grid cell, scales in over 0.35 s, and is **immediately selected**.
 - **Décor items** (`vase, teekanne, kerze, buecher, nussschale`) auto-land on a surface: if a table/shelf/wardrobe/piano/nut-crate is currently *selected*, they land on it; otherwise on the first available surface. Their y is computed by `surfaceYAt()`, which world-space-tests the décor's xz against every non-décor item's bounding box and picks the highest top face below y = 1.8.
+- **Wall items** (`poster_wald, poster_mond, poster_willi, uhr, spiegel, fenster`) snap to the rear wall plane (`z = -D(k)/2 + 0.125`), rotation locked to 0. New ones auto-place at the x with the greatest distance from existing wall items (scanned in 0.4 steps). Arrow keys move them left/right and **up/down** (not in/out); the Verschieben and Drehen buttons are inert for them.
 - **Keyboard** (edit mode, item selected): arrows move ±0.12 in x/z, `PageUp`/`PageDown` rotate ±15°, `Delete` removes. Décor re-computes its resting height on every move.
 - **Wall clamping**: `clampEntry()` measures the item's actual bounding box and clamps its center so the item touches but never intersects the wall — re-applied after every rotation, so a bookshelf can sit flush against the wall at any angle.
 - Grid: `colsOf(k) = max(3, floor(roomWidth / 0.95))` columns × 2 rows; used only for initial placement and the "Verschieben" button.
+
+### Wallpaper & flooring
+Each room's walls and floor use **cloned materials** (`g.userData.wallMat` / `floorMat`) so rooms are independently themed. Picking a swatch sets `state.wallpaper[k]` / `state.flooring[k]`, and `applyLook(k)` assigns a cached `CanvasTexture` (128², `RepeatWrapping`, repeat `5×1.6` for walls, `4×3` for floors) and resets the base color to white; with no pick the map is cleared and the original flat color returns. The floor covering is a separate thin inner plate (`w-0.24 × 0.02 × d-0.24` at y 0.145) inset between the walls, so the outer wooden ledge always stays wood.
+
+### Doors & exterior stairs
+Every floor above the ground has an arched **apartment door** at the rightmost window slot (extruded arch + plank panel + brass knob) in place of a window. An **exterior staircase** climbs from each floor's landing down to the floor below: 9 treads interpolated along the floor depth, a diagonal handrail (`rotation.x = -atan2(h, d)`), newel post, and an L-shaped landing platform with a railing in front of the door.
+
+### Photos
+`takePhoto()` forces a render, downsamples the canvas to max 800px wide, encodes JPEG at quality .72, and unshifts `{url, text, t}` onto `photos` (capped at 20). Stored in `localStorage` under `wipfelkratzer-fotos`, separate from game state; a quota failure toasts "Die Galerie ist voll — lösche ein paar Fotos." A full-viewport white `#flash` div blinks (opacity .9 → 0 over .35 s) and a two-burst noise shutter plays.
 
 ### Tenants & wishes
 - A tenant moves in as soon as a floor holds **≥ 3 items**. The tenant group scales in, a chime plays, and a toast announces them.
@@ -120,7 +135,7 @@ Full state (`floors, rooms, nuts, bridge, garden, night, cutaway, fulfilled`) is
 ### Audio (WebAudio, fully synthesized — no audio files)
 - Master gain .55 → lowpass 5.2 kHz → destination.
 - A scheduler ticks every 140 ms and schedules notes 0.5 s ahead. Two "songs": `day` (triangle wave, 0.42 s beat, pentatonic-ish melody + bass) and `party` (square wave, 0.21 s beat).
-- SFX: `pop` (rising sine 320→680 Hz), `knock` (88 Hz triangle + filtered noise burst), `chime` (880/1108/1318/1760 Hz arpeggio), `splash` (noise, 2.8 kHz → 260 Hz), `whoosh` (noise, rising).
+- SFX: `pop` (rising sine 320→680 Hz), `knock` (88 Hz triangle + filtered noise burst), `chime` (880/1108/1318/1760 Hz arpeggio), `splash` (noise, 2.8 kHz → 260 Hz), `whoosh` (noise, rising), `shutter` (two short high noise bursts 70 ms apart).
 
 ### Responsive
 `< 640px`: smaller HUD title (15px), smaller buttons, wish stack moves to the bottom-left above the toolbar. Touch works via pointer events; `touch-action: none` on the canvas; a tap is a pointerup within 8px and 400ms of pointerdown.
@@ -137,10 +152,14 @@ state = {
   },
   nuts: 0,
   bridge: false, garden: false, night: false, cutaway: false,
-  fulfilled: { "3": true },   // floor index → wish fulfilled
+  fulfilled: { "3": true },      // floor index → wish fulfilled
+  wallpaper: { "3": "blumen" },  // floor index → wallpaper id
+  flooring:  { "3": "holz" },    // floor index → flooring id
 }
+// separate key `wipfelkratzer-fotos`:
+photos = [ { url: "data:image/jpeg;base64,…", text: "Omas Wohnung", t: 1699999999999 } ]
 ```
-Transient (not persisted): `edit` (`{k}` — current room), `selected` (picked item), `party`, `nightK`, tween queue, camera save.
+Transient (not persisted): `edit` (`{k}` — current room), `selected` (picked item), `party`, `nightK`, tween queue, camera save, Móki's waypoint index/wait timer.
 
 Derived: `tenantIn(i) = i <= floors && rooms[i].length >= 3`; `topY() = 2.2 + 2.4 + floors·2.0`.
 
@@ -158,6 +177,7 @@ Derived: `tenantIn(i) = i <= floors && rooms[i].length >= 3`; `topY() = 2.2 + 2.
 | `--accent` | `#c0432e` (danger, selection helper) |
 | `--green` | `#568b49` (primary buttons) |
 | item card bg | `#fff9ec`, active `#ffe9bd` |
+| photo caption field | white bg, `2px solid var(--woodL)`, radius 8px |
 | tab pill active | `--green` on white |
 
 ### 3D palette (`MAT` in `models.js`)
@@ -194,15 +214,18 @@ scene 0 · HUD/toolbar/wishes 5 · edit bar / selection bar / bubble 6 · extras
 | 9 | Rita und Claas Haselmaus | 2× Haselmaus | Nusskiste |
 | 10 | Piet und Jan Waldfrosch | 2× Frosch | **Pool (auf dem Dach)** |
 
-### Catalog (21 items in 5 tabs)
+### Catalog (27 items in 8 tabs)
 - **Möbel**: Bett, Etagenbett, Tisch, Stuhl, Sofa, Schrank, Bücherregal
 - **Gemütlich**: Teppich, Lampe, Ofen, Badewanne, Pflanze, Blumenbild, Schaukelstuhl
-- **Deko**: Blumenvase, Teekanne, Kerze, Bücherstapel, Nussschale
+- **Deko** (land on surfaces): Blumenvase, Teekanne, Kerze, Bücherstapel, Nussschale
+- **Wand** (snap to rear wall): Waldbild, Mondposter, Willi-Poster, Wanduhr, Spiegel, Fenster
 - **Spass**: Hamsterrad (spins continuously), Klavier, Nusskiste
+- **Tapete**: Creme, Himmelblau, Rosa, Mint, Sonnengelb, Streifen, Punkte, Blumen, Holzbretter
+- **Boden**: Holzboden, Teppich rot, Teppich blau, Teppich grün, Fliesen, Moos
 - **Dach** (roof only): Pool, Liegestuhl, Sonnenschirm, Lampions
 
 ### Animal species parameters
-Each species is `{ color, bellyColor, ear: round|small|none, tail: thin|bushy|curve|none, scale, chubby?, slim?, frog?, nose? }` — see `SPECIES` in `models.js`. Species: maus, haselmaus, hamster, frosch, eidechse, maulwurf, siebenschlaefer, wiesel.
+Each species is `{ color, bellyColor, ear: round|small|tuft|none, tail: thin|bushy|curve|up|none, scale, chubby?, slim?, frog?, nose? }` — see `SPECIES` in `models.js`. Species: maus, haselmaus, hamster, frosch, eidechse, maulwurf, siebenschlaefer, wiesel, eichhoernchen (Móki).
 
 ---
 
@@ -210,6 +233,8 @@ Each species is `{ color, bellyColor, ear: round|small|none, tail: thin|bushy|cu
 **None.** Everything is generated at runtime:
 - All 3D models are procedural three.js primitives (`js/models.js`).
 - All catalog/animal/portrait thumbnails are rendered at startup into an offscreen WebGL renderer and stored as data URLs.
+- All wallpaper and flooring patterns are drawn procedurally on 128² canvases (`WALLS` / `FLOORS` in `models.js`, each with a `draw(ctx)` function).
+- Photos are canvas-downsampled JPEG data URLs in `localStorage`.
 - The sign texture is drawn on a `<canvas>` (redrawn once `document.fonts.ready` resolves so the webfont is applied).
 - All audio is synthesized with WebAudio oscillators and generated noise buffers.
 
@@ -223,9 +248,9 @@ External dependencies: **three.js 0.184.0** (ESM via importmap with SRI hashes) 
 | File | Contents |
 |---|---|
 | `wipfelkratzer.html` | Document shell, importmap, all CSS, all UI markup (HUD, toolbar, catalog, modals, bubble, toast, intro) |
-| `js/models.js` | Materials palette, 21 furniture builders, animal builder, Willi, trees, magpie, sign, dam, bridge, garden. Exports `MAT`, `CATALOG`, `CATS`, `makeFurniture`, `makeAnimal`, `makeWilli`, `makeTree`, `makeTallTree`, `makeMagpie`, `makeSign`, `makeDam`, `makeBridge`, `makeGarden` |
-| `js/game.js` | Scene setup, tower construction, edit mode, placement & clamping, tenants & wishes, extras, day/night, party, audio engine, input, save/load, render loop |
-| `TODO.md` | Outstanding feature ideas (lamp lighting at night, weather, material gathering, Pixi cameo) |
+| `js/models.js` | Materials palette, 27 furniture/wall-item builders, wallpaper & flooring pattern generators, animal builder (9 species), Willi, trees, magpie, sign, dam, bridge, garden. Exports `MAT`, `CATALOG`, `CATS`, `WALL_ITEMS`, `WALLS`, `FLOORS`, `lookCanvas`, `lookTexture`, `makeFurniture`, `makeAnimal`, `makeWilli`, `makeTree`, `makeTallTree`, `makeMagpie`, `makeSign`, `makeDam`, `makeBridge`, `makeGarden` |
+| `js/game.js` | Scene setup, tower construction (floors, doors, exterior stairs, roof), edit mode, placement & clamping, wallpaper/flooring, tenants & wishes, Móki, photos & gallery, extras, day/night, party, audio engine, input, save/load, render loop |
+| `TODO.md` | Outstanding feature ideas (lamp lighting at night, weather, material gathering, Pixi cameo) and the log of what's already done |
 
 ## Suggested first tasks for the next developer
 1. Port `models.js` as-is (it is framework-agnostic three.js) into the target project.

@@ -23,4 +23,10 @@ All notable changes to this project are documented here, following
   mit Bach als lebendige Szenerie
 - Synthetisierte Musik und Soundeffekte (Web Audio, keine Asset-Dateien)
 - Spielstand-Persistenz im `localStorage`
+- Wand-Deko (Poster, Wanduhr, Spiegel) und platzierbare Fenster
+- Wohnungstüren pro Stock plus Aussentreppe mit Geländer und Podesten
+- Tapeten (9 Muster) und Bodenbeläge (6 Varianten) pro Wohnung
+- Móki das Eichhörnchen, das ums Haus flitzt und erzählt
+- Fotomodus mit Galerie und Kommentaren
+- Fokus auf platziertes Objekt, Wand-Kollision und ausgeblendete Decke im Einrichtungsmodus
 - Hub-Navigation mit Versions-Badge, Feedback-Link und GitHub-Star-Button

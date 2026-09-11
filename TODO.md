@@ -17,3 +17,12 @@
 - [x] Natürlicherer, geschwungener Bach mit Ufer
 - [x] Biberburg aus richtigen Ästen statt braunem Haufen
 - [x] Mit Willi reden: Willi antippen — er erzählt und hämmert
+- [x] Fokus auf platziertes Objekt, Wand-Kollision, Decke ausblenden beim Einrichten
+- [x] Bewohner-Tooltip mit Porträt, Tipp-Knopf für Einrichtungsideen
+- [x] Cutaway-Modus «Wände weg» (Querschnitt wie im Buch)
+- [x] Biberburg anklickbar mit Beschreibung
+- [x] Wand-Deko: Poster, Wanduhr, Spiegel — und platzierbare Fenster
+- [x] Wohnungstüren pro Stock + Aussentreppe mit Geländer und Podesten
+- [x] Tapeten (9 Muster) und Bodenbeläge (6 Varianten) pro Wohnung
+- [x] Móki das Eichhörnchen flitzt ums Haus und redet
+- [x] Fotos schiessen, Galerie mit Kommentaren

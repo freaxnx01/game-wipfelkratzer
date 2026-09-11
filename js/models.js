@@ -137,6 +137,38 @@ const FURN = {
     sph(g, 0.1, MAT.terra, 0, 0.045, 0, 1, 0.45, 1);
     [[-0.03, 0.02], [0.035, -0.01], [0, 0.035]].forEach(([x, z]) => sph(g, 0.032, MAT.woodD, x, 0.08, z));
     return g; },
+  /* Wand */
+  poster_wald() { const g = G();
+    box(g, 0.66, 0.86, 0.04, MAT.wood, 0, 0, 0.02); box(g, 0.56, 0.76, 0.03, L(0xcfe3c2), 0, 0, 0.045);
+    [[-0.15, -0.1, 0.16], [0.12, -0.04, 0.22], [0, -0.22, 0.12]].forEach(([x, y, r]) => { mesh(new THREE.ConeGeometry(r * 0.75, r * 2, 8), MAT.leafD, x, y, 0.07, g); });
+    sph(g, 0.07, MAT.gold, 0.16, 0.25, 0.065, 1, 1, 0.3);
+    return g; },
+  poster_mond() { const g = G();
+    box(g, 0.6, 0.6, 0.04, MAT.woodD, 0, 0, 0.02); box(g, 0.5, 0.5, 0.03, L(0x2c3f6e), 0, 0, 0.045);
+    sph(g, 0.12, MAT.glow, 0.08, 0.08, 0.065, 1, 1, 0.3); sph(g, 0.11, L(0x2c3f6e), 0.14, 0.12, 0.075, 1, 1, 0.3);
+    [[-0.15, 0.15], [-0.18, -0.1], [0.12, -0.16], [0.02, 0.2]].forEach(([x, y]) => sph(g, 0.018, MAT.white, x, y, 0.07));
+    return g; },
+  poster_willi() { const g = G();
+    box(g, 0.56, 0.7, 0.04, MAT.gold, 0, 0, 0.02); box(g, 0.46, 0.6, 0.03, MAT.cream, 0, 0, 0.045);
+    sph(g, 0.13, L(0x7a4e2a), 0, -0.08, 0.07, 1, 1.1, 0.35); sph(g, 0.09, L(0x7a4e2a), 0, 0.1, 0.08, 1, 1, 0.35);
+    sph(g, 0.07, MAT.blue, 0, 0.17, 0.09, 1.1, 0.5, 0.35); box(g, 0.05, 0.05, 0.02, MAT.white, 0, 0.04, 0.1);
+    return g; },
+  uhr() { const g = G();
+    cyl(g, 0.24, 0.24, 0.05, MAT.woodD, 0, 0, 0.025, 24).rotation.x = Math.PI / 2;
+    cyl(g, 0.2, 0.2, 0.02, MAT.white, 0, 0, 0.055, 24).rotation.x = Math.PI / 2;
+    box(g, 0.03, 0.13, 0.015, MAT.black, 0, 0.055, 0.07); box(g, 0.1, 0.03, 0.015, MAT.black, 0.04, 0, 0.07);
+    sph(g, 0.02, MAT.red, 0, 0, 0.075);
+    return g; },
+  spiegel() { const g = G();
+    const f = cyl(g, 0.26, 0.26, 0.05, MAT.gold, 0, 0, 0.025, 24); f.rotation.x = Math.PI / 2; f.scale.z = 1.35;
+    const m = cyl(g, 0.21, 0.21, 0.02, L(0xd8ecf4), 0, 0, 0.055, 24); m.rotation.x = Math.PI / 2; m.scale.z = 1.35;
+    return g; },
+  fenster() { const g = G();
+    box(g, 0.74, 0.94, 0.06, MAT.woodD, 0, 0, 0.03); box(g, 0.62, 0.82, 0.04, L(0xb8dcf0, { emissive: 0x9cc8e6, emissiveIntensity: 0.25 }), 0, 0, 0.05);
+    box(g, 0.04, 0.82, 0.03, MAT.woodD, 0, 0, 0.075); box(g, 0.62, 0.04, 0.03, MAT.woodD, 0, 0.1, 0.075);
+    box(g, 0.86, 0.06, 0.16, MAT.woodL, 0, -0.5, 0.08);
+    [-0.34, 0.34].forEach(x => box(g, 0.14, 0.9, 0.05, MAT.red, x + (x > 0 ? 0.08 : -0.08), 0.02, 0.09));
+    return g; },
   /* Dach */
   pool() { const g = G();
     cyl(g, 0.68, 0.62, 0.4, MAT.water, 0, 0.2, 0, 28); cyl(g, 0.6, 0.6, 0.03, L(0x7fc4dd), 0, 0.41, 0, 28);
@@ -175,10 +207,50 @@ export const CATALOG = [
   { id: 'vase', name: 'Blumenvase', cat: 'deko' }, { id: 'teekanne', name: 'Teekanne', cat: 'deko' },
   { id: 'kerze', name: 'Kerze', cat: 'deko' }, { id: 'buecher', name: 'Bücherstapel', cat: 'deko' },
   { id: 'nussschale', name: 'Nussschale', cat: 'deko' },
+  { id: 'poster_wald', name: 'Waldbild', cat: 'wand' }, { id: 'poster_mond', name: 'Mondposter', cat: 'wand' },
+  { id: 'poster_willi', name: 'Willi-Poster', cat: 'wand' }, { id: 'uhr', name: 'Wanduhr', cat: 'wand' },
+  { id: 'spiegel', name: 'Spiegel', cat: 'wand' }, { id: 'fenster', name: 'Fenster', cat: 'wand' },
   { id: 'pool', name: 'Pool', cat: 'dach' }, { id: 'liegestuhl', name: 'Liegestuhl', cat: 'dach' },
   { id: 'sonnenschirm', name: 'Sonnenschirm', cat: 'dach' }, { id: 'lampion', name: 'Lampions', cat: 'dach' },
 ];
-export const CATS = [['mobel', 'Möbel'], ['gemut', 'Gemütlich'], ['deko', 'Deko'], ['spass', 'Spass'], ['dach', 'Dach']];
+export const CATS = [['mobel', 'Möbel'], ['gemut', 'Gemütlich'], ['deko', 'Deko'], ['wand', 'Wand'], ['spass', 'Spass'], ['farbe', 'Tapete'], ['boden', 'Boden'], ['dach', 'Dach']];
+export const WALL_ITEMS = new Set(['poster_wald', 'poster_mond', 'poster_willi', 'uhr', 'spiegel', 'fenster']);
+
+/* ---------- Tapeten & Böden ---------- */
+export const WALLS = [
+  { id: 'creme', name: 'Creme', draw: c => fill(c, '#f8ecd0') },
+  { id: 'himmel', name: 'Himmelblau', draw: c => fill(c, '#cfe0ee') },
+  { id: 'rosa', name: 'Rosa', draw: c => fill(c, '#f3d4dc') },
+  { id: 'mint', name: 'Mint', draw: c => fill(c, '#d6e8d0') },
+  { id: 'sonne', name: 'Sonnengelb', draw: c => fill(c, '#f6e6a8') },
+  { id: 'streifen', name: 'Streifen', draw: c => { fill(c, '#f8ecd0'); c.fillStyle = '#a9c4de'; for (let x = 0; x < 128; x += 32) c.fillRect(x, 0, 14, 128); } },
+  { id: 'punkte', name: 'Punkte', draw: c => { fill(c, '#fdf4e0'); c.fillStyle = '#e6a0b8'; for (let y = 16; y < 128; y += 32) for (let x = 16; x < 128; x += 32) { c.beginPath(); c.arc(x + (y % 64 ? 16 : 0), y, 7, 0, 7); c.fill(); } } },
+  { id: 'blumen', name: 'Blumen', draw: c => { fill(c, '#eef3e2'); for (let y = 20; y < 128; y += 40) for (let x = 20; x < 128; x += 40) { const ox = y % 80 ? 20 : 0;
+    c.fillStyle = '#e6604d'; for (let k = 0; k < 5; k++) { c.beginPath(); c.arc(x + ox + Math.cos(k * 1.257) * 7, y + Math.sin(k * 1.257) * 7, 5, 0, 7); c.fill(); }
+    c.fillStyle = '#f0c04d'; c.beginPath(); c.arc(x + ox, y, 4, 0, 7); c.fill(); } } },
+  { id: 'holzwand', name: 'Holzbretter', draw: c => { fill(c, '#d8b078'); c.fillStyle = '#b9854e'; for (let y = 0; y < 128; y += 32) c.fillRect(0, y, 128, 3); c.fillStyle = '#c9975e'; for (let y = 8; y < 128; y += 32) { c.fillRect(20, y, 30, 2); c.fillRect(70, y + 12, 40, 2); } } },
+];
+export const FLOORS = [
+  { id: 'holz', name: 'Holzboden', draw: c => { fill(c, '#d8b078'); c.fillStyle = '#b9854e'; for (let y = 0; y < 128; y += 26) c.fillRect(0, y, 128, 3); c.fillStyle = '#c9975e'; for (let y = 6; y < 128; y += 26) { c.fillRect(10 + (y % 52 ? 50 : 0), y, 2, 18); } } },
+  { id: 'teppich_rot', name: 'Teppich rot', draw: c => { fill(c, '#c0432e'); noise(c, '#a83a28'); } },
+  { id: 'teppich_blau', name: 'Teppich blau', draw: c => { fill(c, '#3f6fb5'); noise(c, '#35609e'); } },
+  { id: 'teppich_gruen', name: 'Teppich grün', draw: c => { fill(c, '#8fb96a'); noise(c, '#7ca85a'); } },
+  { id: 'fliesen', name: 'Fliesen', draw: c => { fill(c, '#fdf4e0'); c.fillStyle = '#9dbfd3'; for (let y = 0; y < 128; y += 32) for (let x = 0; x < 128; x += 32) if ((x + y) % 64 === 0) c.fillRect(x, y, 32, 32); } },
+  { id: 'moos', name: 'Moos', draw: c => { fill(c, '#77aa5c'); noise(c, '#568b49'); } },
+];
+function fill(c, col) { c.fillStyle = col; c.fillRect(0, 0, 128, 128); }
+function noise(c, col) { c.fillStyle = col; let s = 7; for (let i = 0; i < 260; i++) { s = (s * 9301 + 49297) % 233280; const x = (s / 233280) * 128; s = (s * 9301 + 49297) % 233280; const y = (s / 233280) * 128; c.fillRect(x, y, 3, 3); } }
+const texCache = {};
+export function lookCanvas(kind, id) {
+  const def = (kind === 'wall' ? WALLS : FLOORS).find(l => l.id === id) || (kind === 'wall' ? WALLS : FLOORS)[0];
+  const cv = document.createElement('canvas'); cv.width = 128; cv.height = 128; def.draw(cv.getContext('2d')); return cv;
+}
+export function lookTexture(kind, id) {
+  const key = kind + ':' + id; if (texCache[key]) return texCache[key];
+  const t = new THREE.CanvasTexture(lookCanvas(kind, id)); t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(kind === 'wall' ? 5 : 4, kind === 'wall' ? 1.6 : 3); t.colorSpace = THREE.SRGBColorSpace;
+  texCache[key] = t; return t;
+}
 export function makeFurniture(id) { const g = FURN[id](); g.userData.itemId = id; return g; }
 
 /* ---------------- Tiere ---------------- */
@@ -191,6 +263,7 @@ const SPECIES = {
   maulwurf: { c: 0x4a4348, belly: 0x6e6570, ear: 'none', tail: 'thin', s: 0.4, nose: 0xe6a0b8 },
   siebenschlaefer: { c: 0x8d97a8, belly: 0xdfe3ea, ear: 'round', tail: 'bushy', s: 0.44 },
   wiesel: { c: 0x9c6a3f, belly: 0xf2e8d8, ear: 'small', tail: 'bushy', s: 0.44, slim: 0.8 },
+  eichhoernchen: { c: 0xb5562a, belly: 0xf2e2c8, ear: 'tuft', tail: 'up', s: 0.42 },
 };
 export function makeAnimal(species) {
   const sp = SPECIES[species] || SPECIES.maus; const s = sp.s; const g = G();
@@ -209,9 +282,11 @@ export function makeAnimal(species) {
     [-0.09, 0.09].forEach(x => sph(g, s * 0.032, MAT.black, x * s / 0.4, hy + s * 0.06, s * 0.22));
     if (sp.ear === 'round') [-0.1, 0.1].forEach(x => { sph(g, s * 0.1, fur, x * s / 0.4, hy + s * 0.2, 0, 1, 1, 0.5); sph(g, s * 0.06, L(0xe6b8a8), x * s / 0.4, hy + s * 0.2, s * 0.04, 1, 1, 0.4); });
     if (sp.ear === 'small') [-0.09, 0.09].forEach(x => sph(g, s * 0.07, fur, x * s / 0.4, hy + s * 0.19, 0, 1, 1, 0.5));
+    if (sp.ear === 'tuft') [-0.1, 0.1].forEach(x => sph(g, s * 0.06, fur, x * s / 0.4, hy + s * 0.26, 0, 0.7, 1.8, 0.6));
   }
   if (sp.tail === 'thin') { const t = cyl(g, s * 0.03, s * 0.015, s * 0.5, fur, 0, s * 0.24, -s * 0.38); t.rotation.x = 1.1; }
   if (sp.tail === 'bushy') sph(g, s * 0.16, fur, 0, s * 0.3, -s * 0.38, 0.8, 1.4, 0.8);
+  if (sp.tail === 'up') { sph(g, s * 0.16, fur, 0, s * 0.3, -s * 0.4, 0.9, 1.1, 0.9); sph(g, s * 0.17, fur, 0, s * 0.66, -s * 0.48, 0.9, 1.3, 0.8); sph(g, s * 0.13, fur, 0, s * 1.02, -s * 0.36, 0.8, 1, 0.8); }
   if (sp.tail === 'curve') { const t = mesh(new THREE.TorusGeometry(s * 0.22, s * 0.04, 8, 16, 2.4), fur, 0, s * 0.2, -s * 0.36, g); t.rotation.y = Math.PI / 2; }
   [-0.12, 0.12].forEach(x => sph(g, s * 0.09, fur, x * s / 0.4, s * 0.05, s * 0.08, 1, 0.7, 1.3));
   return g;
