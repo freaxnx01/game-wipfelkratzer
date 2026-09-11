@@ -108,6 +108,12 @@
   #flash { position: fixed; inset: 0; z-index: 30; background: #fff; opacity: 0; pointer-events: none; transition: opacity .35s; }
   #flash.on { opacity: .9; transition: none; }
   .item.look img { border-radius: 8px; border: 2px solid var(--woodL); }
+  .item.look .none { display: block; width: 100%; aspect-ratio: 1; border-radius: 8px; border: 2px dashed var(--woodL);
+    background: repeating-linear-gradient(45deg, #f8ecd0 0 7px, #e7d3ab 7px 14px); }
+  #wallpick { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+  #wallpick .hint { flex: 1 0 100%; margin: 0 0 2px; font-size: 12.5px; line-height: 1.25; opacity: .8; }
+  #wallpick button { min-height: 40px; padding: 2px 12px; font-size: 14px; border-radius: 999px; }
+  #wallpick button.on { background: var(--wood); color: #fff; border-color: #5b3a1f; box-shadow: none; }
   #residents .panel { width: min(420px, 92vw); max-height: 84vh; overflow-y: auto; padding: 16px 20px; }
   #residents h2 { margin: 0 0 8px; color: var(--wood); }
   #resident-list { list-style: none; margin: 0 0 12px; padding: 0; font-size: 15px; }

@@ -11,6 +11,10 @@ const floorY = i => i === 0 ? PLAT_Y : PLAT_Y + E_H + (i - 1) * FLOOR_H;
 const topY = () => PLAT_Y + E_H + state.floors * FLOOR_H;
 const ROOF_W = 6.6, ROOF_D = 4.8;
 const rnd = i => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+/* Wände: Gesamtdicke wie bisher (0.12) = Kern (aussen, immer Putz) + Luft + Innenpanel (tapezierbar) */
+const WALL_KEYS = ['back', 'left', 'right', 'front'];
+const WALL_LABELS = { back: 'Hinten', left: 'Links', right: 'Rechts', front: 'Vorne' };
+const WALL_T = 0.12, WALL_CORE = 0.09, WALL_PANEL = 0.02;
 
 const TENANTS = [
   { name: 'Kindergarten und Partyraum', animals: ['maus', 'maus'], wish: 'klavier', wtext: 'Die Kindergarten-Mäuse wünschen sich ein Klavier.' },
@@ -141,15 +145,30 @@ for (let i = 0; i <= MAXF; i++) {
   const g = new THREE.Group(); g.position.y = floorY(i);
   g.position.x = (rnd(i) - 0.5) * 0.12; g.rotation.y = (rnd(i + 20) - 0.5) * 0.05;
   const w = W(i), d = D(i), h = H(i);
-  const wallMat = MAT.plasterIn.clone(), floorMat = MAT.woodL.clone();
-  g.userData.wallMat = wallMat; g.userData.floorMat = floorMat;
+  const floorMat = MAT.woodL.clone();
+  /* Pro Wand eine eigene Innenschale: die tragende Wand bleibt aussen immer Putz,
+     nur das dünne Innenpanel bekommt die Tapete. */
+  const wallMats = {}, wallPanels = {};
+  WALL_KEYS.forEach(key => { wallMats[key] = MAT.plasterIn.clone(); });
+  g.userData.wallMats = wallMats; g.userData.wallPanels = wallPanels; g.userData.floorMat = floorMat;
+  const panel = (key, geo, x, y, z, parent) => {
+    const m = mesh(geo, wallMats[key], x, y, z, parent);
+    m.castShadow = false; m.userData.wallKey = key; wallPanels[key] = m; return m;
+  };
   mesh(new THREE.BoxGeometry(w + 0.12, 0.14, d + 0.12), MAT.woodL, 0, 0.07, 0, g);
   mesh(new THREE.BoxGeometry(w - 0.24, 0.02, d - 0.24), floorMat, 0, 0.145, 0, g).castShadow = false;
-  mesh(new THREE.BoxGeometry(w - 0.24, h, 0.12), wallMat, 0, h / 2, -d / 2 + 0.06, g);
-  [-1, 1].forEach(s => mesh(new THREE.BoxGeometry(0.12, h, d), s > 0 ? MAT.plaster : wallMat, s * (w / 2 - 0.06), h / 2, 0, g));
+  /* Rückwand: Kern (aussen sichtbar) + Innenpanel — die Innenfläche bleibt bei -d/2 + 0.12,
+     also 0.005 hinter wallZ(k), damit Wandobjekte weiter sauber davor hängen. */
+  mesh(new THREE.BoxGeometry(w - 0.24, h, WALL_CORE), MAT.plaster, 0, h / 2, -d / 2 + WALL_CORE / 2, g);
+  panel('back', new THREE.BoxGeometry(w - 0.24, h, WALL_PANEL), 0, h / 2, -d / 2 + WALL_T - WALL_PANEL / 2, g);
+  [-1, 1].forEach(s => {
+    mesh(new THREE.BoxGeometry(WALL_CORE, h, d), MAT.plaster, s * (w / 2 - WALL_CORE / 2), h / 2, 0, g);
+    panel(s > 0 ? 'right' : 'left', new THREE.BoxGeometry(WALL_PANEL, h, d), s * (w / 2 - WALL_T + WALL_PANEL / 2), h / 2, 0, g);
+  });
   g.userData.ceil = mesh(new THREE.BoxGeometry(w - 0.3, 0.1, d - 0.3), MAT.plasterIn, 0, h - 0.13, 0, g); g.userData.ceil.castShadow = false;
   const front = new THREE.Group(); front.position.z = d / 2 - 0.06; g.add(front); g.userData.front = front;
-  mesh(new THREE.BoxGeometry(w - 0.24, h, 0.12), MAT.plaster, 0, h / 2, 0, front);
+  mesh(new THREE.BoxGeometry(w - 0.24, h, WALL_CORE), MAT.plaster, 0, h / 2, 0.06 - WALL_CORE / 2, front);
+  panel('front', new THREE.BoxGeometry(w - 0.24, h, WALL_PANEL), 0, h / 2, 0.06 - WALL_T + WALL_PANEL / 2, front);
   g.userData.wins = [];
   const nw = w > 6.6 ? 4 : w > 5.2 ? 3 : 2;
   for (let k = 0; k < nw; k++) {
@@ -221,16 +240,40 @@ function baseY(k) { return k === 'roof' ? 0.18 : 0.155; }
 
 const DECO = new Set(['vase', 'teekanne', 'kerze', 'buecher', 'nussschale']);
 const wallZ = k => -D(k) / 2 + 0.125;
+let migrated = false;
+/* Tapete pro Wand. Alte Speicherstände haben hier einen einzelnen String für die
+   ganze Wohnung — der wandert still auf alle vier Wände. */
+function wallpaperOf(k) {
+  let wp = state.wallpaper[k];
+  if (typeof wp === 'string') { const id = wp; wp = {}; WALL_KEYS.forEach(key => { wp[key] = id; }); state.wallpaper[k] = wp; migrated = true; }
+  else if (!wp || typeof wp !== 'object') { wp = state.wallpaper[k] = {}; }
+  return wp;
+}
 function applyLook(k) {
   if (k === 'roof') return; const g = floorGroups[k];
-  const wp = state.wallpaper[k], fl = state.flooring[k];
-  g.userData.wallMat.map = wp ? lookTexture('wall', wp) : null; g.userData.wallMat.color.set(wp ? 0xffffff : 0xf8ecd0); g.userData.wallMat.needsUpdate = true;
+  const wp = wallpaperOf(k), fl = state.flooring[k];
+  WALL_KEYS.forEach(key => { const id = wp[key], m = g.userData.wallMats[key];
+    m.map = id ? lookTexture('wall', id) : null; m.color.set(id ? 0xffffff : 0xf8ecd0); m.needsUpdate = true; });
   g.userData.floorMat.map = fl ? lookTexture('floor', fl) : null; g.userData.floorMat.color.set(fl ? 0xffffff : 0xd8b078); g.userData.floorMat.needsUpdate = true;
 }
+/* Welche Wand wird gerade tapeziert? 'alle' ist der schnellste Weg und die Vorgabe. */
+let wallTarget = 'alle';
+function highlightWalls() {
+  for (let i = 0; i <= MAXF; i++) {
+    const mats = floorGroups[i].userData.wallMats;
+    const lit = edit && edit.k === i && catTab === 'farbe';
+    WALL_KEYS.forEach(key => { const on = lit && (wallTarget === 'alle' || wallTarget === key);
+      mats[key].emissive.setHex(on ? 0x5c4722 : 0x000000); mats[key].needsUpdate = true; });
+  }
+}
+function setWallTarget(key) { wallTarget = key; highlightWalls(); renderCatalog(); }
 function setLook(kind, id) {
   if (!edit || edit.k === 'roof') return;
-  (kind === 'wall' ? state.wallpaper : state.flooring)[edit.k] = id;
-  applyLook(edit.k); sfx.pop(); save();
+  if (kind === 'floor') state.flooring[edit.k] = id;
+  else { const wp = wallpaperOf(edit.k);
+    if (wallTarget === 'alle') WALL_KEYS.forEach(key => { wp[key] = id; }); else wp[wallTarget] = id; }
+  applyLook(edit.k); highlightWalls(); sfx.pop(); save();
+  if (!id) toast(kind === 'wall' ? 'Tapete ist weg — wieder wie frisch verputzt.' : 'Der Bodenbelag ist weg.');
 }
 const bounds = k => k === 'roof' ? { x: ROOF_W / 2 - 0.3, z: ROOF_D / 2 - 0.3 } : { x: W(k) / 2 - 0.3, z: D(k) / 2 - 0.3 };
 function surfaceYAt(k, x, z, exclude) {
@@ -311,10 +354,26 @@ function renderCatalog() {
   if (!avail.some(([id]) => id === catTab)) catTab = avail[0][0];
   avail.forEach(([id, label]) => { const b = document.createElement('button');
     b.textContent = label; b.className = id === catTab ? 'on' : '';
-    b.onclick = () => { catTab = id; renderCatalog(); }; tabs.appendChild(b); });
+    b.onclick = () => { catTab = id; highlightWalls(); renderCatalog(); }; tabs.appendChild(b); });
   const wrap = $('catalog-items'); wrap.innerHTML = '';
   if (catTab === 'farbe' || catTab === 'boden') {
     const kind = catTab === 'farbe' ? 'wall' : 'floor';
+    if (kind === 'wall') {
+      const pick = document.createElement('div'); pick.id = 'wallpick';
+      const hint = document.createElement('p'); hint.className = 'hint';
+      hint.textContent = 'Welche Wand? Du kannst sie auch direkt antippen.';
+      pick.appendChild(hint);
+      [['alle', 'Alle Wände'], ...WALL_KEYS.map(key => [key, WALL_LABELS[key]])].forEach(([key, label]) => {
+        const b = document.createElement('button');
+        b.textContent = label; b.dataset.wall = key;
+        if (key === wallTarget) b.className = 'on';
+        b.onclick = () => setWallTarget(key);
+        pick.appendChild(b); });
+      wrap.appendChild(pick);
+    }
+    const none = document.createElement('div'); none.className = 'item look remove';
+    none.innerHTML = `<i class="none"></i><span>Entfernen</span>`;
+    none.onclick = () => setLook(kind, null); wrap.appendChild(none);
     (kind === 'wall' ? WALLS : FLOORS).forEach(l => { const d = document.createElement('div'); d.className = 'item look';
       d.innerHTML = `<img src="${lookCanvas(kind, l.id).toDataURL()}" alt=""><span>${l.name}</span>`;
       d.onclick = () => setLook(kind, l.id); wrap.appendChild(d); });
@@ -359,7 +418,8 @@ function enterEdit(k) {
     $('edit-title').textContent = `${flLabel(k)} — ${tenantIn(k) ? t.name : 'Wohnung einrichten'}`;
   }
   $('editbar').classList.add('on');
-  $('catalog').classList.add('open'); renderCatalog();
+  wallTarget = 'alle';
+  $('catalog').classList.add('open'); renderCatalog(); highlightWalls();
   updateHUD(); sfx.whoosh();
 }
 function exitEdit() {
@@ -370,6 +430,7 @@ function exitEdit() {
   deselect();
   moveCam(camSave.p, camSave.t);
   edit = null;
+  wallTarget = 'alle'; highlightWalls();
   applyFronts();
   $('editbar').classList.remove('on');
   $('catalog').classList.remove('open');
@@ -656,6 +717,14 @@ $('btn-tip').onclick = () => { if (!edit) return;
 
 /* ---------- Interaktion ---------- */
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+/* Wand im 3D antippen (Möbel haben Vorrang, unsichtbare Wände zählen nicht) */
+const shown = o => { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
+function pickWall() {
+  if (!edit || edit.k === 'roof') return null;
+  const panels = WALL_KEYS.map(key => floorGroups[edit.k].userData.wallPanels[key]).filter(shown);
+  const hits = ray.intersectObjects(panels, false);
+  return hits.length ? hits[0].object.userData.wallKey : null;
+}
 let downX = 0, downY = 0, downT = 0;
 renderer.domElement.addEventListener('pointerdown', e => { downX = e.clientX; downY = e.clientY; downT = Date.now(); });
 renderer.domElement.addEventListener('pointerup', e => {
@@ -669,6 +738,10 @@ renderer.domElement.addEventListener('pointerup', e => {
     const hits = ray.intersectObjects(itemMeshes[edit.k], true);
     if (hits.length) { let o = hits[0].object; while (o && !(o.userData && o.userData.pick)) o = o.parent;
       if (o) { select(o.userData.pick); sfx.pop(); return; } }
+    const wallKey = pickWall();
+    if (wallKey) { deselect(); catTab = 'farbe'; setWallTarget(wallKey);
+      $('catalog').classList.add('open'); sfx.pop();
+      toast(`Wand «${WALL_LABELS[wallKey]}» ausgewählt — jetzt eine Tapete antippen.`); return; }
     deselect(); return;
   }
   if (state.cutaway) {
@@ -837,6 +910,9 @@ Object.keys(state.rooms).forEach(k => {
 });
 for (let i = 0; i <= MAXF; i++) if (tenantIn(i)) spawnTenant(i, true);
 for (let i = 0; i <= MAXF; i++) applyLook(i);
+if (migrated) save();
+/* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
+window.wipfelkratzer = { state, floorGroups, roofG, scene, camera, WALL_KEYS };
 applyNight(state.night ? 1 : 0);
 applyFronts();
 makeThumbs();
