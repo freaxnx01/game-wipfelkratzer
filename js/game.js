@@ -378,6 +378,10 @@ function exitEdit() {
 function deselect() { if (selHelper) { scene.remove(selHelper); selHelper = null; } selected = null; $('selbar').classList.remove('on'); }
 function select(pick) { deselect(); selected = pick;
   selHelper = new THREE.BoxHelper(pick.mesh, 0xc0432e); scene.add(selHelper);
+  const wall = WALL_ITEMS.has(pick.entry.id);
+  $('btn-move').classList.toggle('hidden', wall);
+  $('btn-rot').classList.toggle('hidden', wall);
+  $('wallpad').classList.toggle('hidden', !wall);
   $('selbar').classList.add('on'); }
 
 function addItem(id) {
@@ -707,13 +711,24 @@ $('btn-rot').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.id
   selHelper.update(); sfx.pop(); save(); };
 $('btn-del').onclick = () => { if (selected) removeItem(selected); };
 
+/* Wandobjekt verschieben: dx entlang der Wand, dy in der Höhe — von Tastatur und Touch-Pad geteilt */
+const WALL_STEP = 0.12;
+function moveWallItem(pick, dx, dy) {
+  const en = pick.entry;
+  en.x += dx; en.y = (en.y ?? 1.1) + dy;
+  clampEntry(pick.k, pick.mesh, en);
+  selHelper.update(); sfx.pop(); save();
+}
+[['btn-wall-left', -WALL_STEP, 0], ['btn-wall-right', WALL_STEP, 0], ['btn-wall-up', 0, WALL_STEP], ['btn-wall-down', 0, -WALL_STEP]]
+  .forEach(([id, dx, dy]) => { $(id).onclick = () => { if (selected && WALL_ITEMS.has(selected.entry.id)) moveWallItem(selected, dx, dy); }; });
+
 /* Tastatur: Pfeile verschieben, Bild-Tasten drehen */
 addEventListener('keydown', e => {
   if (!edit || !selected) return;
   const st = { ArrowLeft: [-0.12, 0], ArrowRight: [0.12, 0], ArrowUp: [0, -0.12], ArrowDown: [0, 0.12] }[e.key];
   const en = selected.entry;
   if (st) { e.preventDefault();
-    if (WALL_ITEMS.has(en.id)) { en.x += st[0]; en.y = (en.y ?? 1.1) - st[1]; clampEntry(selected.k, selected.mesh, en); selHelper.update(); save(); return; }
+    if (WALL_ITEMS.has(en.id)) { moveWallItem(selected, st[0], -st[1]); return; }
     en.x += st[0]; en.z += st[1];
     clampEntry(selected.k, selected.mesh, en);
     en.y = DECO.has(en.id) ? surfaceYAt(selected.k, en.x, en.z, selected.mesh) : baseY(selected.k);

@@ -68,9 +68,15 @@
   #editbar.on { display: flex; }
   #edit-title { font-size: 16px; font-weight: 700; }
   /* Selection bar */
-  #selbar { position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%); z-index: 6; display: none; gap: 8px; padding: 8px; }
+  #selbar { position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%); z-index: 6; display: none; gap: 8px; padding: 8px; align-items: center; }
   #selbar.on { display: flex; }
   #selbar button { min-height: 44px; font-size: 14px; }
+  #wallpad { display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(2, 44px); gap: 4px; }
+  #wallpad button { min-height: 44px; min-width: 44px; font-size: 16px; padding: 0; }
+  #btn-wall-up { grid-column: 2; grid-row: 1; }
+  #btn-wall-left { grid-column: 1; grid-row: 2; }
+  #btn-wall-down { grid-column: 2; grid-row: 2; }
+  #btn-wall-right { grid-column: 3; grid-row: 2; }
   /* Extras menu */
   #extras-menu { position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%); z-index: 7; display: none; flex-direction: column; gap: 8px; padding: 12px; width: 260px; }
   #extras-menu.open { display: flex; }
@@ -168,6 +174,12 @@
 <div id="selbar" class="panel">
   <button id="btn-move">Verschieben</button>
   <button id="btn-rot">Drehen</button>
+  <div id="wallpad" class="hidden">
+    <button id="btn-wall-up" aria-label="Nach oben">↑</button>
+    <button id="btn-wall-left" aria-label="Nach links">←</button>
+    <button id="btn-wall-down" aria-label="Nach unten">↓</button>
+    <button id="btn-wall-right" aria-label="Nach rechts">→</button>
+  </div>
   <button id="btn-del" class="danger">Weg damit</button>
 </div>
 
