@@ -249,12 +249,12 @@ function clampEntry(k, m, en) {
   if (WALL_ITEMS.has(en.id)) { const hw = W(k) / 2 - 0.55, hh = H(k);
     en.x = Math.max(-hw, Math.min(hw, en.x)); en.y = Math.max(0.45, Math.min(hh - 0.55, en.y ?? 1.1)); en.z = wallZ(k); en.rot = 0;
     m.position.set(en.x, en.y, en.z); m.rotation.y = 0; return; }
-  const wallX = k === 'roof' ? ROOF_W / 2 - 0.1 : W(k) / 2 - 0.13;
-  const wallZ = k === 'roof' ? ROOF_D / 2 - 0.1 : D(k) / 2 - 0.13;
+  const limX = k === 'roof' ? ROOF_W / 2 - 0.1 : W(k) / 2 - 0.13;
+  const limZ = k === 'roof' ? ROOF_D / 2 - 0.1 : D(k) / 2 - 0.13;
   const bb = new THREE.Box3().setFromObject(m);
-  const hx = Math.min((bb.max.x - bb.min.x) / 2, wallX), hz = Math.min((bb.max.z - bb.min.z) / 2, wallZ);
-  en.x = Math.max(-(wallX - hx), Math.min(wallX - hx, en.x));
-  en.z = Math.max(-(wallZ - hz), Math.min(wallZ - hz, en.z));
+  const hx = Math.min((bb.max.x - bb.min.x) / 2, limX), hz = Math.min((bb.max.z - bb.min.z) / 2, limZ);
+  en.x = Math.max(-(limX - hx), Math.min(limX - hx, en.x));
+  en.z = Math.max(-(limZ - hz), Math.min(limZ - hz, en.z));
   m.position.set(en.x, en.y ?? baseY(k), en.z);
 }
 function placeItemMesh(k, entry) {
