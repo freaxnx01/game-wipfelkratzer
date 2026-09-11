@@ -804,14 +804,23 @@ function takePhoto() {
   const f = $('flash'); f.classList.add('on'); requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove('on')));
   sfx.shutter(); toast('Klick! Foto ist in der Galerie.');
 }
+function photoFilename(p) {
+  const dt = new Date(p.t), pad = n => String(n).padStart(2, '0');
+  return `wipfelkratzer-${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}-${pad(dt.getHours())}${pad(dt.getMinutes())}${pad(dt.getSeconds())}.jpg`;
+}
 function renderGallery() {
   const grid = $('photo-grid'); grid.innerHTML = '';
   if (!photos.length) { grid.innerHTML = '<div class="empty">Noch keine Fotos. Drücke unten auf «Foto»!</div>'; return; }
   photos.forEach((p, i) => { const d = document.createElement('div'); d.className = 'photo';
     const dt = new Date(p.t);
-    d.innerHTML = `<img src="${p.url}" alt=""><textarea placeholder="Was ist auf dem Foto?">${p.text.replace(/</g, '&lt;')}</textarea><small>${dt.toLocaleDateString('de-CH')} ${dt.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</small><button class="danger">Löschen</button>`;
+    d.innerHTML = `<img src="${p.url}" alt=""><textarea placeholder="Was ist auf dem Foto?">${p.text.replace(/</g, '&lt;')}</textarea><small>${dt.toLocaleDateString('de-CH')} ${dt.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</small><div class="photo-actions"><button class="download">Herunterladen</button><button class="danger">Löschen</button></div>`;
     d.querySelector('textarea').oninput = e => { p.text = e.target.value; savePhotos(); };
-    d.querySelector('button').onclick = () => { photos.splice(i, 1); savePhotos(); renderGallery(); };
+    d.querySelector('.download').onclick = () => {
+      const a = document.createElement('a');
+      a.href = p.url; a.download = photoFilename(p);
+      document.body.appendChild(a); a.click(); a.remove();
+    };
+    d.querySelector('.danger').onclick = () => { photos.splice(i, 1); savePhotos(); renderGallery(); };
     grid.appendChild(d); });
 }
 $('btn-photo').onclick = takePhoto;
