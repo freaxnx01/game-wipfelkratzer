@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<link rel="icon" href="favicon.png" sizes="32x32" type="image/png">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Willi baut den Wipfelkratzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
+    "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js",
+    "three/addons/exporters/OBJExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js",
+    "three/addons/exporters/GLTFExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js"
+  },
+  "integrity": {
+    "https://unpkg.com/three@0.184.0/build/three.module.js": "sha384-8FCZ1eVO6it4+pbec2aDtnTrwjWXZLJRC+MAGCIPDgsYnUrl/E0A2YlF8ioMKI/J",
+    "https://unpkg.com/three@0.184.0/build/three.core.js": "sha384-dw2ooPewaEIrAgl6oFDBmmBWCE9oW9LxRGcfwZ0hLvEprzo202wXl7vCYHRlSnOT",
+    "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js": "sha384-4rziNxOBZKQ69i+w+f89KJ55TCYquwchVbByQwmaOeIOXdOU2PLDn3kOfXHwIJC9",
+    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js": "sha384-nbwtoZENJD3Vq+ACK0CuGQdPMuDWHkamC2KJD70EV5nfg6jQjfppKOea07YJN+N3",
+    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js": "sha384-VofkvpG6HERhFCYbsUOHeNXBCqID2nfqkQqnVzE1jc/oPcz+qJ13ADdXH08hE+cQ"
+  }
+}
+</script>
+<style>
+  :root { --wood: #8a5a2b; --woodL: #b9854e; --cream: #fdf4e0; --ink: #4a3a24; --accent: #c0432e; --green: #568b49; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: "Baloo 2", sans-serif; color: var(--ink); }
+  a { color: var(--accent); } a:hover { color: var(--wood); }
+  #scene { position: fixed; inset: 0; touch-action: none; }
+  #scene canvas { display: block; }
+  .panel { background: var(--cream); border: 3px solid var(--woodL); border-radius: 16px; box-shadow: 0 4px 14px rgba(74,58,36,.25); }
+  button { font-family: inherit; font-weight: 700; color: var(--ink); background: #f5e3bd; border: 3px solid var(--woodL); border-radius: 14px; min-height: 48px; padding: 6px 16px; font-size: 16px; cursor: pointer; box-shadow: 0 3px 0 var(--woodL); }
+  button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--woodL); }
+  button.primary { background: var(--green); border-color: #3e6b36; color: #fff; box-shadow: 0 3px 0 #3e6b36; }
+  button.danger { background: var(--accent); border-color: #8f2f20; color: #fff; box-shadow: 0 3px 0 #8f2f20; }
+  button:disabled { opacity: .5; cursor: default; }
+  /* HUD */
+  #hud { position: fixed; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 8px; z-index: 5; max-width: 240px; }
+  #hud .panel { padding: 8px 14px; }
+  #hud h1 { margin: 0; font-size: 18px; line-height: 1.15; color: var(--wood); }
+  #nutrow { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; }
+  .nut { width: 18px; height: 20px; border-radius: 50% 50% 46% 46%; background: #8a5a2b; border: 2px solid #5b3a1f; display: inline-block; }
+  #floorinfo { font-size: 14px; font-weight: 600; }
+  /* Toolbar */
+  #toolbar { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; z-index: 5; max-width: 96vw; }
+  /* Wishes */
+  #wishes { position: fixed; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 8px; z-index: 5; max-width: 260px; }
+  .wish { padding: 8px 12px; font-size: 14px; line-height: 1.25; cursor: pointer; border-left: none; }
+  .wish b { color: var(--wood); }
+  /* Catalog */
+  #catalog { position: fixed; right: 0; top: 0; bottom: 0; width: min(320px, 88vw); background: var(--cream); border-left: 4px solid var(--woodL); z-index: 8; display: none; flex-direction: column; }
+  #catalog.open { display: flex; }
+  #catalog header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 4px; }
+  #catalog header h2 { margin: 0; font-size: 18px; color: var(--wood); }
+  #catalog-tabs { display: flex; gap: 6px; padding: 6px 12px; flex-wrap: wrap; }
+  #catalog-tabs button { min-height: 38px; padding: 2px 12px; font-size: 14px; border-radius: 999px; }
+  #catalog-tabs button.on { background: var(--green); color: #fff; border-color: #3e6b36; box-shadow: none; }
+  #catalog-items { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px 12px 16px; align-content: start; }
+  .item { background: #fff9ec; border: 3px solid var(--woodL); border-radius: 12px; padding: 4px; text-align: center; cursor: pointer; min-height: 44px; }
+  .item img { width: 100%; aspect-ratio: 1; display: block; }
+  .item span { font-size: 12.5px; font-weight: 700; display: block; padding-bottom: 2px; }
+  .item:active { background: #ffe9bd; }
+  /* Edit bar */
+  #editbar { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 6; display: none; align-items: center; gap: 10px; padding: 8px 10px 8px 16px; max-width: 92vw; }
+  #editbar.on { display: flex; }
+  #edit-title { font-size: 16px; font-weight: 700; }
+  /* Selection bar */
+  #selbar { position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%); z-index: 6; display: none; gap: 8px; padding: 8px; }
+  #selbar.on { display: flex; }
+  #selbar button { min-height: 44px; font-size: 14px; }
+  /* Extras menu */
+  #extras-menu { position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%); z-index: 7; display: none; flex-direction: column; gap: 8px; padding: 12px; width: 260px; }
+  #extras-menu.open { display: flex; }
+  /* Residents overlay */
+  #residents { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; background: rgba(60,40,20,.35); }
+  #residents.open { display: flex; }
+  #animals { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; background: rgba(60,40,20,.35); }
+  #animals.open { display: flex; }
+  #animals .panel { width: min(580px, 94vw); max-height: 86vh; overflow-y: auto; padding: 16px 20px; }
+  #animals h2 { margin: 0 0 10px; color: var(--wood); }
+  #animal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .acard { background: #fff9ec; border: 3px solid var(--woodL); border-radius: 12px; padding: 8px; text-align: center; }
+  .acard img { width: 100%; aspect-ratio: 1; background: #edf2df; border-radius: 8px; display: block; }
+  .acard b { display: block; font-size: 13.5px; line-height: 1.2; margin-top: 4px; }
+  .acard small { font-size: 12px; opacity: .75; display: block; }
+  .acard .in { color: var(--green); font-weight: 700; font-size: 12px; }
+  #residents .panel { width: min(420px, 92vw); max-height: 84vh; overflow-y: auto; padding: 16px 20px; }
+  #residents h2 { margin: 0 0 8px; color: var(--wood); }
+  #resident-list { list-style: none; margin: 0 0 12px; padding: 0; font-size: 15px; }
+  #resident-list li { display: flex; gap: 10px; padding: 4px 0; border-bottom: 2px dotted #e3cfa5; }
+  #resident-list .fl { font-weight: 700; width: 28px; color: var(--wood); }
+  #resident-list .free { opacity: .55; font-style: italic; }
+  /* Toast */
+  #toast { position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%) translateY(20px); z-index: 9; padding: 10px 18px; font-size: 16px; font-weight: 700; opacity: 0; pointer-events: none; transition: all .3s; max-width: 90vw; text-align: center; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* Willi-Sprechblase */
+  #bubble { position: fixed; z-index: 6; transform: translate(-50%, -110%); padding: 8px 12px; font-size: 15px; font-weight: 600; max-width: 280px; display: none; pointer-events: none; border-radius: 16px 16px 16px 4px; align-items: center; gap: 10px; }
+  #bubble.show { display: flex; }
+  #bubble img { width: 52px; height: 52px; border-radius: 50%; background: #e8f0d8; border: 2px solid var(--woodL); flex-shrink: 0; }
+  /* Intro */
+  #intro { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(74,58,36,.45); }
+  #intro .panel { width: min(440px, 92vw); padding: 24px 28px; text-align: center; }
+  #intro h1 { margin: 0 0 6px; font-size: 30px; color: var(--wood); }
+  #intro p { margin: 6px 0; font-size: 16px; line-height: 1.4; }
+  #intro button { margin-top: 14px; font-size: 20px; padding: 8px 32px; }
+  .hidden { display: none !important; }
+  @media (max-width: 640px) {
+    #hud h1 { font-size: 15px; }
+    button { font-size: 14px; padding: 4px 10px; }
+    #wishes { max-width: 190px; top: auto; bottom: 130px; }
+  }
+</style>
+</head>
+<body>
+<div id="scene"></div>
+
+<div id="hud">
+  <div class="panel"><h1>Willi baut den Wipfelkratzer</h1></div>
+  <div class="panel" id="nutrow"><span class="nut"></span><span><span id="nuts">0</span> Haselnüsse</span></div>
+  <div class="panel" id="floorinfo">Stockwerke: <span id="floors">0</span> / 10</div>
+</div>
+
+<div id="wishes"></div>
+
+<div id="toolbar">
+  <button id="btn-build" class="primary">Stockwerk bauen</button>
+  <button id="btn-catalog">Einrichten</button>
+  <button id="btn-extras">Extras</button>
+  <button id="btn-night">Nacht</button>
+  <button id="btn-cutaway">Wände weg</button>
+  <button id="btn-music">Musik aus</button>
+</div>
+
+<div id="extras-menu" class="panel">
+  <button id="btn-bridge">Brücke bauen</button>
+  <button id="btn-garden">Garten &amp; Spielplatz</button>
+  <button id="btn-sign">Bewohner-Schild</button>
+  <button id="btn-animals">Tier-Übersicht</button>
+  <button id="btn-party" class="primary hidden">Dachparty feiern!</button>
+  <button id="btn-reset" class="danger">Neu anfangen</button>
+</div>
+
+<div id="editbar" class="panel">
+  <span id="edit-title"></span>
+  <button id="btn-tip">Tipp</button>
+  <button id="btn-done" class="primary">Fertig</button>
+</div>
+
+<div id="selbar" class="panel">
+  <button id="btn-move">Verschieben</button>
+  <button id="btn-rot">Drehen</button>
+  <button id="btn-del" class="danger">Weg damit</button>
+</div>
+
+<div id="catalog">
+  <header>
+    <h2>Einrichtung</h2>
+    <button id="btn-catclose">Zu</button>
+  </header>
+  <div id="catalog-tabs"></div>
+  <div id="catalog-items"></div>
+</div>
+
+<div id="residents">
+  <div class="panel">
+    <h2>Wipfelkratzer — Bewohner</h2>
+    <ul id="resident-list"></ul>
+    <button id="btn-resclose" class="primary">Zu</button>
+  </div>
+</div>
+
+<div id="animals">
+  <div class="panel">
+    <h2>Die Tiere im Wipfelkratzer</h2>
+    <div id="animal-grid"></div>
+    <button id="btn-aniclose" class="primary">Zu</button>
+  </div>
+</div>
+
+<div id="toast" class="panel"></div>
+<div id="bubble" class="panel"></div>
+
+<div id="intro">
+  <div class="panel">
+    <h1>Willi baut den Wipfelkratzer</h1>
+    <p>Hilf Willi Biber, den Wipfelkratzer zu bauen — Stock für Stock, bis ganz oben!</p>
+    <p>Tippe auf ein Stockwerk, um die Wohnung einzurichten. Wenn eine Wohnung schön ist, ziehen Tiere ein — und die haben Wünsche!</p>
+    <p style="font-size:14px; opacity:.8;">Tipp: Möbel antippen, dann mit den Pfeiltasten schieben und mit Bild&uarr;/Bild&darr; drehen. Der Pool wartet im Katalog unter «Dach».</p>
+    <button id="btn-start" class="primary">Los geht&rsquo;s!</button>
+  </div>
+</div>
+
+<template id="__bundler_thumbnail">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#77aa5c"/><rect x="38" y="30" width="24" height="45" rx="4" fill="#f3e2bd"/><rect x="44" y="38" width="12" height="8" rx="4" fill="#8a5a2b"/><rect x="44" y="52" width="12" height="8" rx="4" fill="#8a5a2b"/><rect x="35" y="72" width="30" height="6" rx="3" fill="#8a5a2b"/></svg>
+</template>
+
+<script type="module" src="js/game.js"></script>
+
+<script src="./version.js"></script>
+<nav id="game-nav" aria-label="Game navigation" style="position:fixed;right:10px;bottom:8px;z-index:2147483647;display:flex;gap:12px;align-items:center;font:600 13px/1.4 system-ui,-apple-system,sans-serif;padding:6px 11px;border-radius:8px;background:rgba(15,17,26,.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);opacity:.55;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.55">
+  <span id="version-badge" title="Version" style="color:#5a6072"></span>
+  <span style="color:#5a6072" aria-hidden="true">·</span>
+  <a href="https://github.freaxnx01.ch/games/" style="color:#8fd8e8;text-decoration:none">More Games…</a>
+  <span style="color:#5a6072" aria-hidden="true">·</span>
+  <a href="https://github.com/freaxnx01/game-wipfelkratzer" target="_blank" rel="noopener" style="color:#8fd8e8;text-decoration:none">Source</a>
+  <span style="color:#5a6072" aria-hidden="true">·</span>
+  <a href="https://github.com/freaxnx01/game-wipfelkratzer/issues/new?title=%5BFeedback%5D%20game-wipfelkratzer&labels=feedback" target="_blank" rel="noopener" style="color:#8fd8e8;text-decoration:none">Feedback</a>
+  <span style="color:#5a6072" aria-hidden="true">·</span>
+  <a class="github-button" href="https://github.com/freaxnx01/game-wipfelkratzer" data-icon="octicon-star" data-size="small" data-show-count="true" aria-label="Star freaxnx01/game-wipfelkratzer on GitHub">Star</a>
+</nav>
+<script>
+  // Version badge → CHANGELOG. Text comes only from window.GAME_VERSION so
+  // version.js stays the single source (never hardcode the literal here).
+  (function () {
+    var el = document.getElementById('version-badge');
+    if (!el) return;
+    var a = document.createElement('a');
+    a.href = 'https://github.com/freaxnx01/game-wipfelkratzer/blob/main/CHANGELOG.md';
+    a.target = '_blank'; a.rel = 'noopener'; a.title = 'Changelog';
+    a.textContent = 'v' + (window.GAME_VERSION || '0.0.0');
+    a.style.color = 'inherit'; a.style.textDecoration = 'none';
+    el.appendChild(a);
+  })();
+</script>
+<script async defer crossorigin="anonymous" src="https://buttons.github.io/buttons.js"></script>
+</body>
+</html>

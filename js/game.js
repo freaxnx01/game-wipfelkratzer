@@ -1,0 +1,747 @@
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { MAT, CATALOG, CATS, makeFurniture, makeAnimal, makeWilli, makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge, makeGarden } from './models.js';
+
+/* ---------- Konstanten ---------- */
+const PLAT_Y = 2.2, E_H = 2.4, FLOOR_H = 2.0, MAXF = 10;
+const W = i => i === 0 ? 8.6 : 7.6 - (i - 1) * 0.3;
+const D = i => i === 0 ? 5.6 : 5.0 - (i - 1) * 0.12;
+const H = i => i === 0 ? E_H : FLOOR_H;
+const floorY = i => i === 0 ? PLAT_Y : PLAT_Y + E_H + (i - 1) * FLOOR_H;
+const topY = () => PLAT_Y + E_H + state.floors * FLOOR_H;
+const ROOF_W = 6.6, ROOF_D = 4.8;
+const rnd = i => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+
+const TENANTS = [
+  { name: 'Kindergarten und Partyraum', animals: ['maus', 'maus'], wish: 'klavier', wtext: 'Die Kindergarten-Mäuse wünschen sich ein Klavier.' },
+  { name: 'Hausmeister Eidechsen-Charly', animals: ['eidechse'], wish: 'ofen', wtext: 'Eidechsen-Charly wünscht sich einen warmen Ofen.' },
+  { name: 'Oma und Opa Haselmaus', animals: ['haselmaus', 'haselmaus'], wish: 'schaukelstuhl', wtext: 'Oma und Opa möchten einen Schaukelstuhl.' },
+  { name: 'Ferienwohnung für Hausmäuse', animals: ['maus'], wish: 'etagenbett', wtext: 'Die Feriengäste hätten gern ein Etagenbett.' },
+  { name: 'Familie Siebenschläfer', animals: ['siebenschlaefer', 'siebenschlaefer'], wish: 'bett', wtext: 'Familie Siebenschläfer wünscht sich ein kuschliges Bett.' },
+  { name: 'Jimmy Wiesel und Jule Wühlmaus', animals: ['wiesel', 'maus'], wish: 'sofa', wtext: 'Jimmy und Jule wünschen sich ein Sofa.' },
+  { name: 'Lisa Feldmaus', animals: ['maus'], wish: 'bild', wtext: 'Lisa wünscht sich ein Blumenbild.' },
+  { name: 'Enrico Maulwurf', animals: ['maulwurf'], wish: 'teppich', wtext: 'Enrico wünscht sich einen weichen Teppich.' },
+  { name: 'Familie Feldhamster', animals: ['hamster', 'hamster'], wish: 'hamsterrad', wtext: 'Familie Feldhamster wünscht sich ein Hamsterrad.' },
+  { name: 'Rita und Claas Haselmaus', animals: ['haselmaus', 'haselmaus'], wish: 'nusskiste', wtext: 'Rita und Claas wünschen sich eine Nusskiste.' },
+  { name: 'Piet und Jan Waldfrosch', animals: ['frosch', 'frosch'], wish: 'pool', roofWish: true, wtext: 'Piet und Jan wünschen sich einen Pool auf dem Dach!' },
+];
+const flLabel = i => i === 0 ? 'E' : String(i);
+
+/* ---------- Zustand ---------- */
+let state = { floors: 0, rooms: {}, nuts: 0, bridge: false, garden: false, night: false, cutaway: false, fulfilled: {} };
+try { const s = localStorage.getItem('wipfelkratzer-v1'); if (s) state = Object.assign(state, JSON.parse(s)); } catch (e) {}
+let saveT = 0;
+const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem('wipfelkratzer-v1', JSON.stringify(state)); } catch (e) {} }, 300); };
+const roomOf = k => (state.rooms[k] || (state.rooms[k] = []));
+const tenantIn = i => i <= state.floors && roomOf(i).length >= 3;
+
+/* ---------- Szene ---------- */
+const holder = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+holder.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 200);
+camera.position.set(13, PLAT_Y + 7, 18);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, PLAT_Y + 2.8, 0);
+controls.enableDamping = true; controls.dampingFactor = 0.09; controls.enablePan = false;
+controls.minDistance = 4; controls.maxDistance = 44; controls.maxPolarAngle = 1.52; controls.minPolarAngle = 0.12;
+
+const hemi = new THREE.HemisphereLight(0xfff4da, 0x9dbb7a, 1.05); scene.add(hemi);
+const dir = new THREE.DirectionalLight(0xffe8c0, 1.15); dir.position.set(14, 22, 10);
+dir.castShadow = true; dir.shadow.mapSize.set(1024, 1024);
+Object.assign(dir.shadow.camera, { left: -20, right: 20, top: 32, bottom: -6, far: 90 });
+scene.add(dir);
+
+const SKY = { d: new THREE.Color(0xcfe3c2), n: new THREE.Color(0x18294e) };
+const HEMI = { d: new THREE.Color(0xfff4da), n: new THREE.Color(0x2a3a66) };
+const GRND = { d: new THREE.Color(0x9dbb7a), n: new THREE.Color(0x1c2a3a) };
+scene.background = SKY.d.clone();
+scene.fog = new THREE.Fog(SKY.d.clone(), 45, 110);
+
+/* Sterne + Mond */
+const starGeo = new THREE.BufferGeometry();
+{ const p = []; for (let i = 0; i < 260; i++) { const a = Math.random() * Math.PI * 2, r = 40 + Math.random() * 30, y = 8 + Math.random() * 45; p.push(Math.cos(a) * r, y, Math.sin(a) * r); }
+  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); }
+const starMat = new THREE.PointsMaterial({ color: 0xfff6d8, size: 0.35, transparent: true, opacity: 0 });
+const stars = new THREE.Points(starGeo, starMat); scene.add(stars);
+const moonMat = new THREE.MeshBasicMaterial({ color: 0xfff3c8, transparent: true, opacity: 0 });
+const moon = new THREE.Mesh(new THREE.SphereGeometry(1.6, 20, 14), moonMat); moon.position.set(-24, 30, -30); scene.add(moon);
+
+/* ---------- Umgebung ---------- */
+const mesh = (geo, mat, x = 0, y = 0, z = 0, parent = scene) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
+const ground = mesh(new THREE.CircleGeometry(70, 40), new THREE.MeshLambertMaterial({ color: 0x8fbb6e }), 0, 0, 0);
+ground.rotation.x = -Math.PI / 2; ground.castShadow = false;
+const riverZ = x => 9 + Math.sin(x * 0.18) * 2.4;
+function ribbon(width, y, mat) {
+  const pts = [], idx = [], N = 64;
+  for (let i = 0; i <= N; i++) { const x = -60 + i * (120 / N), z = riverZ(x);
+    const sl = Math.atan(0.18 * 2.4 * Math.cos(x * 0.18));
+    const px = Math.sin(sl), pz = Math.cos(sl);
+    pts.push(x - px * width / 2, y, z - pz * width / 2, x + px * width / 2, y, z + pz * width / 2); }
+  for (let i = 0; i < N; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  geo.setIndex(idx); geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; scene.add(m); return m;
+}
+ribbon(5.6, 0.02, new THREE.MeshLambertMaterial({ color: 0xc9b083 }));
+ribbon(3.6, 0.045, MAT.water);
+ribbon(1.5, 0.06, new THREE.MeshLambertMaterial({ color: 0x7fc4dd }));
+const dam = makeDam(); dam.position.set(-7, 0, riverZ(-7) - 1.2); dam.rotation.y = 0.6; dam.userData.type = 'dam'; scene.add(dam);
+for (let i = 0; i < 60; i++) {
+  const a = rnd(i) * Math.PI * 2, r = 17 + rnd(i + 40) * 26;
+  const x = Math.cos(a) * r, z = Math.sin(a) * r;
+  if (Math.abs(z - riverZ(x)) < 4.5) continue; if (Math.hypot(x + 8, z - 2) < 5.5) continue;
+  if (z > 3 && Math.abs(x) < 16) continue;
+  const h = 11 + rnd(i + 60) * 13;
+  const t = makeTallTree(h, i); t.position.set(x, 0, z); t.rotation.y = rnd(i + 7) * 6;
+  if (r > 27) t.traverse(o => { o.castShadow = false; });
+  scene.add(t);
+}
+for (let i = 100; i < 122; i++) {
+  const a = rnd(i) * Math.PI * 2, r = 13 + rnd(i + 40) * 12;
+  const x = Math.cos(a) * r, z = Math.sin(a) * r;
+  if (Math.abs(z - riverZ(x)) < 4.5) continue; if (Math.hypot(x + 8, z - 2) < 5.5) continue;
+  if (z > 3 && Math.abs(x) < 16) continue;
+  const t = makeTree(1.1 + rnd(i + 80) * 1.5, i); t.position.set(x, 0, z); t.rotation.y = rnd(i + 7) * 6; scene.add(t);
+}
+const sign = makeSign('Wipfelkratzer'); sign.position.set(4.8, 0, 5.6); sign.rotation.y = 0.45; sign.userData.type = 'sign'; scene.add(sign);
+const willi = makeWilli(); willi.position.set(-3.8, 0, 4.8); willi.rotation.y = 0.5; willi.scale.setScalar(1.25); willi.userData.type = 'willi'; scene.add(willi);
+const magpie = new THREE.Group(); const magInner = makeMagpie(); magInner.rotation.y = -Math.PI / 2; magpie.add(magInner); scene.add(magpie);
+const bridge = makeBridge(5.6); bridge.position.set(8.7, 0.08, riverZ(8.7)); bridge.rotation.y = Math.PI / 2; bridge.visible = state.bridge; scene.add(bridge);
+const garden = makeGarden(); garden.position.set(-8, 0, 2); garden.rotation.y = 0.5; garden.visible = state.garden; scene.add(garden);
+
+/* Plattform + Stämme */
+{ const g = new THREE.Group(); scene.add(g);
+  mesh(new THREE.BoxGeometry(9.8, 0.34, 6.8), MAT.wood, 0, PLAT_Y - 0.17, 0, g);
+  [[-4, -2.4], [4, -2.4], [-4, 2.4], [4, 2.4], [0, 0]].forEach(([x, z]) => {
+    mesh(new THREE.CylinderGeometry(0.5, 0.7, PLAT_Y, 12), MAT.woodD, x, PLAT_Y / 2 - 0.1, z, g); });
+  const lad = new THREE.Group(); g.add(lad); lad.position.set(3.4, PLAT_Y / 2, 3.9); lad.rotation.x = 0.34;
+  [-0.22, 0.22].forEach(x => mesh(new THREE.CylinderGeometry(0.045, 0.045, PLAT_Y + 0.5, 8), MAT.wood, x, 0, 0, lad));
+  for (let i = 0; i < 5; i++) mesh(new THREE.BoxGeometry(0.44, 0.05, 0.05), MAT.woodL, 0, -1 + i * 0.5, 0, lad);
+}
+
+/* ---------- Turm ---------- */
+function makeArchGeo(w, h) { const s = new THREE.Shape();
+  s.moveTo(-w / 2, 0); s.lineTo(-w / 2, h - w / 2); s.absarc(0, h - w / 2, w / 2, Math.PI, 0, true); s.lineTo(w / 2, 0); s.closePath();
+  return new THREE.ExtrudeGeometry(s, { depth: 0.05, bevelEnabled: false }); }
+const matWin = new THREE.MeshLambertMaterial({ color: 0x6b4526 });
+
+const floorGroups = [], hitboxes = [], itemMeshes = {}, tenantGroups = {}, critters = [], spinners = [];
+const towerG = new THREE.Group(); scene.add(towerG);
+
+for (let i = 0; i <= MAXF; i++) {
+  const g = new THREE.Group(); g.position.y = floorY(i);
+  g.position.x = (rnd(i) - 0.5) * 0.12; g.rotation.y = (rnd(i + 20) - 0.5) * 0.05;
+  const w = W(i), d = D(i), h = H(i);
+  mesh(new THREE.BoxGeometry(w + 0.12, 0.14, d + 0.12), MAT.woodL, 0, 0.07, 0, g);
+  mesh(new THREE.BoxGeometry(w - 0.24, h, 0.12), MAT.plasterIn, 0, h / 2, -d / 2 + 0.06, g);
+  [-1, 1].forEach(s => mesh(new THREE.BoxGeometry(0.12, h, d), s > 0 ? MAT.plaster : MAT.plasterIn, s * (w / 2 - 0.06), h / 2, 0, g));
+  g.userData.ceil = mesh(new THREE.BoxGeometry(w - 0.3, 0.1, d - 0.3), MAT.plasterIn, 0, h - 0.13, 0, g); g.userData.ceil.castShadow = false;
+  const front = new THREE.Group(); front.position.z = d / 2 - 0.06; g.add(front); g.userData.front = front;
+  mesh(new THREE.BoxGeometry(w - 0.24, h, 0.12), MAT.plaster, 0, h / 2, 0, front);
+  g.userData.wins = [];
+  const nw = w > 6.6 ? 4 : w > 5.2 ? 3 : 2;
+  for (let k = 0; k < nw; k++) {
+    const x = (k - (nw - 1) / 2) * (w / (nw + 0.6));
+    if (i === 0 && k === Math.floor(nw / 2)) { mesh(makeArchGeo(1.1, 1.8), matWin, x - 0, 0, 0.08, front); continue; }
+    const win = mesh(makeArchGeo(0.5, 0.8), matWin.clone(), x, h * 0.24, 0.08, front);
+    g.userData.wins.push(win);
+  }
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) =>
+    mesh(new THREE.CylinderGeometry(0.09, 0.11, h + 0.2, 10), MAT.woodD, sx * (w / 2 - 0.02), h / 2, sz * (d / 2 - 0.02), g));
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, h, d + 0.3), new THREE.MeshBasicMaterial({ visible: false }));
+  hit.position.y = h / 2; hit.userData = { type: 'floor', floor: i }; g.add(hit); hitboxes.push(hit);
+  g.visible = i === 0 || i <= state.floors;
+  towerG.add(g); floorGroups.push(g);
+  itemMeshes[i] = []; tenantGroups[i] = null;
+}
+itemMeshes.roof = [];
+
+/* Dachterrasse */
+const roofG = new THREE.Group(); towerG.add(roofG);
+{ mesh(new THREE.BoxGeometry(ROOF_W, 0.18, ROOF_D), MAT.woodL, 0, 0.09, 0, roofG);
+  const n = 8;
+  for (let k = 0; k <= n; k++) { const x = -ROOF_W / 2 + k * ROOF_W / n;
+    [-1, 1].forEach(s => mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.55, 8), MAT.wood, x, 0.45, s * (ROOF_D / 2 - 0.04), roofG)); }
+  for (let k = 0; k <= 5; k++) { const z = -ROOF_D / 2 + k * ROOF_D / 5;
+    [-1, 1].forEach(s => mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.55, 8), MAT.wood, s * (ROOF_W / 2 - 0.04), 0.45, z, roofG)); }
+  [-1, 1].forEach(s => { mesh(new THREE.BoxGeometry(ROOF_W, 0.06, 0.07), MAT.woodD, 0, 0.72, s * (ROOF_D / 2 - 0.04), roofG);
+    mesh(new THREE.BoxGeometry(0.07, 0.06, ROOF_D), MAT.woodD, s * (ROOF_W / 2 - 0.04), 0.72, 0, roofG); });
+  const pole = mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.2, 8), MAT.woodD, ROOF_W / 2 - 0.2, 1.2, -ROOF_D / 2 + 0.2, roofG);
+  const flag = mesh(new THREE.ConeGeometry(0.22, 0.5, 4), MAT.red, ROOF_W / 2 - 0.2, 1.62, -ROOF_D / 2 + 0.2, roofG);
+  flag.rotation.z = -Math.PI / 2; flag.scale.z = 0.1;
+  const rhit = new THREE.Mesh(new THREE.BoxGeometry(ROOF_W, 1.4, ROOF_D), new THREE.MeshBasicMaterial({ visible: false }));
+  rhit.position.y = 0.7; rhit.userData = { type: 'roof' }; roofG.add(rhit); hitboxes.push(rhit);
+}
+const partyG = new THREE.Group(); roofG.add(partyG); partyG.visible = false;
+{ for (let k = 0; k < 7; k++) { const m = mesh(new THREE.SphereGeometry(0.09, 12, 10), MAT.glow, -ROOF_W / 2 + 0.4 + k * (ROOF_W - 0.8) / 6, 0.85 + Math.sin(k * 2) * 0.06, ROOF_D / 2 - 0.04, partyG); m.castShadow = false; } }
+function updateRoof() { roofG.visible = true; roofG.position.y = topY() + 0.02; }
+updateRoof();
+
+/* ---------- Zellen & Möbel ---------- */
+const dims = k => k === 'roof' ? { w: ROOF_W - 0.7, d: ROOF_D - 0.9 } : { w: W(k) - 0.7, d: D(k) - 1.0 };
+const colsOf = k => Math.max(3, Math.floor(dims(k).w / 0.95));
+function cellPos(k, cell) { const { w, d } = dims(k); const cols = colsOf(k);
+  const col = cell % cols, row = Math.floor(cell / cols);
+  return { x: -w / 2 + (col + 0.5) * (w / cols), z: -d / 2 + (row + 0.5) * (d / 2) }; }
+function parentOf(k) { return k === 'roof' ? roofG : floorGroups[k]; }
+function baseY(k) { return k === 'roof' ? 0.18 : 0.14; }
+
+const DECO = new Set(['vase', 'teekanne', 'kerze', 'buecher', 'nussschale']);
+const bounds = k => k === 'roof' ? { x: ROOF_W / 2 - 0.3, z: ROOF_D / 2 - 0.3 } : { x: W(k) / 2 - 0.3, z: D(k) / 2 - 0.3 };
+function surfaceYAt(k, x, z, exclude) {
+  const parent = parentOf(k); parent.updateWorldMatrix(true, false);
+  const wp = parent.localToWorld(new THREE.Vector3(x, 0, z));
+  let top = null; const bb = new THREE.Box3();
+  itemMeshes[k].forEach(m => { if (m === exclude || DECO.has(m.userData.pick.entry.id)) return;
+    bb.setFromObject(m);
+    if (wp.x > bb.min.x - 0.06 && wp.x < bb.max.x + 0.06 && wp.z > bb.min.z - 0.06 && wp.z < bb.max.z + 0.06) {
+      const ly = parent.worldToLocal(new THREE.Vector3(bb.max.x, bb.max.y, bb.max.z)).y;
+      if (ly < 1.8 && (top === null || ly > top)) top = ly; } });
+  return top === null ? baseY(k) : top + 0.005;
+}
+const SURFACES = ['tisch', 'regal', 'schrank', 'klavier', 'nusskiste'];
+function clampEntry(k, m, en) {
+  const wallX = k === 'roof' ? ROOF_W / 2 - 0.1 : W(k) / 2 - 0.13;
+  const wallZ = k === 'roof' ? ROOF_D / 2 - 0.1 : D(k) / 2 - 0.13;
+  const bb = new THREE.Box3().setFromObject(m);
+  const hx = Math.min((bb.max.x - bb.min.x) / 2, wallX), hz = Math.min((bb.max.z - bb.min.z) / 2, wallZ);
+  en.x = Math.max(-(wallX - hx), Math.min(wallX - hx, en.x));
+  en.z = Math.max(-(wallZ - hz), Math.min(wallZ - hz, en.z));
+  m.position.set(en.x, en.y ?? baseY(k), en.z);
+}
+function placeItemMesh(k, entry) {
+  if (entry.x === undefined) { const p = cellPos(k, entry.cell || 0); entry.x = p.x; entry.z = p.z; entry.rot = (entry.rot || 0) * Math.PI / 2; }
+  const m = makeFurniture(entry.id);
+  m.position.set(entry.x, entry.y ?? baseY(k), entry.z);
+  m.rotation.y = entry.rot;
+  m.userData.pick = { k, entry, mesh: m };
+  parentOf(k).add(m); itemMeshes[k].push(m);
+  if (m.userData.wheel) spinners.push(m.userData.wheel);
+  return m;
+}
+function freeCell(k, from = 0) { const total = colsOf(k) * 2;
+  const used = new Set(roomOf(k).filter(e => !DECO.has(e.id)).map(e => e.cell));
+  for (let n = 0; n < total; n++) { const c = (from + n) % total; if (!used.has(c)) return c; } return -1; }
+
+/* ---------- UI-Refs ---------- */
+const $ = id => document.getElementById(id);
+const toastEl = $('toast'); let toastT = 0;
+function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('show'), 2800); }
+function updateHUD() { $('nuts').textContent = state.nuts; $('floors').textContent = state.floors;
+  $('btn-build').textContent = state.floors >= MAXF ? 'Fertig gebaut!' : `Stockwerk bauen (${state.floors + 1}/10)`;
+  $('btn-build').disabled = state.floors >= MAXF || !!edit;
+  $('btn-party').classList.toggle('hidden', !(state.floors === MAXF && tenantIn(MAXF)));
+}
+
+/* ---------- Katalog ---------- */
+let thumbs = {}; const animalThumbs = {}; let williThumb = '', damThumb = '';
+function makeThumbs() {
+  const r2 = new THREE.WebGLRenderer({ alpha: true, antialias: true }); r2.setSize(160, 160);
+  const s2 = new THREE.Scene();
+  s2.add(new THREE.HemisphereLight(0xfff4da, 0xbfae90, 1.4));
+  const d2 = new THREE.DirectionalLight(0xffffff, 1.6); d2.position.set(2, 4, 3); s2.add(d2);
+  const c2 = new THREE.PerspectiveCamera(35, 1, 0.05, 20);
+  const snap = (o, fx, fy, fz) => { s2.add(o);
+    const bb = new THREE.Box3().setFromObject(o); const size = bb.getSize(new THREE.Vector3()), ctr = bb.getCenter(new THREE.Vector3());
+    const md = Math.max(size.x, size.y, size.z);
+    c2.position.set(ctr.x + md * fx, ctr.y + md * fy, ctr.z + md * fz); c2.lookAt(ctr);
+    r2.render(s2, c2); const url = r2.domElement.toDataURL(); s2.remove(o); return url; };
+  CATALOG.forEach(it => { thumbs[it.id] = snap(makeFurniture(it.id), 1.15, 0.85, 1.35); });
+  TENANTS.forEach((t, i) => { const o = new THREE.Group();
+    t.animals.forEach((sp, n) => { const a = makeAnimal(sp);
+      a.position.x = (n - (t.animals.length - 1) / 2) * 0.52; a.rotation.y = (n - 0.5) * -0.5; o.add(a); });
+    animalThumbs[i] = snap(o, 0.4, 0.55, 1.5); });
+  { const wg = makeWilli(); williThumb = snap(wg, 0.5, 0.7, 1.4); }
+  { const dg = makeDam(); damThumb = snap(dg, 0.8, 0.8, 1.2); }
+  r2.dispose();
+}
+function renderCatalog() {
+  const roof = edit && edit.k === 'roof';
+  const tabs = $('catalog-tabs'); tabs.innerHTML = '';
+  const avail = CATS.filter(([id]) => roof ? id === 'dach' : id !== 'dach');
+  if (!avail.some(([id]) => id === catTab)) catTab = avail[0][0];
+  avail.forEach(([id, label]) => { const b = document.createElement('button');
+    b.textContent = label; b.className = id === catTab ? 'on' : '';
+    b.onclick = () => { catTab = id; renderCatalog(); }; tabs.appendChild(b); });
+  const wrap = $('catalog-items'); wrap.innerHTML = '';
+  CATALOG.filter(it => it.cat === catTab).forEach(it => {
+    const d = document.createElement('div'); d.className = 'item';
+    d.innerHTML = `<img src="${thumbs[it.id] || ''}" alt=""><span>${it.name}</span>`;
+    d.onclick = () => addItem(it.id); wrap.appendChild(d); });
+}
+let catTab = 'mobel';
+
+/* ---------- Einrichten ---------- */
+let edit = null, selected = null, selHelper = null;
+let camSave = null;
+const tweens = [];
+function tween(dur, step, done) { tweens.push({ t: 0, dur, step, done }); }
+function moveCam(pos, tgt, dur = 0.9) {
+  const p0 = camera.position.clone(), t0 = controls.target.clone();
+  tween(dur, k => { camera.position.lerpVectors(p0, pos, k); controls.target.lerpVectors(t0, tgt, k); });
+}
+function applyFronts() {
+  for (let j = 0; j <= MAXF; j++) floorGroups[j].userData.front.visible = !state.cutaway && !(edit && edit.k === j);
+  $('btn-cutaway').textContent = state.cutaway ? 'Wände hin' : 'Wände weg';
+}
+function enterEdit(k) {
+  if (edit) return;
+  edit = { k };
+  camSave = { p: camera.position.clone(), t: controls.target.clone() };
+  if (k === 'roof') {
+    const y = topY() + 0.9;
+    moveCam(new THREE.Vector3(0, y + 3.2, ROOF_D / 2 + 5.5), new THREE.Vector3(0, y, 0));
+    $('edit-title').textContent = 'Dachterrasse einrichten';
+  } else {
+    for (let j = k + 1; j <= MAXF; j++) floorGroups[j].visible = false;
+    roofG.visible = false;
+    applyFronts();
+    floorGroups[k].userData.ceil.visible = false;
+    const cy = floorY(k) + H(k) / 2;
+    moveCam(new THREE.Vector3(floorGroups[k].position.x, cy + 0.5, D(k) / 2 + W(k) * 0.62 + 2.6), new THREE.Vector3(floorGroups[k].position.x, cy, 0));
+    const t = TENANTS[k];
+    $('edit-title').textContent = `${flLabel(k)} — ${tenantIn(k) ? t.name : 'Wohnung einrichten'}`;
+  }
+  $('editbar').classList.add('on');
+  $('catalog').classList.add('open'); renderCatalog();
+  updateHUD(); sfx.whoosh();
+}
+function exitEdit() {
+  if (!edit) return;
+  if (edit.k !== 'roof') { for (let j = 1; j <= MAXF; j++) floorGroups[j].visible = j <= state.floors; }
+  for (let j = 0; j <= MAXF; j++) floorGroups[j].userData.ceil.visible = true;
+  updateRoof();
+  deselect();
+  moveCam(camSave.p, camSave.t);
+  edit = null;
+  applyFronts();
+  $('editbar').classList.remove('on');
+  $('catalog').classList.remove('open');
+  updateHUD();
+}
+function deselect() { if (selHelper) { scene.remove(selHelper); selHelper = null; } selected = null; $('selbar').classList.remove('on'); }
+function select(pick) { deselect(); selected = pick;
+  selHelper = new THREE.BoxHelper(pick.mesh, 0xc0432e); scene.add(selHelper);
+  $('selbar').classList.add('on'); }
+
+function addItem(id) {
+  if (!edit) return;
+  const k = edit.k;
+  const cell = freeCell(k);
+  if (cell < 0 && !DECO.has(id)) { toast('Die Wohnung ist schon ganz voll!'); return; }
+  const p = cellPos(k, Math.max(cell, 0));
+  const entry = { id, cell: Math.max(cell, 0), x: p.x, z: p.z, rot: 0 };
+  if (DECO.has(id)) {
+    let surf = null;
+    if (selected && selected.k === k && SURFACES.includes(selected.entry.id)) surf = selected.mesh;
+    else surf = itemMeshes[k].find(m => SURFACES.includes(m.userData.pick.entry.id));
+    if (surf) { entry.x = surf.position.x + (Math.random() - 0.5) * 0.15; entry.z = surf.position.z + (Math.random() - 0.5) * 0.15; }
+  }
+  entry.y = DECO.has(id) ? surfaceYAt(k, entry.x, entry.z) : baseY(k);
+  roomOf(k).push(entry);
+  const m = placeItemMesh(k, entry);
+  clampEntry(k, m, entry);
+  m.scale.setScalar(0.01);
+  tween(0.35, q => { m.scale.setScalar(0.01 + 0.99 * q); if (selHelper) selHelper.update(); });
+  select(m.userData.pick);
+  sfx.pop();
+  checkTenant(k); checkWishes(id, k);
+  save(); updateHUD();
+}
+function removeItem(pick) {
+  const arr = roomOf(pick.k); const idx = arr.indexOf(pick.entry);
+  if (idx >= 0) arr.splice(idx, 1);
+  parentOf(pick.k).remove(pick.mesh);
+  const mi = itemMeshes[pick.k].indexOf(pick.mesh); if (mi >= 0) itemMeshes[pick.k].splice(mi, 1);
+  deselect(); sfx.knock(); save(); renderWishes();
+}
+
+/* ---------- Bewohner & Wünsche ---------- */
+function spawnTenant(i, silent) {
+  if (tenantGroups[i]) return;
+  const t = TENANTS[i]; const g = new THREE.Group();
+  g.userData = { type: 'tenant', floor: i };
+  const { d } = dims(i);
+  t.animals.forEach((sp, n) => { const a = makeAnimal(sp);
+    a.position.set((n - (t.animals.length - 1) / 2) * 0.55, baseY(i), -d / 2 + 0.28);
+    a.rotation.y = (n - 0.5) * 0.5;
+    g.add(a); critters.push({ g: a, ph: i * 2 + n, base: baseY(i) }); });
+  floorGroups[i].add(g); tenantGroups[i] = g;
+  if (!silent) { toast(`${t.name} — eingezogen!`); sfx.chime();
+    g.scale.setScalar(0.01); tween(0.5, q => g.scale.setScalar(0.01 + 0.99 * q)); }
+  renderWishes(); renderResidents(); updateHUD();
+}
+function checkTenant(k) { if (k !== 'roof' && tenantIn(k) && !tenantGroups[k]) spawnTenant(k); }
+function wishOpen(i) {
+  if (!tenantIn(i) || state.fulfilled[i]) return false;
+  const t = TENANTS[i]; const where = t.roofWish ? 'roof' : i;
+  if (roomOf(where).some(e => e.id === t.wish)) { state.fulfilled[i] = true; return false; }
+  return true;
+}
+function checkWishes(placedId, k) {
+  for (let i = 0; i <= MAXF; i++) { const t = TENANTS[i];
+    if (!tenantIn(i) || state.fulfilled[i]) continue;
+    const where = t.roofWish ? 'roof' : i;
+    if (where === k && t.wish === placedId) {
+      state.fulfilled[i] = true; state.nuts += 3;
+      toast('Wunsch erfüllt! +3 Haselnüsse'); sfx.chime(true);
+      if (placedId === 'pool') sfx.splash();
+      save(); } }
+  renderWishes(); updateHUD();
+}
+function renderWishes() {
+  const box = $('wishes'); box.innerHTML = '';
+  for (let i = 0; i <= MAXF; i++) { if (!wishOpen(i)) continue;
+    const t = TENANTS[i];
+    const d = document.createElement('div'); d.className = 'wish panel';
+    d.innerHTML = `<b>${flLabel(i)}:</b> ${t.wtext}`;
+    d.onclick = () => { if (edit) exitEdit(); setTimeout(() => enterEdit(t.roofWish ? 'roof' : i), 60); $('extras-menu').classList.remove('open'); };
+    box.appendChild(d); }
+}
+function renderResidents() {
+  const ul = $('resident-list'); ul.innerHTML = '';
+  for (let i = MAXF; i >= 0; i--) {
+    const li = document.createElement('li');
+    const built = i <= state.floors;
+    const nm = !built ? '<span class="free">noch nicht gebaut</span>' : tenantIn(i) ? `<b>${TENANTS[i].name}</b>` : '<span class="free">zurzeit frei</span>';
+    li.innerHTML = `<span class="fl">${flLabel(i)}</span><span>${nm}</span>`;
+    ul.appendChild(li); }
+}
+
+/* ---------- Bauen ---------- */
+let buildingUntil = 0;
+function buildFloor() {
+  if (state.floors >= MAXF || edit) return;
+  state.floors++;
+  const i = state.floors, g = floorGroups[i];
+  g.visible = true; g.scale.y = 0.01;
+  tween(0.7, q => { g.scale.y = 0.01 + 0.99 * q; });
+  buildingUntil = clock.elapsedTime + 1.4;
+  sfx.knock(); setTimeout(() => sfx.knock(), 240); setTimeout(() => sfx.knock(), 500);
+  updateRoof(); updateHUD(); renderResidents(); save();
+  const ny = PLAT_Y + (E_H + state.floors * FLOOR_H) * 0.55;
+  if (!edit) { const t = controls.target.clone(); t.y = ny;
+    const p = camera.position.clone(); p.y += 0.6; p.multiplyScalar(1.03); moveCam(p, t, 0.7); }
+  if (i === MAXF) { toast('Der Wipfelkratzer ist fertig! Schau aufs Dach!'); sfx.chime(true); }
+  else toast(`Willi hämmert fleissig — Stockwerk ${i} steht!`);
+}
+
+/* ---------- Extras ---------- */
+$('btn-bridge').onclick = () => { $('extras-menu').classList.remove('open');
+  if (state.bridge) { toast('Die Brücke steht schon!'); return; }
+  state.bridge = true; bridge.visible = true; bridge.scale.setScalar(0.01);
+  tween(0.6, q => bridge.scale.setScalar(0.01 + 0.99 * q));
+  sfx.knock(); toast('Willi baut eine Brücke über den Fluss!'); save(); };
+$('btn-garden').onclick = () => { $('extras-menu').classList.remove('open');
+  if (state.garden) { toast('Garten und Spielplatz sind schon da!'); return; }
+  state.garden = true; garden.visible = true; garden.scale.setScalar(0.01);
+  tween(0.6, q => garden.scale.setScalar(0.01 + 0.99 * q));
+  sfx.pop(); toast('Spielplatz, Beete und Blumen — fertig!'); save(); };
+$('btn-sign').onclick = () => { $('extras-menu').classList.remove('open'); renderResidents(); $('residents').classList.add('open'); };
+function renderAnimals() {
+  const grid = $('animal-grid'); grid.innerHTML = '';
+  TENANTS.forEach((t, i) => {
+    const d = document.createElement('div'); d.className = 'acard';
+    const status = tenantIn(i) ? '<span class="in">Eingezogen!</span>' : '<small>wartet noch auf die Wohnung</small>';
+    d.innerHTML = `<img src="${animalThumbs[i] || ''}" alt=""><b>${t.name}</b><small>Stock ${flLabel(i)}</small>${status}`;
+    grid.appendChild(d); });
+}
+$('btn-animals').onclick = () => { $('extras-menu').classList.remove('open'); renderAnimals(); $('animals').classList.add('open'); };
+$('btn-aniclose').onclick = () => $('animals').classList.remove('open');
+$('animals').onclick = e => { if (e.target === $('animals')) $('animals').classList.remove('open'); };
+$('btn-resclose').onclick = () => $('residents').classList.remove('open');
+$('residents').onclick = e => { if (e.target === $('residents')) $('residents').classList.remove('open'); };
+
+/* Party */
+let party = false; const dancers = [];
+$('btn-party').onclick = () => { $('extras-menu').classList.remove('open'); party ? endParty() : startParty(); };
+function startParty() {
+  party = true; $('btn-party').textContent = 'Party beenden';
+  setNight(true); partyG.visible = true;
+  let n = 0;
+  for (let i = 0; i <= MAXF; i++) { if (!tenantIn(i)) continue;
+    TENANTS[i].animals.forEach(sp => { const a = makeAnimal(sp);
+      const ang = n * 1.1, r = 0.6 + (n % 3) * 0.45;
+      a.position.set(Math.cos(ang) * r, 0.18, Math.sin(ang) * r * 0.6);
+      a.rotation.y = Math.random() * 6; roofG.add(a); dancers.push({ g: a, ph: n }); n++; }); }
+  switchSong('party'); sfx.chime(true);
+  moveCam(new THREE.Vector3(6, topY() + 4, 9), new THREE.Vector3(0, topY() + 0.8, 0), 1.2);
+  toast('Froschkonzert und grosse Party auf dem Dach!');
+}
+function endParty() {
+  party = false; $('btn-party').textContent = 'Dachparty feiern!';
+  partyG.visible = false;
+  dancers.forEach(d => roofG.remove(d.g)); dancers.length = 0;
+  switchSong('day');
+}
+
+/* Tag/Nacht */
+let nightK = state.night ? 1 : 0;
+function applyNight(k) {
+  nightK = k;
+  scene.background.lerpColors(SKY.d, SKY.n, k); scene.fog.color.copy(scene.background);
+  hemi.color.lerpColors(HEMI.d, HEMI.n, k); hemi.groundColor.lerpColors(GRND.d, GRND.n, k);
+  hemi.intensity = 1.05 - 0.62 * k; dir.intensity = 1.15 - 1.0 * k;
+  starMat.opacity = k * 0.9; moonMat.opacity = k;
+  for (let i = 0; i <= MAXF; i++) { const lit = k > 0.5 && tenantIn(i);
+    floorGroups[i].userData.wins.forEach(w => { w.material.color.set(lit ? 0xffd98a : 0x6b4526);
+      w.material.emissive.set(lit ? 0xffc257 : 0x000000); w.material.emissiveIntensity = lit ? 0.9 : 0; }); }
+  $('btn-night').textContent = k > 0.5 ? 'Tag' : 'Nacht';
+}
+function setNight(on) {
+  state.night = on; save();
+  const from = nightK, to = on ? 1 : 0;
+  tween(1.2, q => applyNight(from + (to - from) * q));
+}
+$('btn-night').onclick = () => { if (party && state.night) { toast('Bei der Party bleibt es Nacht!'); return; } setNight(!state.night); };
+$('btn-cutaway').onclick = () => { state.cutaway = !state.cutaway; applyFronts(); sfx.whoosh(); save();
+  if (state.cutaway) toast('Blick in alle Wohnungen — wie im Buch!'); };
+
+/* Reset */
+let resetArmed = 0;
+$('btn-reset').onclick = () => {
+  if (Date.now() - resetArmed < 4000) { try { localStorage.removeItem('wipfelkratzer-v1'); } catch (e) {} location.reload(); }
+  else { resetArmed = Date.now(); $('btn-reset').textContent = 'Wirklich alles löschen?';
+    setTimeout(() => { $('btn-reset').textContent = 'Neu anfangen'; resetArmed = 0; }, 4000); } };
+
+/* ---------- Audio ---------- */
+let AC = null, master, musGain, musicOn = true, seqPos = 0, nextNote = 0;
+let curSong = 'day';
+const midi2f = m => 440 * Math.pow(2, (m - 69) / 12);
+const SONGS = {
+  day: { beat: 0.42, type: 'triangle', g: 0.09,
+    mel: [67, 0, 71, 74, 0, 71, 79, 0, 76, 74, 0, 71, 67, 0, 64, 62, 0, 64, 67, 0, 71, 74, 0, 79],
+    bass: [43, 0, 0, 48, 0, 0, 50, 0, 0, 43, 0, 0] },
+  party: { beat: 0.21, type: 'square', g: 0.045,
+    mel: [67, 69, 71, 0, 74, 71, 69, 67, 64, 67, 69, 0, 71, 69, 67, 64, 62, 64, 67, 0, 71, 74, 71, 67],
+    bass: [38, 45, 38, 45, 43, 50, 43, 50] },
+};
+function initAudio() {
+  if (AC) return;
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5200;
+  master = AC.createGain(); master.gain.value = 0.55; master.connect(lp); lp.connect(AC.destination);
+  musGain = AC.createGain(); musGain.gain.value = 0.4; musGain.connect(master);
+  nextNote = AC.currentTime + 0.2;
+  setInterval(() => { if (!AC) return;
+    while (nextNote < AC.currentTime + 0.5) { schedBeat(seqPos, nextNote); seqPos++; nextNote += SONGS[curSong].beat; } }, 140);
+}
+function tone(f, t, dur, type = 'sine', g = 0.12, dest) {
+  if (!AC) return; const o = AC.createOscillator(), gn = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  gn.gain.setValueAtTime(0.0001, t); gn.gain.linearRampToValueAtTime(g, t + 0.02);
+  gn.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(gn); gn.connect(dest || master); o.start(t); o.stop(t + dur + 0.05);
+  return o;
+}
+function noiseBurst(t, dur, f0, f1, g = 0.2) {
+  if (!AC) return; const len = Math.ceil(AC.sampleRate * dur);
+  const buf = AC.createBuffer(1, len, AC.sampleRate); const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = AC.createBufferSource(); src.buffer = buf;
+  const f = AC.createBiquadFilter(); f.type = 'lowpass';
+  f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  const gn = AC.createGain(); gn.gain.value = g;
+  src.connect(f); f.connect(gn); gn.connect(master); src.start(t);
+}
+function schedBeat(i, t) {
+  const s = SONGS[curSong];
+  const m = s.mel[i % s.mel.length];
+  if (m && musicOn) tone(midi2f(m), t, s.beat * 1.9, s.type, s.g, musGain);
+  if (curSong === 'day') { if (i % 3 === 0 && musicOn) tone(midi2f(s.bass[(i / 3 | 0) % s.bass.length] || 43), t, 0.55, 'sine', 0.1, musGain); }
+  else if (musicOn) tone(midi2f(s.bass[i % s.bass.length]), t, 0.18, 'triangle', 0.09, musGain);
+}
+function switchSong(name) { curSong = name; }
+const sfx = {
+  pop() { if (!AC) return; const t = AC.currentTime; const o = tone(320, t, 0.14, 'sine', 0.18); if (o) o.frequency.exponentialRampToValueAtTime(680, t + 0.1); },
+  knock() { if (!AC) return; const t = AC.currentTime; tone(88, t, 0.13, 'triangle', 0.3); noiseBurst(t, 0.06, 2400, 500, 0.12); },
+  chime(big) { if (!AC) return; const t = AC.currentTime;
+    [880, 1108, 1318, big ? 1760 : 0].forEach((f, i) => f && tone(f, t + i * 0.09, 0.5, 'triangle', 0.1)); },
+  splash() { if (!AC) return; noiseBurst(AC.currentTime, 0.5, 2800, 260, 0.22); },
+  whoosh() { if (!AC) return; noiseBurst(AC.currentTime, 0.28, 500, 2400, 0.07); },
+};
+$('btn-music').onclick = () => { musicOn = !musicOn; $('btn-music').textContent = musicOn ? 'Musik aus' : 'Musik an'; };
+
+function tenantTalk(i) {
+  const t = TENANTS[i];
+  bubbleTarget = tenantGroups[i]; bubbleH = 1.0;
+  const status = state.fulfilled[i] ? 'ist glücklich und zufrieden!' : wishOpen(i) ? t.wtext : 'fühlt sich schon richtig wohl.';
+  bubbleEl.innerHTML = `<img src="${animalThumbs[i] || ''}" alt=""><span><b>${t.name}</b><br>${status}</span>`;
+  bubbleEl.classList.add('show');
+  bubbleUntil = clock.elapsedTime + 4.5;
+  sfx.pop();
+}
+const TIPS = [
+  'Ein Teppich und eine Lampe machen es richtig gemütlich.',
+  'Deko wie Vase oder Teekanne kannst du auf Tisch, Regal oder Schrank stellen — wähle zuerst das Möbel aus!',
+  'Mit den Pfeiltasten schiebst du Möbel ganz an die Wand.',
+  'Mit Bild-hoch und Bild-runter drehst du Möbel fein.',
+];
+let tipI = 0;
+$('btn-tip').onclick = () => { if (!edit) return;
+  const k = edit.k;
+  if (k === 'roof') { toast(state.floors === MAXF && wishOpen(10) ? 'Die Frösche warten auf einen Pool!' : 'Lampions, Sonnenschirm und Liegestuhl machen die Dachterrasse fein.'); return; }
+  if (!tenantIn(k)) { toast(`Noch ${Math.max(0, 3 - roomOf(k).length)} Sachen einrichten, dann zieht ${TENANTS[k].name} ein!`); return; }
+  if (wishOpen(k)) { toast(TENANTS[k].wtext); return; }
+  toast(TIPS[tipI++ % TIPS.length]); };
+
+/* ---------- Interaktion ---------- */
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+let downX = 0, downY = 0, downT = 0;
+renderer.domElement.addEventListener('pointerdown', e => { downX = e.clientX; downY = e.clientY; downT = Date.now(); });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (Math.hypot(e.clientX - downX, e.clientY - downY) > 8 || Date.now() - downT > 400) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ptr, camera);
+  if (edit) {
+    const tg = edit.k !== 'roof' && tenantGroups[edit.k] ? [tenantGroups[edit.k]] : [];
+    if (tg.length && ray.intersectObjects(tg, true).length) { tenantTalk(edit.k); return; }
+    const hits = ray.intersectObjects(itemMeshes[edit.k], true);
+    if (hits.length) { let o = hits[0].object; while (o && !(o.userData && o.userData.pick)) o = o.parent;
+      if (o) { select(o.userData.pick); sfx.pop(); return; } }
+    deselect(); return;
+  }
+  if (state.cutaway) {
+    const tg = []; for (let i = 0; i <= MAXF; i++) if (tenantGroups[i]) tg.push(tenantGroups[i]);
+    const th = ray.intersectObjects(tg, true);
+    if (th.length) { let o = th[0].object; while (o && !(o.userData && o.userData.type === 'tenant')) o = o.parent;
+      if (o) { tenantTalk(o.userData.floor); return; } }
+  }
+  const hits = ray.intersectObjects([...hitboxes, sign, willi, dam], true);
+  for (const h of hits) {
+    let o = h.object; while (o && !(o.userData && o.userData.type)) o = o.parent;
+    if (!o) continue; const u = o.userData;
+    if (u.type === 'sign') { renderResidents(); $('residents').classList.add('open'); return; }
+    if (u.type === 'willi') { williTalk(); return; }
+    if (u.type === 'dam') { damTalk(); return; }
+    if (u.type === 'roof') { enterEdit('roof'); return; }
+    if (u.type === 'floor') { if (u.floor <= state.floors) { enterEdit(u.floor); return; } continue; }
+  }
+});
+
+$('btn-build').onclick = buildFloor;
+$('btn-done').onclick = exitEdit;
+$('btn-catalog').onclick = () => {
+  if (!edit) { toast('Tippe zuerst auf ein Stockwerk des Turms!'); return; }
+  $('catalog').classList.toggle('open'); };
+$('btn-catclose').onclick = () => $('catalog').classList.remove('open');
+$('btn-extras').onclick = () => $('extras-menu').classList.toggle('open');
+$('btn-move').onclick = () => { if (!selected) return;
+  const c = freeCell(selected.k, selected.entry.cell + 1);
+  if (c < 0) { toast('Kein Platz frei!'); return; }
+  const en = selected.entry; en.cell = c; const p = cellPos(selected.k, c);
+  en.x = p.x; en.z = p.z; en.y = DECO.has(en.id) ? surfaceYAt(selected.k, p.x, p.z, selected.mesh) : baseY(selected.k);
+  selected.mesh.position.set(en.x, en.y, en.z);
+  selHelper.update(); sfx.pop(); save(); };
+$('btn-rot').onclick = () => { if (!selected) return;
+  selected.entry.rot += Math.PI / 2;
+  selected.mesh.rotation.y = selected.entry.rot;
+  clampEntry(selected.k, selected.mesh, selected.entry);
+  selHelper.update(); sfx.pop(); save(); };
+$('btn-del').onclick = () => { if (selected) removeItem(selected); };
+
+/* Tastatur: Pfeile verschieben, Bild-Tasten drehen */
+addEventListener('keydown', e => {
+  if (!edit || !selected) return;
+  const st = { ArrowLeft: [-0.12, 0], ArrowRight: [0.12, 0], ArrowUp: [0, -0.12], ArrowDown: [0, 0.12] }[e.key];
+  const en = selected.entry;
+  if (st) { e.preventDefault();
+    en.x += st[0]; en.z += st[1];
+    clampEntry(selected.k, selected.mesh, en);
+    en.y = DECO.has(en.id) ? surfaceYAt(selected.k, en.x, en.z, selected.mesh) : baseY(selected.k);
+    selected.mesh.position.y = en.y;
+    selHelper.update(); save(); return; }
+  if (e.key === 'PageUp' || e.key === 'PageDown') { e.preventDefault();
+    en.rot += (e.key === 'PageUp' ? 1 : -1) * Math.PI / 12;
+    selected.mesh.rotation.y = en.rot;
+    clampEntry(selected.k, selected.mesh, en);
+    selHelper.update(); save(); return; }
+  if (e.key === 'Delete') { e.preventDefault(); removeItem(selected); }
+});
+
+/* Mit Willi reden */
+const PHRASES = [
+  'Ich baue einen Wipfelkratzer — mit Wohnungen für kleine Tiere!',
+  'Stock für Stock, bis wir an den Wipfeln kratzen!',
+  'Mit Seilen aus Schilf und Gras zurre ich alles fest.',
+  'Frau Biber übernimmt den Innenausbau — richtet ihr mit?',
+  'Als Nächstes baue ich eine Brücke über den Fluss!',
+  'Zur Einweihung gibt es ein Froschkonzert auf dem Dach!',
+];
+let phraseI = 0, bubbleUntil = 0, bubbleTarget = null, bubbleH = 1.6;
+const bubbleEl = $('bubble');
+function williTalk() {
+  bubbleTarget = willi; bubbleH = 1.6;
+  bubbleEl.innerHTML = `<img src="${williThumb}" alt="Willi"><span>${PHRASES[phraseI++ % PHRASES.length]}</span>`;
+  bubbleEl.classList.add('show');
+  bubbleUntil = clock.elapsedTime + 4;
+  buildingUntil = clock.elapsedTime + 1.3;
+  sfx.chime();
+}
+const DAM_TEXTS = [
+  'Das ist Willis Biberburg! Viele Wochen hat er daran gearbeitet — alles ist perfekt.',
+  'Der Fluss ist gestaut, der Eingang liegt unter Wasser — und drinnen ist alles warm und gemütlich.',
+  'Hier wohnt Willi mit Frau Biber. Aber bauen macht ihm am meisten Spass!',
+];
+let damI = 0;
+function damTalk() {
+  bubbleTarget = dam; bubbleH = 1.4;
+  bubbleEl.innerHTML = `<img src="${damThumb}" alt="Biberburg"><span>${DAM_TEXTS[damI++ % DAM_TEXTS.length]}</span>`;
+  bubbleEl.classList.add('show');
+  bubbleUntil = clock.elapsedTime + 5;
+  sfx.splash();
+}
+
+$('btn-start').onclick = () => { initAudio(); $('intro').classList.add('hidden'); };
+
+/* ---------- Laden ---------- */
+Object.keys(state.rooms).forEach(k => {
+  const key = k === 'roof' ? 'roof' : parseInt(k, 10);
+  roomOf(key).forEach(e => placeItemMesh(key, e));
+});
+for (let i = 0; i <= MAXF; i++) if (tenantIn(i)) spawnTenant(i, true);
+applyNight(state.night ? 1 : 0);
+applyFronts();
+makeThumbs();
+renderWishes(); renderResidents(); updateHUD();
+
+/* ---------- Loop ---------- */
+const clock = new THREE.Clock();
+function tick() {
+  requestAnimationFrame(tick);
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  for (let i = tweens.length - 1; i >= 0; i--) { const tw = tweens[i]; tw.t += dt;
+    let k = Math.min(tw.t / tw.dur, 1); k = k * k * (3 - 2 * k);
+    tw.step(k); if (tw.t >= tw.dur) { tweens.splice(i, 1); if (tw.done) tw.done(); } }
+  const mr = 10 + state.floors * 0.4, ma = t * 0.3;
+  const mh = topY() + 2.6 + Math.sin(t * 0.7) * 0.4;
+  const nx = Math.cos(ma + 0.08) * mr, nz = Math.sin(ma + 0.08) * mr;
+  magpie.position.set(Math.cos(ma) * mr, mh, Math.sin(ma) * mr);
+  magpie.lookAt(nx, mh, nz);
+  magInner.userData.wings.forEach((w, i) => w.rotation.x = Math.sin(t * 9 + i) * 0.55);
+  critters.forEach(c => { c.g.position.y = c.base + Math.abs(Math.sin(t * 2.2 + c.ph)) * 0.03; });
+  dancers.forEach(d => { d.g.position.y = 0.18 + Math.abs(Math.sin(t * 4.5 + d.ph)) * 0.22;
+    d.g.rotation.y += dt * (0.8 + (d.ph % 3) * 0.5); });
+  spinners.forEach(w => w.rotation.z += dt * 2.4);
+  willi.position.y = Math.abs(Math.sin(t * 1.6)) * 0.03;
+  const arm = willi.userData.arm;
+  arm.rotation.z = t < buildingUntil ? Math.sin(t * 16) * 0.7 - 0.3 : Math.sin(t * 1.6) * 0.06;
+  if (bubbleEl.classList.contains('show')) {
+    if (t > bubbleUntil) bubbleEl.classList.remove('show');
+    else { const v = new THREE.Vector3(); (bubbleTarget || willi).getWorldPosition(v); v.y += bubbleH; v.project(camera);
+      bubbleEl.style.left = ((v.x * 0.5 + 0.5) * innerWidth) + 'px';
+      bubbleEl.style.top = ((-v.y * 0.5 + 0.5) * innerHeight) + 'px'; }
+  }
+  if (party) partyG.children.forEach((c, i) => { c.material === MAT.glow && (c.scale.setScalar(1 + Math.sin(t * 5 + i) * 0.18)); });
+  controls.update();
+  renderer.render(scene, camera);
+}
+tick();
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
