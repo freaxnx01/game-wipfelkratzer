@@ -138,12 +138,90 @@ function makeArchGeo(w, h) { const s = new THREE.Shape();
   return new THREE.ExtrudeGeometry(s, { depth: 0.05, bevelEnabled: false }); }
 const matWin = new THREE.MeshLambertMaterial({ color: 0x6b4526 });
 
+/* ---------- Aussentreppe ----------
+   Jede Etage trägt einen eigenen Zufalls-Versatz und -Drehwinkel. Ein Lauf
+   verbindet zwei Etagen und liegt damit zwischen zwei verschiedenen lokalen
+   Koordinatensystemen. Deshalb werden beide Anschlusspunkte zuerst in EIN
+   gemeinsames Bezugssystem (towerG) gerechnet und erst danach in das System
+   der Etage gebracht, an der der Lauf hängt. */
+const floorPose = i => ({ x: (rnd(i) - 0.5) * 0.12, y: floorY(i), ry: (rnd(i + 20) - 0.5) * 0.05 });
+const toTower = (i, v) => { const p = floorPose(i), c = Math.cos(p.ry), s = Math.sin(p.ry);
+  return new THREE.Vector3(v.x * c + v.z * s + p.x, v.y + p.y, -v.x * s + v.z * c); };
+const fromTower = (i, v) => { const p = floorPose(i), c = Math.cos(p.ry), s = Math.sin(p.ry);
+  const x = v.x - p.x, z = v.z; return new THREE.Vector3(x * c - z * s, v.y - p.y, x * s + z * c); };
+const winCount = w => w > 6.6 ? 4 : w > 5.2 ? 3 : 2;
+/* Türposition — identisch zu der, an der die Tür/der Torbogen gebaut wird. */
+const doorX = i => { const w = W(i), nw = winCount(w), st = w / (nw + 0.6);
+  return (i === 0 ? Math.floor(nw / 2) - (nw - 1) / 2 : (nw - 1) / 2) * st; };
+const riseTo = j => floorY(j) - floorY(j - 1);
+const DECK_T = 0.12, DECK_Y = 0.15, DECK_W = 1.0, TREAD_T = 0.1;
+const deckZIn = i => D(i) / 2 - 0.10;              /* Innenkante, leicht in der Wand */
+const padDepth = i => i === 0 ? 0.62 : 1.25;       /* E: die Plattform trägt schon, nur Schwelle */
+const armX = i => W(i) / 2 + 0.72;                 /* Laufsteg längs der Etage */
+const flightX = i => armX(i) + 0.45;              /* Spur des Laufs, der von i nach oben führt */
+const padX1 = i => (i > 0 ? flightX(i - 1) : flightX(i)) + DECK_W / 2;
+const padX0 = i => Math.min(doorX(i) - 0.62, armX(i) - DECK_W / 2);
+const stairRun = i => 1.5 * riseTo(i + 1);
+const armZBack = i => deckZIn(i) - stairRun(i);    /* Treppenfuss am hinteren Ende des Laufstegs */
+
+/* Podest vor der Tür + Laufsteg + Wendepodest, alles im System der eigenen Etage. */
+function buildDeck(i, stairs) {
+  const x0 = padX0(i), x1 = padX1(i), zi = deckZIn(i), zo = zi + padDepth(i), cy = DECK_Y - DECK_T / 2;
+  const pad = mesh(new THREE.BoxGeometry(x1 - x0, DECK_T, zo - zi), MAT.woodL, (x0 + x1) / 2, cy, (zi + zo) / 2, stairs);
+  pad.userData.part = 'pad'; stairs.userData.pad = pad;
+  if (i < MAXF) {
+    const ax = armX(i), zb = armZBack(i) - 0.45;
+    mesh(new THREE.BoxGeometry(DECK_W, DECK_T, zi - zb), MAT.woodL, ax, cy, (zb + zi) / 2, stairs).userData.part = 'deck';
+    const tx0 = ax - DECK_W / 2, tx1 = flightX(i) + DECK_W / 2;
+    mesh(new THREE.BoxGeometry(tx1 - tx0, DECK_T, 1.0), MAT.woodL, (tx0 + tx1) / 2, cy, zb + 0.5, stairs).userData.part = 'deck';
+    const rz0 = armZBack(i) + 1.0, rlen = zi - rz0;   /* Geländer endet vor dem Treppenfuss */
+    if (rlen > 0.6) {
+      mesh(new THREE.BoxGeometry(0.06, 0.06, rlen), MAT.woodD, ax + DECK_W / 2 - 0.03, DECK_Y + 0.58, (rz0 + zi) / 2, stairs);
+      for (let k = 0; k <= 2; k++)
+        mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.6, 6), MAT.wood, ax + DECK_W / 2 - 0.03, DECK_Y + 0.3, rz0 + k * rlen / 2, stairs);
+    }
+    mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.6, 8), MAT.woodD, tx1 - 0.12, cy - 0.36, zb + 0.12, stairs);
+  }
+  if (i > 0) {   /* Im Erdgeschoss würde ein Geländer den Aufstieg von der Plattform verstellen. */
+    mesh(new THREE.BoxGeometry(x1 - x0, 0.06, 0.06), MAT.woodD, (x0 + x1) / 2, DECK_Y + 0.58, zo - 0.04, stairs);
+    const np = Math.max(2, Math.round((x1 - x0) / 1.1));
+    for (let k = 0; k <= np; k++)
+      mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.6, 6), MAT.wood, x0 + k * (x1 - x0) / np, DECK_Y + 0.3, zo - 0.04, stairs);
+    [[x0 + 0.12, zo - 0.12], [x1 - 0.12, zo - 0.12]].forEach(([px, pz]) =>
+      mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.6, 8), MAT.woodD, px, cy - 0.36, pz, stairs));
+  }
+  mesh(new THREE.BoxGeometry(0.06, 0.06, zo - zi), MAT.woodD, x1 - 0.04, DECK_Y + 0.58, (zi + zo) / 2, stairs);
+  mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.6, 6), MAT.wood, x1 - 0.04, DECK_Y + 0.3, zi + 0.12, stairs);
+}
+
+/* Lauf von Etage i-1 hinauf zu Etage i; hängt an Etage i, damit er mit ihr sichtbar wird. */
+function buildFlight(i, stairs) {
+  const foot = fromTower(i, toTower(i - 1, new THREE.Vector3(flightX(i - 1), DECK_Y, armZBack(i - 1))));
+  const top = new THREE.Vector3(padX1(i) - DECK_W / 2, DECK_Y, deckZIn(i));
+  const d = top.clone().sub(foot);
+  const horiz = Math.hypot(d.x, d.z), rise = d.y, L = Math.hypot(horiz, rise);
+  const fl = new THREE.Group(); fl.position.copy(foot); fl.rotation.y = Math.atan2(d.x, d.z);
+  stairs.add(fl); stairs.userData.flight = fl;
+  const n = Math.max(8, Math.round(rise / 0.2)), step = rise / n, going = horiz / n;
+  /* Die oberste Stufe liegt genau auf Podesthöhe und stösst an dessen Innenkante. */
+  for (let k = 0; k < n; k++) {
+    mesh(new THREE.BoxGeometry(DECK_W, TREAD_T, going + 0.06), MAT.woodL, 0, (k + 1) * step - TREAD_T / 2, (k + 0.5) * going, fl)
+      .userData.part = 'tread';
+    if (k % 2 === 1)
+      mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.6, 6), MAT.wood, DECK_W / 2 - 0.02, (k + 1) * step + 0.3, (k + 0.5) * going, fl);
+  }
+  const sl = -Math.atan2(rise, horiz);
+  [-1, 1].forEach(s => { const m = mesh(new THREE.BoxGeometry(0.08, 0.2, L), MAT.woodD, s * (DECK_W / 2 - 0.04), rise / 2 - 0.12, horiz / 2, fl); m.rotation.x = sl; m.userData.part = 'stringer'; });
+  const rail = mesh(new THREE.BoxGeometry(0.06, 0.06, L + 0.1), MAT.woodD, DECK_W / 2 - 0.02, rise / 2 + 0.62, horiz / 2, fl); rail.rotation.x = sl;
+  mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.64, 6), MAT.wood, DECK_W / 2 - 0.02, 0.32, 0.06, fl);
+}
+
 const floorGroups = [], hitboxes = [], itemMeshes = {}, tenantGroups = {}, critters = [], spinners = [];
 const towerG = new THREE.Group(); scene.add(towerG);
 
 for (let i = 0; i <= MAXF; i++) {
-  const g = new THREE.Group(); g.position.y = floorY(i);
-  g.position.x = (rnd(i) - 0.5) * 0.12; g.rotation.y = (rnd(i + 20) - 0.5) * 0.05;
+  const g = new THREE.Group(); const pose = floorPose(i);
+  g.position.set(pose.x, pose.y, 0); g.rotation.y = pose.ry;
   const w = W(i), d = D(i), h = H(i);
   const floorMat = MAT.woodL.clone();
   /* Pro Wand eine eigene Innenschale: die tragende Wand bleibt aussen immer Putz,
@@ -170,7 +248,7 @@ for (let i = 0; i <= MAXF; i++) {
   mesh(new THREE.BoxGeometry(w - 0.24, h, WALL_CORE), MAT.plaster, 0, h / 2, 0.06 - WALL_CORE / 2, front);
   panel('front', new THREE.BoxGeometry(w - 0.24, h, WALL_PANEL), 0, h / 2, 0.06 - WALL_T + WALL_PANEL / 2, front);
   g.userData.wins = [];
-  const nw = w > 6.6 ? 4 : w > 5.2 ? 3 : 2;
+  const nw = winCount(w);
   for (let k = 0; k < nw; k++) {
     const x = (k - (nw - 1) / 2) * (w / (nw + 0.6));
     if (i === 0 && k === Math.floor(nw / 2)) { mesh(makeArchGeo(1.1, 1.8), matWin, x - 0, 0, 0.08, front); continue; }
@@ -178,26 +256,17 @@ for (let i = 0; i <= MAXF; i++) {
     const win = mesh(makeArchGeo(0.5, 0.8), matWin.clone(), x, h * 0.24, 0.08, front);
     g.userData.wins.push(win);
   }
+  const stairs = new THREE.Group(); g.add(stairs); g.userData.stairs = stairs;
+  g.userData.doorX = doorX(i);
   if (i > 0) {
-    const dx = ((nw - 1) / 2) * (w / (nw + 0.6));
+    const dx = doorX(i);
     mesh(makeArchGeo(0.7, 1.35), MAT.woodD, dx, 0, 0.08, front);
     mesh(new THREE.BoxGeometry(0.62, 1.22, 0.04), MAT.wood, dx, 0.61, 0.13, front);
     [-0.2, 0, 0.2].forEach(px => mesh(new THREE.BoxGeometry(0.03, 1.2, 0.02), MAT.woodD, dx + px, 0.61, 0.155, front));
     mesh(new THREE.SphereGeometry(0.04, 10, 8), MAT.gold, dx - 0.22, 0.62, 0.17, front);
-    const lo = i - 1, hp = H(lo), wl = W(lo), dl = D(lo), sx = wl / 2 + 0.5;
-    const stairs = new THREE.Group(); g.add(stairs); g.userData.stairs = stairs;
-    const n = 9;
-    for (let s = 0; s < n; s++) { const t = (s + 0.5) / n;
-      mesh(new THREE.BoxGeometry(0.9, 0.1, dl / n + 0.04), MAT.woodL, sx, -hp + t * hp, -dl / 2 + t * dl, stairs);
-      if (s % 2 === 0) mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.55, 6), MAT.wood, sx + 0.4, -hp + t * hp + 0.3, -dl / 2 + t * dl, stairs); }
-    const rail = mesh(new THREE.BoxGeometry(0.05, 0.05, Math.hypot(dl, hp) + 0.2), MAT.woodD, sx + 0.4, -hp / 2 + 0.58, 0, stairs);
-    rail.rotation.x = -Math.atan2(hp, dl);
-    mesh(new THREE.CylinderGeometry(0.04, 0.05, hp, 8), MAT.woodD, sx + 0.4, -hp / 2, -dl / 2, stairs);
-    mesh(new THREE.BoxGeometry(sx + 0.5 - w / 2 + 0.3, 0.1, 1.1), MAT.woodL, (sx + 0.5 + w / 2 - 0.3) / 2, 0.02, d / 2 + 0.5, stairs);
-    mesh(new THREE.BoxGeometry(0.9, 0.1, 1.1), MAT.woodL, sx, 0.02, d / 2 + 0.5, stairs);
-    [sx + 0.4, w / 2 - 0.2].forEach(px => mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.55, 6), MAT.wood, px, 0.3, d / 2 + 1.0, stairs));
-    mesh(new THREE.BoxGeometry(sx + 0.6 - w / 2 + 0.2, 0.05, 0.05), MAT.woodD, (sx + 0.4 + w / 2 - 0.2) / 2, 0.58, d / 2 + 1.0, stairs);
+    buildFlight(i, stairs);
   }
+  buildDeck(i, stairs);
   [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) =>
     mesh(new THREE.CylinderGeometry(0.09, 0.11, h + 0.2, 10), MAT.woodD, sx * (w / 2 - 0.02), h / 2, sz * (d / 2 - 0.02), g));
   const hit = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, h, d + 0.3), new THREE.MeshBasicMaterial({ visible: false }));
