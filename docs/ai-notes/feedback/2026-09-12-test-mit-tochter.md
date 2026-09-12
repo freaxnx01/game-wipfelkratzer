@@ -18,7 +18,7 @@ Einrichten, Tiere, Umgebung, Turm, Fotos, UI) und wären als Labels neu anzulege
 | 01 | Toasts bleiben offen, schliessbar per X oder Klick | | ui | Verbesserung | Issue | Zwei Notizen (11:42 Tipp-Toast, 12:01 alle Toasts) — die zweite verallgemeinert die erste. `toast()` blendet hart nach 2800 ms aus. |
 | 02 | Möbelfarbe wählen | | einrichten | Neu | Issue | Existiert nicht; Möbel haben feste Materialien aus `MAT`. |
 | 03 | Wand-Objekte: zuerst Wand wählen, dann platzieren | | einrichten | Verbesserung | Issue | Heute landet ein Wand-Objekt immer an der Rückwand (`wallZ`). Nicht dasselbe wie #8 (Tab-Sprung). |
-| 04 | Pool hat Deckel, kein Wasser sichtbar — **soll aussehen wie im Buch** | 1 (fehlt noch) | dach | Verbesserung (bug) | Issue | Modell `pool` in `models.js`. Buch-Scan zeigt: organische Nierenform, sichtbares blaues Wasser mit Wellen, Edelstahl-Leiter, Frösche schwimmen darin. **Design mit Fable.** |
+| 04 | Pool hat Deckel, kein Wasser sichtbar — **soll aussehen wie im Buch** | 2 | dach | Verbesserung (bug) | Issue | Modell `pool` in `models.js`. Buch-Scan zeigt: organische Nierenform, sichtbares blaues Wasser mit Wellen, Edelstahl-Leiter, Frösche schwimmen darin. **Design mit Fable.** |
 | 05 | Liegestuhl sieht komisch aus | | dach | Verbesserung (bug) | Issue | Modell `liegestuhl`, `models.js:180`. |
 | 06 | Mehr Dach-Objekte: Bar, … | | katalog | Neu | Issue (gemeinsam mit 12, 19) | Drei Notizen derselben Form — ein Issue «Katalog erweitern» statt drei fast identischer. |
 | 07 | Spielplatz-Objekte platzierbar/verschiebbar/drehbar | | umgebung | Neu | Issue | `makeGarden()` ist heute ein fixes Ensemble. |
@@ -38,10 +38,10 @@ Einrichten, Tiere, Umgebung, Turm, Fotos, UI) und wären als Labels neu anzulege
 | 21 | 10 / 20 / 50 Stockwerke | | turm | Neu | Issue | `MAXF = 10` ist hart verdrahtet und `TENANTS` hat genau 11 Einträge. |
 | 22 | Räume mit Einrichtung kopieren | | einrichten | Neu | Issue | |
 | 23 | Aussichtsturm Sisslerfeld (plattform-sisslerfeld.com) | | welt | Neu | Issue (Teil von 26) | War als reine Referenz notiert; mit 26 wird daraus **ein Ort im Walddorf**. |
-| 25 | Terrassenhäuschen auf dem Dach platzierbar | 1 (fehlt noch) | dach | Neu | Issue | Aus demselben Buch-Scan: kleines Häuschen mit grünem Schilfdach auf der Dachterrasse. **Design mit Fable.** |
+| 25 | Terrassenhäuschen auf dem Dach platzierbar | 2 (geteilt mit 04) | dach | Neu | Issue | Aus demselben Buch-Scan: kleines Häuschen mit grünem Schilfdach auf der Dachterrasse. **Design mit Fable.** |
 | 26 | **Walddorf mit Übersichtskarte**: mehrere Orte im Wald, je ein Wipfelkratzer; Orte für Schreinerei, «Wipfkea» und Aussichtsplattform | | welt | Neu | Issue | Grösster Brocken im Batch — verwandelt das Spiel von einem Turm in eine kleine Welt. Klammert 13, 14 und 23. Braucht eigenes Brainstorming vor jedem Spec. |
 | 27 | Jahreszeiten | | umgebung | Neu | Issue | Verwandt mit der bestehenden TODO-Zeile «Wetter (Regen, Wind, Schnee)» — Wetter bleibt separat, Jahreszeiten sind die grössere Klammer (Laub, Schnee, Farben). |
-| 24 | Bewohner-Namen klingen in der Sprechblase komisch | 1 (fehlt noch) | tiere | Verbesserung (bug) | Issue | **Verifiziert:** `TENANTS[].name` mischt Wohnungs-Bezeichnungen («Kindergarten und Partyraum», «Ferienwohnung für Hausmäuse») mit Bewohner-Namen («Lisa Feldmaus»). Die Sprechblase setzt `<b>name</b> + Status` → «Kindergarten und Partyraum ist glücklich und zufrieden!». |
+| 24 | Bewohner-Namen klingen in der Sprechblase komisch | 1 | tiere | Verbesserung (bug) | Issue | **Verifiziert:** `TENANTS[].name` mischt Wohnungs-Bezeichnungen («Kindergarten und Partyraum», «Ferienwohnung für Hausmäuse») mit Bewohner-Namen («Lisa Feldmaus»). Die Sprechblase setzt `<b>name</b> + Status` → «Kindergarten und Partyraum ist glücklich und zufrieden!». |
 
 ## Prozess-Entscheid (gilt für diesen Batch und weiter)
 
@@ -94,4 +94,9 @@ Block A freigegeben und angelegt:
 Offen: Block B (02 Möbelfarbe, 20 «alle herunterladen») — nicht freigegeben.
 Offen: Block C (19 neue Features) — später.
 Offen: #15 der Triage (Spielstand) — Rückfrage läuft.
-Offen: Anhänge zu #04/#25 (Buchseite) und #24 (Sprechblase) — Dateipfade fehlen.
+Anhänge persistiert und in die Issues eingebettet:
+
+| Eintrag | Datei | verwendet in |
+|---|---|---|
+| 04, 25 | `assets/2026-09-12-test-mit-tochter/entry-04-buchseite-dachterrasse.png` (Original) und `entry-04-buchseite-ausschnitt.png` (zugeschnitten) | #12 |
+| 24 | `assets/2026-09-12-test-mit-tochter/entry-24-sprechblase.png` | #15 |
