@@ -173,6 +173,7 @@ const ROOF_TRACK = ROOF_W / 2 + DECK_W / 2;                 /* Laufspur, streift
 const ROOF_PAD_D = 1.0;                                     /* Tiefe des Ankunftspodests */
 const ROOF_PAD_Z1 = ROOF_D / 2, ROOF_PAD_Z0 = ROOF_PAD_Z1 - ROOF_PAD_D;
 const inRoofGap = z => z > ROOF_PAD_Z0 - 0.3;               /* Brüstungspfosten im Durchgang */
+const ROOF_GAP_X0 = ROOF_W / 2 - 0.9;                       /* Streifenbreite der Öffnung, für Möbel-Platzierung */
 const flightX = i => i === MAXF ? ROOF_TRACK : armX(i) + 0.45;  /* Spur des Laufs, der von i nach oben führt */
 const padX1 = i => (i > 0 ? flightX(i - 1) : flightX(i)) + DECK_W / 2;
 const padX0 = i => Math.min(doorX(i) - 0.62, armX(i) - DECK_W / 2);
@@ -422,6 +423,9 @@ function clampEntry(k, m, en) {
   const hx = Math.min((bb.max.x - bb.min.x) / 2, limX), hz = Math.min((bb.max.z - bb.min.z) / 2, limZ);
   en.x = Math.max(-(limX - hx), Math.min(limX - hx, en.x));
   en.z = Math.max(-(limZ - hz), Math.min(limZ - hz, en.z));
+  if (k === 'roof' && en.x + hx > ROOF_GAP_X0 && inRoofGap(en.z + hz)) {
+    en.z = Math.min(en.z, (ROOF_PAD_Z0 - 0.3) - hz);
+  }
   m.position.set(en.x, en.y ?? baseY(k), en.z);
 }
 function placeItemMesh(k, entry) {
@@ -1039,7 +1043,10 @@ $('btn-start').onclick = () => { initAudio(); $('intro').classList.add('hidden')
 /* ---------- Laden ---------- */
 Object.keys(state.rooms).forEach(k => {
   const key = k === 'roof' ? 'roof' : parseInt(k, 10);
-  roomOf(key).forEach(e => placeItemMesh(key, e));
+  roomOf(key).forEach(e => {
+    const m = placeItemMesh(key, e);
+    if (key === 'roof') clampEntry('roof', m, e);
+  });
 });
 for (let i = 0; i <= MAXF; i++) if (tenantIn(i)) spawnTenant(i, true);
 for (let i = 0; i <= MAXF; i++) applyLook(i);
