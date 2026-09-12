@@ -1068,7 +1068,7 @@ for (let i = 0; i <= MAXF; i++) if (tenantIn(i)) spawnTenant(i, true);
 for (let i = 0; i <= MAXF; i++) applyLook(i);
 if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
-window.wipfelkratzer = { state, floorGroups, roofG, roofStairG, roofGapG, scene, camera, controls, WALL_KEYS, get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, colsOf, cellPos, parentOf, fitDistance, THREE, get edit() { return edit; } };
+window.wipfelkratzer = { state, floorGroups, roofG, roofStairG, roofGapG, scene, camera, controls, WALL_KEYS, get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, get edit() { return edit; } };
 applyNight(state.night ? 1 : 0);
 applyFronts();
 makeThumbs();
