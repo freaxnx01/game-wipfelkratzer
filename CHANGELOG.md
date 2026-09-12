@@ -4,6 +4,37 @@ All notable changes to this project are documented here, following
 [Keep a Changelog](https://keepachangelog.com) and
 [Semantic Versioning](https://semver.org).
 
+## [0.2.0] - 2026-09-12
+
+### Added
+
+- Fotos lassen sich aus der Galerie herunterladen — «Herunterladen» pro Foto,
+  Dateiname `wipfelkratzer-JJJJ-MM-TT-HHMMSS.jpg`
+- Wand-Objekte (Poster, Wanduhr, Spiegel, Fenster) lassen sich mit einem
+  Richtungs-Kreuz in x/y verschieben — funktioniert auch auf dem Tablet, nicht
+  nur mit den Pfeiltasten
+- Tapete pro Wand statt pro Wohnung: Wand antippen oder in «Tapete» auswählen,
+  «Alle Wände» bleibt der schnelle Weg
+- «Entfernen» für Tapete und Bodenbelag
+
+### Fixed
+
+- Wand-Objekte liessen sich gar nicht platzieren: eine lokale Konstante in
+  `clampEntry()` verdeckte den `wallZ`-Helper, jeder Klick im Katalog-Tab «Wand»
+  brach mit einem ReferenceError ab
+- Tapeten färbten auch die Aussenfassade des Turms — jede Wand hat jetzt einen
+  Putz-Kern und ein eigenes, tapezierbares Innenpaneel
+- Die rechte Zimmerwand nahm nie Tapete an (sie war mit dem geteilten
+  Grundmaterial gebaut)
+- Aussentreppe und Wohnungstüren passen zusammen: Podest, Lauf und Tür bilden
+  auf allen zehn Stockwerken eine durchgehende Kette, auch mit dem zufälligen
+  Versatz jedes Stockwerks
+
+### Changed
+
+- Die Aussenfarbe des Turms ist jetzt einheitlich `#f3e2bd`; vorher waren Rück-
+  und linke Wand versehentlich leicht heller
+
 ## [0.1.0] - 2026-09-11
 
 ### Added
