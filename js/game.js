@@ -298,7 +298,7 @@ itemMeshes.roof = [];
 
 /* Dachterrasse */
 const roofG = new THREE.Group(); towerG.add(roofG);
-{ mesh(new THREE.BoxGeometry(ROOF_W, 0.18, ROOF_D), MAT.woodL, 0, 0.09, 0, roofG);
+{ mesh(new THREE.BoxGeometry(ROOF_W, ROOF_DECK_T, ROOF_D), MAT.woodL, 0, ROOF_DECK_T / 2, 0, roofG);
   const n = 8;
   for (let k = 0; k <= n; k++) { const x = -ROOF_W / 2 + k * ROOF_W / n;
     [-1, 1].forEach(s => mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.55, 8), MAT.wood, x, 0.45, s * (ROOF_D / 2 - 0.04), roofG)); }
@@ -357,7 +357,7 @@ function cellPos(k, cell) { const { w, d } = dims(k); const cols = colsOf(k);
   const col = cell % cols, row = Math.floor(cell / cols);
   return { x: -w / 2 + (col + 0.5) * (w / cols), z: -d / 2 + (row + 0.5) * (d / 2) }; }
 function parentOf(k) { return k === 'roof' ? roofG : floorGroups[k]; }
-function baseY(k) { return k === 'roof' ? 0.18 : 0.155; }
+function baseY(k) { return k === 'roof' ? ROOF_DECK_T : 0.155; }
 
 const DECO = new Set(['vase', 'teekanne', 'kerze', 'buecher', 'nussschale']);
 const wallZ = k => -D(k) / 2 + 0.125;
