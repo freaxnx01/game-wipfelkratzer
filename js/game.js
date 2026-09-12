@@ -158,21 +158,34 @@ const DECK_T = 0.12, DECK_Y = 0.15, DECK_W = 1.0, TREAD_T = 0.1;
 const deckZIn = i => D(i) / 2 - 0.10;              /* Innenkante, leicht in der Wand */
 const padDepth = i => i === 0 ? 0.62 : 1.25;       /* E: die Plattform trägt schon, nur Schwelle */
 const armX = i => W(i) / 2 + 0.72;                 /* Laufsteg längs der Etage */
-const flightX = i => armX(i) + 0.45;              /* Spur des Laufs, der von i nach oben führt */
+/* Letzter Lauf: von der obersten Etage hinauf auf die Dachterrasse. Er benutzt
+   dieselben Bauteile wie alle anderen Läufe, liegt aber mit seiner Spur knapp
+   ausserhalb der Dachkante (sonst stäke er im Terrassenboden und in Etage MAXF)
+   und endet auf einem Ankunftspodest, das bündig an den Belag anschliesst. */
+const ROOF_DECK_T = 0.18;                                   /* Dicke des Terrassenbelags */
+const ROOF_RISE = FLOOR_H + 0.02 + ROOF_DECK_T - DECK_Y;    /* Podest Etage MAXF -> Terrassenoberkante */
+const ROOF_RUN = 1.5 * ROOF_RISE;                           /* dieselbe Neigung wie die übrigen Läufe */
+const ROOF_TRACK = ROOF_W / 2 + DECK_W / 2;                 /* Laufspur, streift die Dachkante */
+const ROOF_PAD_D = 1.0;                                     /* Tiefe des Ankunftspodests */
+const ROOF_PAD_Z1 = ROOF_D / 2, ROOF_PAD_Z0 = ROOF_PAD_Z1 - ROOF_PAD_D;
+const inRoofGap = z => z > ROOF_PAD_Z0 - 0.3;               /* Brüstungspfosten im Durchgang */
+const flightX = i => i === MAXF ? ROOF_TRACK : armX(i) + 0.45;  /* Spur des Laufs, der von i nach oben führt */
 const padX1 = i => (i > 0 ? flightX(i - 1) : flightX(i)) + DECK_W / 2;
 const padX0 = i => Math.min(doorX(i) - 0.62, armX(i) - DECK_W / 2);
 const stairRun = i => 1.5 * riseTo(i + 1);
-const armZBack = i => deckZIn(i) - stairRun(i);    /* Treppenfuss am hinteren Ende des Laufstegs */
+/* Treppenfuss am hinteren Ende des Laufstegs; auf MAXF richtet er sich nach dem Dachpodest. */
+const armZBack = i => i === MAXF ? ROOF_PAD_Z0 - ROOF_RUN : deckZIn(i) - stairRun(i);
 
 /* Podest vor der Tür + Laufsteg + Wendepodest, alles im System der eigenen Etage. */
 function buildDeck(i, stairs) {
   const x0 = padX0(i), x1 = padX1(i), zi = deckZIn(i), zo = zi + padDepth(i), cy = DECK_Y - DECK_T / 2;
   const pad = mesh(new THREE.BoxGeometry(x1 - x0, DECK_T, zo - zi), MAT.woodL, (x0 + x1) / 2, cy, (zi + zo) / 2, stairs);
   pad.userData.part = 'pad'; stairs.userData.pad = pad;
-  if (i < MAXF) {
+  {
     const ax = armX(i), zb = armZBack(i) - 0.45;
     mesh(new THREE.BoxGeometry(DECK_W, DECK_T, zi - zb), MAT.woodL, ax, cy, (zb + zi) / 2, stairs).userData.part = 'deck';
-    const tx0 = ax - DECK_W / 2, tx1 = flightX(i) + DECK_W / 2;
+    /* Wendepodest spannt immer über Laufsteg UND Laufspur, egal welche weiter aussen liegt. */
+    const tx0 = Math.min(ax, flightX(i)) - DECK_W / 2, tx1 = Math.max(ax, flightX(i)) + DECK_W / 2;
     mesh(new THREE.BoxGeometry(tx1 - tx0, DECK_T, 1.0), MAT.woodL, (tx0 + tx1) / 2, cy, zb + 0.5, stairs).userData.part = 'deck';
     const rz0 = armZBack(i) + 1.0, rlen = zi - rz0;   /* Geländer endet vor dem Treppenfuss */
     if (rlen > 0.6) {
@@ -194,14 +207,12 @@ function buildDeck(i, stairs) {
   mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.6, 6), MAT.wood, x1 - 0.04, DECK_Y + 0.3, zi + 0.12, stairs);
 }
 
-/* Lauf von Etage i-1 hinauf zu Etage i; hängt an Etage i, damit er mit ihr sichtbar wird. */
-function buildFlight(i, stairs) {
-  const foot = fromTower(i, toTower(i - 1, new THREE.Vector3(flightX(i - 1), DECK_Y, armZBack(i - 1))));
-  const top = new THREE.Vector3(padX1(i) - DECK_W / 2, DECK_Y, deckZIn(i));
+/* Ein Lauf zwischen zwei Anschlusspunkten, beide im System von `parent`. */
+function makeFlight(foot, top, parent) {
   const d = top.clone().sub(foot);
   const horiz = Math.hypot(d.x, d.z), rise = d.y, L = Math.hypot(horiz, rise);
   const fl = new THREE.Group(); fl.position.copy(foot); fl.rotation.y = Math.atan2(d.x, d.z);
-  stairs.add(fl); stairs.userData.flight = fl;
+  parent.add(fl);
   const n = Math.max(8, Math.round(rise / 0.2)), step = rise / n, going = horiz / n;
   /* Die oberste Stufe liegt genau auf Podesthöhe und stösst an dessen Innenkante. */
   for (let k = 0; k < n; k++) {
@@ -214,6 +225,14 @@ function buildFlight(i, stairs) {
   [-1, 1].forEach(s => { const m = mesh(new THREE.BoxGeometry(0.08, 0.2, L), MAT.woodD, s * (DECK_W / 2 - 0.04), rise / 2 - 0.12, horiz / 2, fl); m.rotation.x = sl; m.userData.part = 'stringer'; });
   const rail = mesh(new THREE.BoxGeometry(0.06, 0.06, L + 0.1), MAT.woodD, DECK_W / 2 - 0.02, rise / 2 + 0.62, horiz / 2, fl); rail.rotation.x = sl;
   mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.64, 6), MAT.wood, DECK_W / 2 - 0.02, 0.32, 0.06, fl);
+  return fl;
+}
+
+/* Lauf von Etage i-1 hinauf zu Etage i; hängt an Etage i, damit er mit ihr sichtbar wird. */
+function buildFlight(i, stairs) {
+  const foot = fromTower(i, toTower(i - 1, new THREE.Vector3(flightX(i - 1), DECK_Y, armZBack(i - 1))));
+  const top = new THREE.Vector3(padX1(i) - DECK_W / 2, DECK_Y, deckZIn(i));
+  stairs.userData.flight = makeFlight(foot, top, stairs);
 }
 
 const floorGroups = [], hitboxes = [], itemMeshes = {}, tenantGroups = {}, critters = [], spinners = [];
@@ -283,10 +302,13 @@ const roofG = new THREE.Group(); towerG.add(roofG);
   const n = 8;
   for (let k = 0; k <= n; k++) { const x = -ROOF_W / 2 + k * ROOF_W / n;
     [-1, 1].forEach(s => mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.55, 8), MAT.wood, x, 0.45, s * (ROOF_D / 2 - 0.04), roofG)); }
+  /* Die +X-Brüstung lässt zwischen ROOF_PAD_Z0 und der Ecke den Treppendurchgang frei. */
   for (let k = 0; k <= 5; k++) { const z = -ROOF_D / 2 + k * ROOF_D / 5;
-    [-1, 1].forEach(s => mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.55, 8), MAT.wood, s * (ROOF_W / 2 - 0.04), 0.45, z, roofG)); }
+    [-1, 1].forEach(s => { if (s > 0 && inRoofGap(z)) return;
+      mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.55, 8), MAT.wood, s * (ROOF_W / 2 - 0.04), 0.45, z, roofG); }); }
   [-1, 1].forEach(s => { mesh(new THREE.BoxGeometry(ROOF_W, 0.06, 0.07), MAT.woodD, 0, 0.72, s * (ROOF_D / 2 - 0.04), roofG);
-    mesh(new THREE.BoxGeometry(0.07, 0.06, ROOF_D), MAT.woodD, s * (ROOF_W / 2 - 0.04), 0.72, 0, roofG); });
+    const z1 = s > 0 ? ROOF_PAD_Z0 : ROOF_D / 2, len = z1 + ROOF_D / 2;
+    mesh(new THREE.BoxGeometry(0.07, 0.06, len), MAT.woodD, s * (ROOF_W / 2 - 0.04), 0.72, (z1 - ROOF_D / 2) / 2, roofG); });
   const pole = mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.2, 8), MAT.woodD, ROOF_W / 2 - 0.2, 1.2, -ROOF_D / 2 + 0.2, roofG);
   const flag = mesh(new THREE.ConeGeometry(0.22, 0.5, 4), MAT.red, ROOF_W / 2 - 0.2, 1.62, -ROOF_D / 2 + 0.2, roofG);
   flag.rotation.z = -Math.PI / 2; flag.scale.z = 0.1;
@@ -295,7 +317,37 @@ const roofG = new THREE.Group(); towerG.add(roofG);
 }
 const partyG = new THREE.Group(); roofG.add(partyG); partyG.visible = false;
 { for (let k = 0; k < 7; k++) { const m = mesh(new THREE.SphereGeometry(0.09, 12, 10), MAT.glow, -ROOF_W / 2 + 0.4 + k * (ROOF_W - 0.8) / 6, 0.85 + Math.sin(k * 2) * 0.06, ROOF_D / 2 - 0.04, partyG); m.castShadow = false; } }
-function updateRoof() { roofG.visible = true; roofG.position.y = topY() + 0.02; }
+/* Aufgang zur Dachterrasse: letzter Lauf + Ankunftspodest. Hängt an roofG, ist also
+   automatisch mit dem Dach sichtbar — erscheint aber erst, wenn Etage MAXF steht. */
+const roofStairG = new THREE.Group(); roofG.add(roofStairG);
+/* Solange die Treppe fehlt, schliesst dieses Stück die Brüstung an der Durchgangsstelle. */
+const roofGapG = new THREE.Group(); roofG.add(roofGapG);
+{
+  const roofY = PLAT_Y + E_H + MAXF * FLOOR_H + 0.02;   /* roofG-Höhe, sobald alle Etagen stehen */
+  const ft = toTower(MAXF, new THREE.Vector3(flightX(MAXF), DECK_Y, armZBack(MAXF)));
+  makeFlight(new THREE.Vector3(ft.x, ft.y - roofY, ft.z),
+             new THREE.Vector3(ROOF_TRACK, ROOF_DECK_T, ROOF_PAD_Z0), roofStairG);
+  /* Ankunftspodest — Oberkante bündig mit dem Terrassenbelag, stösst an dessen Kante. */
+  const px0 = ROOF_W / 2, px1 = ROOF_TRACK + DECK_W / 2, cy = ROOF_DECK_T - DECK_T / 2, pzm = (ROOF_PAD_Z0 + ROOF_PAD_Z1) / 2;
+  mesh(new THREE.BoxGeometry(px1 - px0, DECK_T, ROOF_PAD_D), MAT.woodL, (px0 + px1) / 2, cy, pzm, roofStairG).userData.part = 'roofpad';
+  [ROOF_PAD_Z0 + 0.12, ROOF_PAD_Z1 - 0.12].forEach(pz =>
+    mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.6, 8), MAT.woodD, px1 - 0.12, cy - 0.36, pz, roofStairG));
+  /* Geländer des Podests in der Sprache der Terrassenbrüstung: aussen und vorne zu, zur Treppe hin offen. */
+  const post = (x, z) => mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.55, 8), MAT.wood, x, 0.45, z, roofStairG);
+  mesh(new THREE.BoxGeometry(0.07, 0.06, ROOF_PAD_D), MAT.woodD, px1 - 0.04, 0.72, pzm, roofStairG);
+  mesh(new THREE.BoxGeometry(px1 - px0, 0.06, 0.07), MAT.woodD, (px0 + px1) / 2, 0.72, ROOF_PAD_Z1 - 0.04, roofStairG);
+  [ROOF_PAD_Z0 + 0.06, pzm, ROOF_PAD_Z1 - 0.06].forEach(pz => post(px1 - 0.04, pz));
+  [px0 + 0.5, px1 - 0.5].forEach(px => post(px, ROOF_PAD_Z1 - 0.04));
+  /* Endpfosten: hier hören Terrassenbrüstung und Podestgeländer sauber auf. */
+  [[ROOF_W / 2 - 0.04, ROOF_PAD_Z0], [px1 - 0.04, ROOF_PAD_Z0]].forEach(([px, pz]) =>
+    mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.8, 8), MAT.woodD, px, 0.4, pz, roofStairG));
+  /* Lückenfüller für den Zustand ohne Treppe. */
+  mesh(new THREE.BoxGeometry(0.07, 0.06, ROOF_PAD_D), MAT.woodD, ROOF_W / 2 - 0.04, 0.72, pzm, roofGapG);
+  for (let k = 0; k <= 5; k++) { const z = -ROOF_D / 2 + k * ROOF_D / 5;
+    if (inRoofGap(z)) mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.55, 8), MAT.wood, ROOF_W / 2 - 0.04, 0.45, z, roofGapG); }
+}
+function updateRoof() { roofG.visible = true; roofG.position.y = topY() + 0.02;
+  roofStairG.visible = state.floors >= MAXF; roofGapG.visible = !roofStairG.visible; }
 updateRoof();
 
 /* ---------- Zellen & Möbel ---------- */
@@ -981,7 +1033,7 @@ for (let i = 0; i <= MAXF; i++) if (tenantIn(i)) spawnTenant(i, true);
 for (let i = 0; i <= MAXF; i++) applyLook(i);
 if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
-window.wipfelkratzer = { state, floorGroups, roofG, scene, camera, WALL_KEYS };
+window.wipfelkratzer = { state, floorGroups, roofG, roofStairG, roofGapG, scene, camera, controls, WALL_KEYS };
 applyNight(state.night ? 1 : 0);
 applyFronts();
 makeThumbs();
