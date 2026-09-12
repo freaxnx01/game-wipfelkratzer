@@ -1,1 +1,6 @@
 .worktrees/
+
+# Scratch the ai-implement agent produces while verifying (screenshots, throwaway
+# verify scripts, captured stdout). PR #21 carried all three into its diff.
+.superpowers/
+output.txt
