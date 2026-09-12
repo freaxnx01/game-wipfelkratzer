@@ -4,6 +4,25 @@ All notable changes to this project are documented here, following
 [Keep a Changelog](https://keepachangelog.com) and
 [Semantic Versioning](https://semver.org).
 
+## [0.3.0] - 2026-09-12
+
+### Added
+
+- Letzter Treppenlauf vom 10. Stock hinauf auf die Dachterrasse — das Geländer
+  hat dort eine saubere Öffnung mit Pfosten an beiden Seiten, und die Treppe
+  erscheint erst, wenn der Turm fertig gebaut ist (#6)
+
+### Fixed
+
+- Die Auswahlleiste verdeckte auf schmalen Fenstern die Werkzeugleiste. Sie
+  richtet sich jetzt nach deren tatsächlicher Höhe statt nach einem festen Wert
+  und wandert mit, wenn die Leiste auf zwei Zeilen umbricht (#7)
+- Ein Tipp auf eine Wand sprang im Katalog ungewollt auf den Tab «Tapete».
+  Der Tipp setzt jetzt immer die aktive Wand, wechselt den Tab aber nur noch,
+  wenn «Tapete» ohnehin offen ist (#8)
+- Der Spielstand sammelte leere Einträge für jedes nie eingerichtete Stockwerk;
+  ausserdem ist ein toter Test-Hook entfernt (#9)
+
 ## [0.2.0] - 2026-09-12
 
 ### Added
