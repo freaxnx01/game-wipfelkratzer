@@ -873,7 +873,7 @@ renderer.domElement.addEventListener('pointerup', e => {
       if (catTab === 'farbe') { setWallTarget(wallKey);
         $('catalog').classList.add('open'); sfx.pop();
         toast(`Wand «${WALL_LABELS[wallKey]}» ausgewählt — jetzt eine Tapete antippen.`);
-      } else { setWallTarget(wallKey); }
+      } else { wallTarget = wallKey; }
       return; }
     deselect(); return;
   }
