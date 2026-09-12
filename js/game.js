@@ -17,10 +17,10 @@ const WALL_LABELS = { back: 'Hinten', left: 'Links', right: 'Rechts', front: 'Vo
 const WALL_T = 0.12, WALL_CORE = 0.09, WALL_PANEL = 0.02;
 
 const TENANTS = [
-  { name: 'Kindergarten und Partyraum', animals: ['maus', 'maus'], wish: 'klavier', wtext: 'Die Kindergarten-Mäuse wünschen sich ein Klavier.' },
+  { name: 'Die Kindergarten-Mäuse', unit: 'Kindergarten und Partyraum', animals: ['maus', 'maus'], wish: 'klavier', wtext: 'Die Kindergarten-Mäuse wünschen sich ein Klavier.' },
   { name: 'Hausmeister Eidechsen-Charly', animals: ['eidechse'], wish: 'ofen', wtext: 'Eidechsen-Charly wünscht sich einen warmen Ofen.' },
   { name: 'Oma und Opa Haselmaus', animals: ['haselmaus', 'haselmaus'], wish: 'schaukelstuhl', wtext: 'Oma und Opa möchten einen Schaukelstuhl.' },
-  { name: 'Ferienwohnung für Hausmäuse', animals: ['maus'], wish: 'etagenbett', wtext: 'Die Feriengäste hätten gern ein Etagenbett.' },
+  { name: 'Die Feriengäste', unit: 'Ferienwohnung für Hausmäuse', animals: ['maus'], wish: 'etagenbett', wtext: 'Die Feriengäste hätten gern ein Etagenbett.' },
   { name: 'Familie Siebenschläfer', animals: ['siebenschlaefer', 'siebenschlaefer'], wish: 'bett', wtext: 'Familie Siebenschläfer wünscht sich ein kuschliges Bett.' },
   { name: 'Jimmy Wiesel und Jule Wühlmaus', animals: ['wiesel', 'maus'], wish: 'sofa', wtext: 'Jimmy und Jule wünschen sich ein Sofa.' },
   { name: 'Lisa Feldmaus', animals: ['maus'], wish: 'bild', wtext: 'Lisa wünscht sich ein Blumenbild.' },
@@ -545,7 +545,7 @@ function enterEdit(k) {
     const cy = floorY(k) + H(k) / 2;
     moveCam(new THREE.Vector3(floorGroups[k].position.x, cy + 0.5, D(k) / 2 + W(k) * 0.62 + 2.6), new THREE.Vector3(floorGroups[k].position.x, cy, 0));
     const t = TENANTS[k];
-    $('edit-title').textContent = `${flLabel(k)} — ${tenantIn(k) ? t.name : 'Wohnung einrichten'}`;
+    $('edit-title').textContent = `${flLabel(k)} — ${tenantIn(k) ? (t.unit || t.name) : 'Wohnung einrichten'}`;
   }
   $('editbar').classList.add('on');
   wallTarget = 'alle';
@@ -659,7 +659,7 @@ function renderResidents() {
   for (let i = MAXF; i >= 0; i--) {
     const li = document.createElement('li');
     const built = i <= state.floors;
-    const nm = !built ? '<span class="free">noch nicht gebaut</span>' : tenantIn(i) ? `<b>${TENANTS[i].name}</b>` : '<span class="free">zurzeit frei</span>';
+    const nm = !built ? '<span class="free">noch nicht gebaut</span>' : tenantIn(i) ? `<b>${TENANTS[i].unit || TENANTS[i].name}</b>` : '<span class="free">zurzeit frei</span>';
     li.innerHTML = `<span class="fl">${flLabel(i)}</span><span>${nm}</span>`;
     ul.appendChild(li); }
 }
