@@ -533,21 +533,37 @@ function applyFronts() {
   for (let j = 0; j <= MAXF; j++) floorGroups[j].userData.front.visible = !state.cutaway && !(edit && edit.k === j);
   $('btn-cutaway').textContent = state.cutaway ? 'Wände hin' : 'Wände weg';
 }
+function fitDistance(halfWidth, halfHeight) {
+  const vFov = camera.fov * Math.PI / 180;
+  const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+  const distH = halfWidth / Math.tan(hFov / 2);
+  const distV = halfHeight / Math.tan(vFov / 2);
+  return Math.max(distH, distV);
+}
+function editCamFor(k) {
+  if (k === 'roof') {
+    const y = topY() + 0.9;
+    const dist = ROOF_D / 2 + fitDistance(dims('roof').w / 2 + 0.4, 1.4) + 1.0;
+    return { eye: new THREE.Vector3(0, y + 3.2, dist), tgt: new THREE.Vector3(0, y, 0) };
+  }
+  const cy = floorY(k) + H(k) / 2;
+  const dist = D(k) / 2 + fitDistance(dims(k).w / 2 + 0.4, H(k) / 2 + 0.4) + 1.0;
+  return { eye: new THREE.Vector3(floorGroups[k].position.x, cy + 0.5, dist), tgt: new THREE.Vector3(floorGroups[k].position.x, cy, 0) };
+}
 function enterEdit(k) {
   if (edit) return;
   edit = { k };
   camSave = { p: camera.position.clone(), t: controls.target.clone() };
+  const { eye, tgt } = editCamFor(k);
   if (k === 'roof') {
-    const y = topY() + 0.9;
-    moveCam(new THREE.Vector3(0, y + 3.2, ROOF_D / 2 + 5.5), new THREE.Vector3(0, y, 0));
+    moveCam(eye, tgt);
     $('edit-title').textContent = 'Dachterrasse einrichten';
   } else {
     for (let j = k + 1; j <= MAXF; j++) floorGroups[j].visible = false;
     roofG.visible = false;
     applyFronts();
     floorGroups[k].userData.ceil.visible = false;
-    const cy = floorY(k) + H(k) / 2;
-    moveCam(new THREE.Vector3(floorGroups[k].position.x, cy + 0.5, D(k) / 2 + W(k) * 0.62 + 2.6), new THREE.Vector3(floorGroups[k].position.x, cy, 0));
+    moveCam(eye, tgt);
     const t = TENANTS[k];
     $('edit-title').textContent = `${flLabel(k)} — ${tenantIn(k) ? (t.unit || t.name) : 'Wohnung einrichten'}`;
   }
@@ -1052,7 +1068,7 @@ for (let i = 0; i <= MAXF; i++) if (tenantIn(i)) spawnTenant(i, true);
 for (let i = 0; i <= MAXF; i++) applyLook(i);
 if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
-window.wipfelkratzer = { state, floorGroups, roofG, roofStairG, roofGapG, scene, camera, controls, WALL_KEYS, get wallTarget() { return wallTarget; } };
+window.wipfelkratzer = { state, floorGroups, roofG, roofStairG, roofGapG, scene, camera, controls, WALL_KEYS, get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, colsOf, cellPos, parentOf, fitDistance, THREE, get edit() { return edit; } };
 applyNight(state.night ? 1 : 0);
 applyFronts();
 makeThumbs();
@@ -1095,4 +1111,5 @@ function tick() {
   renderer.render(scene, camera);
 }
 tick();
-addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight);
+  if (edit) { const { eye, tgt } = editCamFor(edit.k); camera.position.copy(eye); controls.target.copy(tgt); } });
