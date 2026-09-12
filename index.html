@@ -68,7 +68,7 @@
   #editbar.on { display: flex; }
   #edit-title { font-size: 16px; font-weight: 700; }
   /* Selection bar */
-  #selbar { position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%); z-index: 6; display: none; gap: 8px; padding: 8px; align-items: center; }
+  #selbar { position: fixed; bottom: calc(var(--toolbar-h, 60px) + 16px); left: 50%; transform: translateX(-50%); z-index: 6; display: none; gap: 8px; padding: 8px; align-items: center; }
   #selbar.on { display: flex; }
   #selbar button { min-height: 44px; font-size: 14px; }
   #wallpad { display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(2, 44px); gap: 4px; }

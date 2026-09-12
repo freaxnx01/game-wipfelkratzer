@@ -35,7 +35,11 @@ const flLabel = i => i === 0 ? 'E' : String(i);
 let state = { floors: 0, rooms: {}, nuts: 0, bridge: false, garden: false, night: false, cutaway: false, fulfilled: {}, wallpaper: {}, flooring: {} };
 try { const s = localStorage.getItem('wipfelkratzer-v1'); if (s) state = Object.assign(state, JSON.parse(s)); } catch (e) {}
 let saveT = 0;
-const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem('wipfelkratzer-v1', JSON.stringify(state)); } catch (e) {} }, 300); };
+const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { try {
+  const wallpaper = {};
+  for (const k in state.wallpaper) { const wp = state.wallpaper[k]; if (wp && typeof wp === 'object' && Object.keys(wp).length) wallpaper[k] = wp; }
+  localStorage.setItem('wipfelkratzer-v1', JSON.stringify({ ...state, wallpaper }));
+} catch (e) {} }, 300); };
 const roomOf = k => (state.rooms[k] || (state.rooms[k] = []));
 const tenantIn = i => i <= state.floors && roomOf(i).length >= 3;
 
@@ -276,7 +280,6 @@ for (let i = 0; i <= MAXF; i++) {
     g.userData.wins.push(win);
   }
   const stairs = new THREE.Group(); g.add(stairs); g.userData.stairs = stairs;
-  g.userData.doorX = doorX(i);
   if (i > 0) {
     const dx = doorX(i);
     mesh(makeArchGeo(0.7, 1.35), MAT.woodD, dx, 0, 0.08, front);
@@ -437,6 +440,12 @@ function freeCell(k, from = 0) { const total = colsOf(k) * 2;
 
 /* ---------- UI-Refs ---------- */
 const $ = id => document.getElementById(id);
+/* #selbar's bottom offset tracks #toolbar's real rendered height (it wraps to two
+   rows on narrow viewports), so the two never overlap and #selbar never has to
+   guess the toolbar's height. */
+(() => { const tb = $('toolbar');
+  const sync = () => document.documentElement.style.setProperty('--toolbar-h', tb.offsetHeight + 'px');
+  new ResizeObserver(sync).observe(tb); sync(); })();
 const toastEl = $('toast'); let toastT = 0;
 function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('show'), 2800); }
 function updateHUD() { $('nuts').textContent = state.nuts; $('floors').textContent = state.floors;
@@ -860,9 +869,12 @@ renderer.domElement.addEventListener('pointerup', e => {
     if (hits.length) { let o = hits[0].object; while (o && !(o.userData && o.userData.pick)) o = o.parent;
       if (o) { select(o.userData.pick); sfx.pop(); return; } }
     const wallKey = pickWall();
-    if (wallKey) { deselect(); catTab = 'farbe'; setWallTarget(wallKey);
-      $('catalog').classList.add('open'); sfx.pop();
-      toast(`Wand «${WALL_LABELS[wallKey]}» ausgewählt — jetzt eine Tapete antippen.`); return; }
+    if (wallKey) { deselect();
+      if (catTab === 'farbe') { setWallTarget(wallKey);
+        $('catalog').classList.add('open'); sfx.pop();
+        toast(`Wand «${WALL_LABELS[wallKey]}» ausgewählt — jetzt eine Tapete antippen.`);
+      } else { setWallTarget(wallKey); }
+      return; }
     deselect(); return;
   }
   if (state.cutaway) {
