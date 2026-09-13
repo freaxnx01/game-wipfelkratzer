@@ -8,6 +8,24 @@ All notable changes to this project are documented here, following
 
 ### Fixed
 
+- Der geöffnete Katalog überlappte auf schmalen Fenstern die ganze
+  Werkzeugleiste und, bei ausgewähltem Möbel, auch die Auswahlleiste. Er
+  richtet sich jetzt nach deren tatsächlicher Höhe statt nach einem festen
+  Abstand zum unteren Rand (#16)
+- Meldungen verschwanden nach 2,8 Sekunden von selbst — oft, bevor sie fertig
+  gelesen waren. Sie bleiben jetzt stehen, stapeln sich statt sich gegenseitig
+  zu überschreiben und werden einzeln über ein grosses × oder einen Tipp auf
+  die Meldung geschlossen; ab zwei offenen Meldungen räumt «Alle schliessen»
+  den Stapel auf einmal weg (#10)
+- Einziehende Tiere wurden fix an die Rückwand gesetzt und standen teils in
+  Möbeln. Sie erscheinen jetzt an der Stelle im Raum mit dem grössten Abstand
+  zu vorhandenem Mobiliar — bei freier Mitte in der Mitte, sonst an der
+  nächstfreien Stelle (#14)
+- Der Liegestuhl auf der Dachterrasse war ein schräges Brett, das an vier
+  Stäben vorbeischwebte. Er ist jetzt ein richtiger Klapp-Liegestuhl: flache
+  Sitzfläche und steilere Rückenlehne mit Knick, rot-weisse Stoffbahnen,
+  Holzgestell mit Streben, das die Liegefläche an Fuss- und Kopfende trägt,
+  und ein kleines Kissen (#13)
 - Der Dachpool sah aus wie ein zugedecktes Fass: ein runder Kübel mit flacher
   Scheibe obendrauf. Er ist jetzt nierenförmig wie auf der Buchseite, mit
   vertieftem blauem Wasser, Wellenlinien, zwei Fröschen im Wasser und der

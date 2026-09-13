@@ -223,9 +223,19 @@ const FURN = {
     for (let i = 0; i < 3; i++) box(lad, 0.03, 0.03, 0.18, MAT.grey, 0.05, 0.18 + i * 0.2, 0);
     return g; },
   liegestuhl() { const g = G();
-    const s = G(); g.add(s); s.position.y = 0.3; s.rotation.x = -0.5;
-    for (let i = 0; i < 5; i++) box(s, 0.5, 0.03, 0.16, i % 2 ? MAT.white : MAT.red, 0, 0, -0.34 + i * 0.17);
-    [-0.24, 0.24].forEach(x => { box(g, 0.04, 0.3, 0.04, MAT.wood, x, 0.15, 0.25); box(g, 0.04, 0.42, 0.04, MAT.wood, x, 0.21, -0.2); });
+    /* Seitenprofil als Punkte [z, y]: Fussende F, Knick K, Kopfende T; Beine stehen bei GF/GB auf dem Boden.
+       Alle Latten werden von Punkt zu Punkt gespannt, damit Gestell und Liegefläche sich wirklich berühren. */
+    const F = [0.36, 0.23], K = [-0.04, 0.21], T = [-0.27, 0.48], GF = [0.26, 0.02], GB = [-0.36, 0.02];
+    const pt = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    const bar = (a, b, x, mat, w = 0.04, t = 0.04, ext = t) => { const dz = b[0] - a[0], dy = b[1] - a[1];
+      const m = box(g, w, t, Math.hypot(dz, dy) + ext, mat, x, (a[1] + b[1]) / 2, (a[0] + b[0]) / 2); m.rotation.x = Math.atan2(-dy, dz); return m; };
+    const stripes = (a, b, first) => { for (let i = 0; i < 3; i++) bar(pt(a, b, i / 3), pt(a, b, (i + 1) / 3), 0, (i + first) % 2 ? MAT.white : MAT.red, 0.42, 0.03, -0.012); };
+    [-0.235, 0.235].forEach(x => { bar(F, K, x, MAT.wood); bar(K, T, x, MAT.wood); bar(GF, F, x, MAT.woodD); bar(GB, T, x, MAT.woodD); bar(GB, K, x, MAT.woodD); });
+    [F, T, GB].forEach(p => box(g, 0.51, 0.045, 0.045, MAT.woodD, 0, p[1], p[0]));
+    stripes(F, K, 0); stripes(K, T, 1);
+    const n = Math.hypot(T[0] - K[0], T[1] - K[1]);
+    const pillow = bar(pt(K, T, 0.58), pt(K, T, 0.96), 0, MAT.cream, 0.3, 0.08, 0);
+    pillow.position.z += (T[1] - K[1]) / n * 0.05; pillow.position.y -= (T[0] - K[0]) / n * 0.05;
     return g; },
   sonnenschirm() { const g = G();
     cyl(g, 0.2, 0.26, 0.08, MAT.woodD, 0, 0.04); cyl(g, 0.03, 0.03, 1.3, MAT.wood, 0, 0.7);
