@@ -4,6 +4,15 @@ All notable changes to this project are documented here, following
 [Keep a Changelog](https://keepachangelog.com) and
 [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Fixed
+
+- Der Dachpool sah aus wie ein zugedecktes Fass: ein runder Kübel mit flacher
+  Scheibe obendrauf. Er ist jetzt nierenförmig wie auf der Buchseite, mit
+  vertieftem blauem Wasser, Wellenlinien, zwei Fröschen im Wasser und der
+  Leiter am Rand (#12)
+
 ## [0.4.0] - 2026-09-13
 
 ### Fixed
