@@ -4,6 +4,27 @@ All notable changes to this project are documented here, following
 [Keep a Changelog](https://keepachangelog.com) and
 [Semantic Versioning](https://semver.org).
 
+## [0.4.0] - 2026-09-13
+
+### Fixed
+
+- Die Sprechblase nannte zwei Bewohner nach ihrer Wohnung statt nach sich
+  selbst («Kindergarten und Partyraum» wünscht sich ein Klavier). Bewohner und
+  Wohnung sind jetzt getrennt: die Blase nennt den Namen, Titelzeile und
+  Bewohnerliste weiterhin die Wohnung (#15)
+- Im Hochformat rahmte die Kamera beim Einrichten die Möbel aus dem Bild. Der
+  Abstand wird jetzt aus dem tatsächlichen Blickfeld berechnet, waagrecht wie
+  senkrecht, und beim Drehen des Geräts neu gesetzt (#17)
+- Ein Tipp auf eine Wand scrollte den Katalog zurück nach oben, wenn ein
+  anderer Tab als «Tapete» offen war. Die Wand wird dort jetzt still gesetzt,
+  ohne den Katalog neu aufzubauen (#18)
+- Das Extras-Menü überlappte die Werkzeugleiste genauso, wie es die
+  Auswahlleiste vor #7 tat — es hing noch an einem festen Abstand. Es rechnet
+  jetzt mit derselben Formel aus der gemessenen Leistenhöhe (#19)
+- Dach-Möbel liessen sich in die neue Treppenöffnung stellen, wo sie in der
+  Luft standen. Die Öffnung ist jetzt für Möbel gesperrt, und Spielstände mit
+  einem Möbel darin werden beim Laden zurechtgeschoben (#20)
+
 ## [0.3.0] - 2026-09-12
 
 ### Added
