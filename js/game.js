@@ -481,15 +481,16 @@ function makeToastItem(t) {
   return el;
 }
 /* Nur Zu- und Abgänge anfassen: ein neuer Toast soll die schon offenen nicht
-   neu einblenden lassen. #toast-stack ist column-reverse, darum sitzt das
-   zuerst eingehängte Element unten (bei der Werkzeugleiste) — der neueste
-   Toast wird vorne eingehängt, «Alle schliessen» bleibt als letztes Kind oben. */
+   neu einblenden lassen. #toast-stack ist column-reverse, das erste Kind sitzt
+   also unten bei der Werkzeugleiste: «Alle schliessen» bleibt dort stehen und
+   ist auch bei vollem, gescrolltem Stapel erreichbar, der neueste Toast kommt
+   direkt darüber. */
 function renderToasts() {
   const open = new Set(toasts.map(t => t.id));
   for (const el of toastStackEl.querySelectorAll('.toast-item'))
     if (!open.has(Number(el.dataset.id))) el.remove();
   for (const t of toasts)
-    if (!toastStackEl.querySelector(`.toast-item[data-id="${t.id}"]`)) toastStackEl.prepend(makeToastItem(t));
+    if (!toastStackEl.querySelector(`.toast-item[data-id="${t.id}"]`)) toastClearEl.after(makeToastItem(t));
   toastClearEl.classList.toggle('hidden', toasts.length < 2);
 }
 toastClearEl.onclick = dismissAllToasts;
