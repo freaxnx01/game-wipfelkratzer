@@ -215,6 +215,24 @@ This is how the `#game-nav` i18n-toggle bug above was actually found — a
 correct, but the button was invisible and non-functional in a real browser
 the whole time.
 
+**Run the verification in the foreground. Never `run_in_background`.** A
+headless CI agent has no one to deliver a completion notification to, so a
+backgrounded Playwright run never reports back. What follows is the agent
+spending its remaining turns idling on `sleep 1`, `echo idle`, `:` — waiting
+for a signal that cannot arrive — until the run ends. It then reports
+**success while having pushed nothing**: no branch, no PR, the work committed
+only on a runner that is about to be destroyed. That is worse than a plain
+failure, because it is indistinguishable from a real success in the run report
+and in `/ai-stats`.
+
+A `game-wipfelkratzer` dispatch died exactly this way: 59 of 80 turns, 17
+minutes, $2.76, `success`, nothing to show for it. If a check is slow, give the
+foreground call a generous `timeout` and let it block — blocking is the point.
+
+Commit and push the branch **before** starting verification, not after. Then a
+run that dies mid-check still leaves the work recoverable instead of taking it
+down with the runner.
+
 ---
 
 ## Localization (i18n)

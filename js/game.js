@@ -450,8 +450,50 @@ const $ = id => document.getElementById(id);
 (() => { const tb = $('toolbar');
   const sync = () => document.documentElement.style.setProperty('--toolbar-h', tb.offsetHeight + 'px');
   new ResizeObserver(sync).observe(tb); sync(); })();
-const toastEl = $('toast'); let toastT = 0;
-function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('show'), 2800); }
+/* #catalog's bottom offset also tracks #selbar's real rendered height, so the
+   catalog drawer never covers the selection bar either. */
+(() => { const sb = $('selbar');
+  const sync = () => document.documentElement.style.setProperty('--selbar-h', sb.offsetHeight + 'px');
+  new ResizeObserver(sync).observe(sb); sync(); })();
+/* Toasts verschwinden nie von selbst — ein Kind soll fertig lesen können. Sie
+   stapeln sich stattdessen und werden einzeln (× oder Tipp auf den Toast) oder
+   alle zusammen weggetippt. TOAST_MAX_VISIBLE begrenzt den Stapel, damit eine
+   ignorierte Serie den Bildschirm nicht zustellt. */
+const TOAST_MAX_VISIBLE = 5;
+const toastStackEl = $('toast-stack'), toastClearEl = $('toast-clear-all');
+let toasts = [], toastSeq = 0;
+function toast(msg) {
+  toasts.push({ id: ++toastSeq, msg });
+  if (toasts.length > TOAST_MAX_VISIBLE) toasts.shift();
+  renderToasts();
+}
+function dismissToast(id) { toasts = toasts.filter(t => t.id !== id); renderToasts(); }
+function dismissAllToasts() { toasts = []; renderToasts(); }
+function makeToastItem(t) {
+  const el = document.createElement('div');
+  el.className = 'toast-item panel'; el.dataset.id = t.id;
+  const msg = document.createElement('span'); msg.className = 'toast-msg'; msg.textContent = t.msg;
+  const close = document.createElement('button');
+  close.className = 'toast-close'; close.type = 'button'; close.textContent = '×';
+  close.setAttribute('aria-label', 'Schliessen');
+  el.append(msg, close);
+  el.onclick = () => dismissToast(t.id);
+  return el;
+}
+/* Nur Zu- und Abgänge anfassen: ein neuer Toast soll die schon offenen nicht
+   neu einblenden lassen. #toast-stack ist column-reverse, das erste Kind sitzt
+   also unten bei der Werkzeugleiste: «Alle schliessen» bleibt dort stehen und
+   ist auch bei vollem, gescrolltem Stapel erreichbar, der neueste Toast kommt
+   direkt darüber. */
+function renderToasts() {
+  const open = new Set(toasts.map(t => t.id));
+  for (const el of toastStackEl.querySelectorAll('.toast-item'))
+    if (!open.has(Number(el.dataset.id))) el.remove();
+  for (const t of toasts)
+    if (!toastStackEl.querySelector(`.toast-item[data-id="${t.id}"]`)) toastClearEl.after(makeToastItem(t));
+  toastClearEl.classList.toggle('hidden', toasts.length < 2);
+}
+toastClearEl.onclick = dismissAllToasts;
 function updateHUD() { $('nuts').textContent = state.nuts; $('floors').textContent = state.floors;
   $('btn-build').textContent = state.floors >= MAXF ? 'Fertig gebaut!' : `Stockwerk bauen (${state.floors + 1}/10)`;
   $('btn-build').disabled = state.floors >= MAXF || !!edit;
