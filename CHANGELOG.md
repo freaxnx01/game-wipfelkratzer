@@ -17,6 +17,10 @@ All notable changes to this project are documented here, following
   zu überschreiben und werden einzeln über ein grosses × oder einen Tipp auf
   die Meldung geschlossen; ab zwei offenen Meldungen räumt «Alle schliessen»
   den Stapel auf einmal weg (#10)
+- Einziehende Tiere wurden fix an die Rückwand gesetzt und standen teils in
+  Möbeln. Sie erscheinen jetzt an der Stelle im Raum mit dem grössten Abstand
+  zu vorhandenem Mobiliar — bei freier Mitte in der Mitte, sonst an der
+  nächstfreien Stelle (#14)
 
 ## [0.4.0] - 2026-09-13
 
