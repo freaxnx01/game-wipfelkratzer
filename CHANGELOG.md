@@ -4,7 +4,14 @@ All notable changes to this project are documented here, following
 [Keep a Changelog](https://keepachangelog.com) and
 [Semantic Versioning](https://semver.org).
 
-## [Unreleased]
+## [0.5.0] - 2026-09-13
+
+### Added
+
+- Wand-Objekte (Poster, Wanduhr, Spiegel, Fenster) landen jetzt auf der Wand,
+  die im Katalog gerade gewählt ist, statt immer an der Rückwand. Der
+  «Wand»-Tab hat dafür eine eigene Knopfreihe für die vier Wände, genau wie
+  «Tapete» — Antippen einer Wand in 3D funktioniert weiterhin ebenfalls (#11)
 
 ### Fixed
 
@@ -30,12 +37,6 @@ All notable changes to this project are documented here, following
   Scheibe obendrauf. Er ist jetzt nierenförmig wie auf der Buchseite, mit
   vertieftem blauem Wasser, Wellenlinien, zwei Fröschen im Wasser und der
   Leiter am Rand (#12)
-### Added
-
-- Wand-Objekte (Poster, Wanduhr, Spiegel, Fenster) landen jetzt auf der Wand,
-  die im Katalog gerade gewählt ist, statt immer an der Rückwand. Der
-  «Wand»-Tab hat dafür eine eigene Knopfreihe für die vier Wände, genau wie
-  «Tapete» — Antippen einer Wand in 3D funktioniert weiterhin ebenfalls (#11)
 
 ## [0.4.0] - 2026-09-13
 
