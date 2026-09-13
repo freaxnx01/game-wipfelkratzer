@@ -108,7 +108,31 @@ Ausserhalb des Batches am selben Tag dazugekommen:
 | Notiz 13.09. | #36 feat(katalog): Instrumente als Möbel — Blockflöte, Harfe, Schlagzeug |
 
 Block A ist vollständig ausgeliefert (v0.4.0 und v0.5.0).
-Offen: Block C (19 neue Features) — später.
+Block C angelegt 13.09.2026:
+
+| Eintrag | Issue |
+|---|---|
+| 06, 12, 19 | #37 feat(katalog): mehr Objekte — Bar, Kommode, Ball, Kuscheltier, Dartscheibe, Tischkicker |
+| 07 | #38 feat(umgebung): Spielplatz-Objekte platzieren, verschieben, drehen |
+| 08 | #39 feat(tiere): Tiere in der Wohnung verschieben und drehen |
+| 09 | #40 feat(tiere): Kollisionserkennung zwischen Objekten und Tieren |
+| 10 | #41 feat(einrichten): Objekte interaktiv machen — Fenster, Badewanne, Lampe |
+| 13 | #42 feat(katalog): «Wipfkea» — eine eigene Möbelserie in Braun und Pink |
+| 14 | #43 feat(katalog): Möbeldesigner / Schreinerei |
+| 16 | #44 feat(turm): First-Person |
+| 17 | #45 feat(umgebung): Else Elster befüllt den Pool |
+| 18 | #46 feat(umgebung): auf den Bach tippen startet Splashdown |
+| 21 | #47 feat(turm): wählbare Turmhöhe — 10, 20 oder 50 Stockwerke |
+| 22 | #48 feat(einrichten): einen Raum samt Einrichtung kopieren |
+| 25 | #49 feat(dach): Terrassenhäuschen mit grünem Schilfdach |
+| 27 | #50 feat(umgebung): Jahreszeiten |
+| 26 (klammert 13, 14, 23) | #51 feat(welt): Walddorf mit Übersichtskarte |
+
+15 Issues aus 18 Einträgen: 06/12/19 sind zu einem geklammert, 23 geht in 26 auf.
+
+**#44 (First-Person) und #51 (Walddorf) brauchen je ein eigenes Brainstorming
+vor dem Spec** — beide sind zu gross, um aus der Notiz abgeleitet zu werden.
+Das ist in beiden Issue-Bodies vermerkt.
 Offen: #15 der Triage (Spielstand) — Rückfrage läuft.
 Anhänge persistiert und in die Issues eingebettet:
 
