@@ -1,6 +1,6 @@
 # Feedback-Triage — Test mit Tochter, 12.09.2026
 
-status: approved — Block A ausgeliefert (v0.4.0/v0.5.0), Block B angelegt (#33, #34), Block C offen
+status: abgeschlossen — Block A ausgeliefert (v0.4.0/v0.5.0), Block B und C angelegt, Rückfrage beantwortet
 Quelle: Telegram-Notizen 11:42–16:21 + 1 Screenshot
 Repo-Stand: v0.2.0 (+ Branch `feat/dach-treppe-und-feinschliff` offen für #6–#9)
 
@@ -133,7 +133,19 @@ Block C angelegt 13.09.2026:
 **#44 (First-Person) und #51 (Walddorf) brauchen je ein eigenes Brainstorming
 vor dem Spec** — beide sind zu gross, um aus der Notiz abgeleitet zu werden.
 Das ist in beiden Issue-Bodies vermerkt.
-Offen: #15 der Triage (Spielstand) — Rückfrage läuft.
+Eintrag 15 (Spielstand) — Rückfrage am 13.09.2026 beantwortet: **mehrere
+Spielstände nebeneinander** und **Export/Import als Datei**. Angelegt als:
+
+| Issue | |
+|---|---|
+| #53 | feat(spielstand): mehrere Spielstände nebeneinander führen |
+| #52 | feat(spielstand): Turm als Datei sichern und wieder einlesen |
+
+#52 sinnvollerweise nach #53, sonst wird das Dateiformat zweimal gebaut. #53 und
+#51 (Walddorf) brechen beide dieselbe flache Speicherstruktur auf, in
+verschiedene Richtungen — gemeinsam entwerfen.
+
+Damit ist die Triage vom 12.09.2026 vollständig abgearbeitet.
 Anhänge persistiert und in die Issues eingebettet:
 
 | Eintrag | Datei | verwendet in |
