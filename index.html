@@ -51,7 +51,7 @@
   .wish { padding: 8px 12px; font-size: 14px; line-height: 1.25; cursor: pointer; border-left: none; }
   .wish b { color: var(--wood); }
   /* Catalog */
-  #catalog { position: fixed; right: 0; top: 0; bottom: 0; width: min(320px, 88vw); background: var(--cream); border-left: 4px solid var(--woodL); z-index: 8; display: none; flex-direction: column; }
+  #catalog { position: fixed; right: 0; top: 0; bottom: calc(var(--toolbar-h, 60px) + 16px + var(--selbar-h, 0px) + 10px); width: min(320px, 88vw); background: var(--cream); border-left: 4px solid var(--woodL); z-index: 8; display: none; flex-direction: column; }
   #catalog.open { display: flex; }
   #catalog header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 4px; }
   #catalog header h2 { margin: 0; font-size: 18px; color: var(--wood); }

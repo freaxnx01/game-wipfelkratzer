@@ -450,6 +450,11 @@ const $ = id => document.getElementById(id);
 (() => { const tb = $('toolbar');
   const sync = () => document.documentElement.style.setProperty('--toolbar-h', tb.offsetHeight + 'px');
   new ResizeObserver(sync).observe(tb); sync(); })();
+/* #catalog's bottom offset also tracks #selbar's real rendered height, so the
+   catalog drawer never covers the selection bar either. */
+(() => { const sb = $('selbar');
+  const sync = () => document.documentElement.style.setProperty('--selbar-h', sb.offsetHeight + 'px');
+  new ResizeObserver(sync).observe(sb); sync(); })();
 const toastEl = $('toast'); let toastT = 0;
 function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('show'), 2800); }
 function updateHUD() { $('nuts').textContent = state.nuts; $('floors').textContent = state.floors;
