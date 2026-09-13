@@ -260,7 +260,7 @@ for (let i = 0; i <= MAXF; i++) {
   mesh(new THREE.BoxGeometry(w + 0.12, 0.14, d + 0.12), MAT.woodL, 0, 0.07, 0, g);
   mesh(new THREE.BoxGeometry(w - 0.24, 0.02, d - 0.24), floorMat, 0, 0.145, 0, g).castShadow = false;
   /* Rückwand: Kern (aussen sichtbar) + Innenpanel — die Innenfläche bleibt bei -d/2 + 0.12,
-     also 0.005 hinter wallZ(k), damit Wandobjekte weiter sauber davor hängen. */
+     also 0.005 hinter wallPlacement(k,'back').fixed, damit Wandobjekte sauber davor hängen. */
   mesh(new THREE.BoxGeometry(w - 0.24, h, WALL_CORE), MAT.plaster, 0, h / 2, -d / 2 + WALL_CORE / 2, g);
   panel('back', new THREE.BoxGeometry(w - 0.24, h, WALL_PANEL), 0, h / 2, -d / 2 + WALL_T - WALL_PANEL / 2, g);
   [-1, 1].forEach(s => {
@@ -364,7 +364,18 @@ function parentOf(k) { return k === 'roof' ? roofG : floorGroups[k]; }
 function baseY(k) { return k === 'roof' ? ROOF_DECK_T : 0.155; }
 
 const DECO = new Set(['vase', 'teekanne', 'kerze', 'buecher', 'nussschale']);
-const wallZ = k => -D(k) / 2 + 0.125;
+/* Wandplatzierung für alle vier Wände, symmetrisch zur bisherigen Rückwand-Formel
+   -D(k)/2 + 0.125 / rot=0 (dieselben Konstanten wie die Wandpanels selbst, siehe
+   deren Aufbau weiter oben). */
+const WALL_FACE_ROT = { back: 0, front: Math.PI, left: Math.PI / 2, right: -Math.PI / 2 };
+function wallPlacement(k, wallKey) {
+  if (wallKey === 'left' || wallKey === 'right') {
+    return { fixedAxis: 'x', fixed: wallKey === 'right' ? W(k) / 2 - 0.125 : -W(k) / 2 + 0.125,
+      freeAxis: 'z', half: D(k) / 2 - 0.55, rot: WALL_FACE_ROT[wallKey] };
+  }
+  return { fixedAxis: 'z', fixed: wallKey === 'front' ? D(k) / 2 - 0.125 : -D(k) / 2 + 0.125,
+    freeAxis: 'x', half: W(k) / 2 - 0.55, rot: WALL_FACE_ROT[wallKey] };
+}
 let migrated = false;
 /* Tapete pro Wand. Alte Speicherstände haben hier einen einzelnen String für die
    ganze Wohnung — der wandert still auf alle vier Wände. */
@@ -414,9 +425,14 @@ function surfaceYAt(k, x, z, exclude) {
 }
 const SURFACES = ['tisch', 'regal', 'schrank', 'klavier', 'nusskiste'];
 function clampEntry(k, m, en) {
-  if (WALL_ITEMS.has(en.id)) { const hw = W(k) / 2 - 0.55, hh = H(k);
-    en.x = Math.max(-hw, Math.min(hw, en.x)); en.y = Math.max(0.45, Math.min(hh - 0.55, en.y ?? 1.1)); en.z = wallZ(k); en.rot = 0;
-    m.position.set(en.x, en.y, en.z); m.rotation.y = 0; return; }
+  if (WALL_ITEMS.has(en.id)) {
+    en.wall = en.wall || 'back';
+    const pl = wallPlacement(k, en.wall), hh = H(k);
+    en.x = Math.max(-pl.half, Math.min(pl.half, en.x));
+    en.y = Math.max(0.45, Math.min(hh - 0.55, en.y ?? 1.1));
+    en.rot = pl.rot;
+    const pos = { x: 0, z: 0 }; pos[pl.fixedAxis] = pl.fixed; pos[pl.freeAxis] = en.x; en.z = pos.z;
+    m.position.set(pos.x, en.y, pos.z); m.rotation.y = pl.rot; return; }
   const limX = k === 'roof' ? ROOF_W / 2 - 0.1 : W(k) / 2 - 0.13;
   const limZ = k === 'roof' ? ROOF_D / 2 - 0.1 : D(k) / 2 - 0.13;
   const bb = new THREE.Box3().setFromObject(m);
@@ -431,8 +447,17 @@ function clampEntry(k, m, en) {
 function placeItemMesh(k, entry) {
   if (entry.x === undefined) { const p = cellPos(k, entry.cell || 0); entry.x = p.x; entry.z = p.z; entry.rot = (entry.rot || 0) * Math.PI / 2; }
   const m = makeFurniture(entry.id);
-  m.position.set(entry.x, entry.y ?? baseY(k), entry.z);
-  m.rotation.y = entry.rot;
+  if (WALL_ITEMS.has(entry.id)) {
+    /* entry.x ist die Position entlang der Wand (siehe wallPlacement); die feste Achse
+       (Wandebene) wird aus entry.wall/k neu bestimmt, nicht mitgespeichert. */
+    const pl = wallPlacement(k, entry.wall || 'back');
+    const pos = { x: 0, z: 0 }; pos[pl.fixedAxis] = pl.fixed; pos[pl.freeAxis] = entry.x;
+    m.position.set(pos.x, entry.y ?? baseY(k), pos.z);
+    m.rotation.y = pl.rot;
+  } else {
+    m.position.set(entry.x, entry.y ?? baseY(k), entry.z);
+    m.rotation.y = entry.rot;
+  }
   m.userData.pick = { k, entry, mesh: m };
   parentOf(k).add(m); itemMeshes[k].push(m);
   if (m.userData.wheel) spinners.push(m.userData.wheel);
@@ -512,6 +537,21 @@ function renderCatalog() {
       d.innerHTML = `<img src="${lookCanvas(kind, l.id).toDataURL()}" alt=""><span>${l.name}</span>`;
       d.onclick = () => setLook(kind, l.id); wrap.appendChild(d); });
     return;
+  }
+  if (catTab === 'wand') {
+    const pick = document.createElement('div'); pick.id = 'wallpick';
+    const hint = document.createElement('p'); hint.className = 'hint';
+    hint.textContent = 'Welche Wand? Du kannst sie auch direkt antippen.';
+    pick.appendChild(hint);
+    const active = wallTarget === 'alle' ? 'back' : wallTarget;
+    WALL_KEYS.forEach(key => {
+      const b = document.createElement('button');
+      b.textContent = WALL_LABELS[key]; b.dataset.wall = key;
+      if (key === active) b.className = 'on';
+      b.onclick = () => { setWallTarget(key);
+        if (key === 'front') toast('Diese Wand siehst du erst richtig, wenn du fertig bist.'); };
+      pick.appendChild(b); });
+    wrap.appendChild(pick);
   }
   CATALOG.filter(it => it.cat === catTab).forEach(it => {
     const d = document.createElement('div'); d.className = 'item';
@@ -602,9 +642,13 @@ function addItem(id) {
   if (cell < 0 && !DECO.has(id) && !WALL_ITEMS.has(id)) { toast('Die Wohnung ist schon ganz voll!'); return; }
   const p = cellPos(k, Math.max(cell, 0));
   const entry = { id, cell: Math.max(cell, 0), x: p.x, z: p.z, rot: 0 };
-  if (WALL_ITEMS.has(id)) { entry.z = wallZ(k); entry.y = id === 'fenster' ? 1.05 : 1.2;
-    const taken = roomOf(k).filter(e => WALL_ITEMS.has(e.id)).map(e => e.x);
-    const hw = W(k) / 2 - 0.6; let best = 0, bd = -1;
+  if (WALL_ITEMS.has(id)) {
+    entry.wall = wallTarget === 'alle' ? 'back' : wallTarget;
+    entry.y = id === 'fenster' ? 1.05 : 1.2;
+    const pl = wallPlacement(k, entry.wall);
+    const wallLen = pl.freeAxis === 'x' ? W(k) : D(k);
+    const taken = roomOf(k).filter(e => WALL_ITEMS.has(e.id) && (e.wall || 'back') === entry.wall).map(e => e.x);
+    const hw = wallLen / 2 - 0.6; let best = 0, bd = -1;
     for (let x = -hw; x <= hw; x += 0.4) { const dmin = taken.length ? Math.min(...taken.map(t => Math.abs(t - x))) : 99; if (dmin > bd) { bd = dmin; best = x; } }
     entry.x = best; }
   if (DECO.has(id)) {
@@ -893,6 +937,9 @@ renderer.domElement.addEventListener('pointerup', e => {
       if (catTab === 'farbe') { setWallTarget(wallKey);
         $('catalog').classList.add('open'); sfx.pop();
         toast(`Wand «${WALL_LABELS[wallKey]}» ausgewählt — jetzt eine Tapete antippen.`);
+      } else if (catTab === 'wand') { setWallTarget(wallKey);
+        $('catalog').classList.add('open'); sfx.pop();
+        toast(`Wand «${WALL_LABELS[wallKey]}» ausgewählt — jetzt ein Objekt antippen.`);
       } else { wallTarget = wallKey; }
       return; }
     deselect(); return;
@@ -1068,7 +1115,7 @@ for (let i = 0; i <= MAXF; i++) if (tenantIn(i)) spawnTenant(i, true);
 for (let i = 0; i <= MAXF; i++) applyLook(i);
 if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
-window.wipfelkratzer = { state, floorGroups, roofG, roofStairG, roofGapG, scene, camera, controls, WALL_KEYS, get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, get edit() { return edit; } };
+window.wipfelkratzer = { state, floorGroups, roofG, roofStairG, roofGapG, scene, camera, controls, WALL_KEYS, get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; } };
 applyNight(state.night ? 1 : 0);
 applyFronts();
 makeThumbs();
