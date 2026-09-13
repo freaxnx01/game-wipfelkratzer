@@ -1,6 +1,6 @@
 # Feedback-Triage — Test mit Tochter, 12.09.2026
 
-status: approved — Block A angelegt (#10-#15), Block B+C offen
+status: approved — Block A ausgeliefert (v0.4.0/v0.5.0), Block B angelegt (#33, #34), Block C offen
 Quelle: Telegram-Notizen 11:42–16:21 + 1 Screenshot
 Repo-Stand: v0.2.0 (+ Branch `feat/dach-treppe-und-feinschliff` offen für #6–#9)
 
@@ -91,7 +91,23 @@ Block A freigegeben und angelegt:
 | 11 | #14 fix(tiere): Tiere ziehen an die Rückwand statt in die Raummitte |
 | 24 | #15 fix(tiere): Bewohner-Namen klingen in der Sprechblase falsch |
 
-Offen: Block B (02 Möbelfarbe, 20 «alle herunterladen») — nicht freigegeben.
+## Freigabe 13.09.2026
+
+Block B nachträglich freigegeben und angelegt:
+
+| # | Issue |
+|---|---|
+| 02 | #34 feat(einrichten): Möbelfarbe auswählen |
+| 20 | #33 feat(fotos): alle Fotos auf einmal herunterladen |
+
+Ausserhalb des Batches am selben Tag dazugekommen:
+
+| Quelle | Issue |
+|---|---|
+| Meldung 13.09. | #35 fix(turm): der Turm hat 11 Ebenen, gezählt werden 10 |
+| Notiz 13.09. | #36 feat(katalog): Instrumente als Möbel — Blockflöte, Harfe, Schlagzeug |
+
+Block A ist vollständig ausgeliefert (v0.4.0 und v0.5.0).
 Offen: Block C (19 neue Features) — später.
 Offen: #15 der Triage (Spielstand) — Rückfrage läuft.
 Anhänge persistiert und in die Issues eingebettet:
