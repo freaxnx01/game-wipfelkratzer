@@ -12,6 +12,11 @@ All notable changes to this project are documented here, following
   Werkzeugleiste und, bei ausgewähltem Möbel, auch die Auswahlleiste. Er
   richtet sich jetzt nach deren tatsächlicher Höhe statt nach einem festen
   Abstand zum unteren Rand (#16)
+- Meldungen verschwanden nach 2,8 Sekunden von selbst — oft, bevor sie fertig
+  gelesen waren. Sie bleiben jetzt stehen, stapeln sich statt sich gegenseitig
+  zu überschreiben und werden einzeln über ein grosses × oder einen Tipp auf
+  die Meldung geschlossen; ab zwei offenen Meldungen räumt «Alle schliessen»
+  den Stapel auf einmal weg (#10)
 
 ## [0.4.0] - 2026-09-13
 
