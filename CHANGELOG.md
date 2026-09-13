@@ -26,6 +26,10 @@ All notable changes to this project are documented here, following
   Sitzfläche und steilere Rückenlehne mit Knick, rot-weisse Stoffbahnen,
   Holzgestell mit Streben, das die Liegefläche an Fuss- und Kopfende trägt,
   und ein kleines Kissen (#13)
+- Der Dachpool sah aus wie ein zugedecktes Fass: ein runder Kübel mit flacher
+  Scheibe obendrauf. Er ist jetzt nierenförmig wie auf der Buchseite, mit
+  vertieftem blauem Wasser, Wellenlinien, zwei Fröschen im Wasser und der
+  Leiter am Rand (#12)
 
 ## [0.4.0] - 2026-09-13
 

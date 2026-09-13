@@ -20,6 +20,47 @@ const cyl = (g, rt, rb, h, mat, x = 0, y = 0, z = 0, seg = 20) => mesh(new THREE
 const sph = (g, r, mat, x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1) => { const m = mesh(new THREE.SphereGeometry(r, 20, 14), mat, x, y, z, g); m.scale.set(sx, sy, sz); return m; };
 const G = () => new THREE.Group();
 
+/* ---------- Pool-Helfer: Nierenform nach der Buchseite ---------- */
+/* Kontur (x, Tiefe) gegen den Uhrzeigersinn, beginnt an der Leiter-Spitze; die Delle
+   bei x≈0 liegt hinten. Wird als geschlossener Spline geglättet. */
+const POOL_OUTLINE = [[0.71, -0.02], [0.6, 0.3], [0.3, 0.45], [0, 0.24], [-0.32, 0.36], [-0.6, 0.21], [-0.7, -0.06], [-0.55, -0.3], [-0.23, -0.38], [0.19, -0.43], [0.56, -0.34]];
+const POOL_TILE = L(0x7fc4dd), POOL_WAVE = L(0x9ccfe4), POOL_FROG = L(0x6fae4e);
+function poolOutline() {
+  const curve = new THREE.CatmullRomCurve3(POOL_OUTLINE.map(([x, y]) => new THREE.Vector3(x, y, 0)), true, 'centripetal');
+  return curve.getPoints(44).slice(0, -1).map(p => new THREE.Vector2(p.x, p.y));
+}
+/* Versetzt die Kontur um d nach innen (negativ: nach aussen) — gleichmässige Wandstärke statt Skalierung. */
+function poolInset(points, d) {
+  const n = points.length;
+  return points.map((p, i) => { const a = points[(i + n - 1) % n], b = points[(i + 1) % n];
+    const t = new THREE.Vector2(b.x - a.x, b.y - a.y).normalize();
+    return new THREE.Vector2(p.x - t.y * d, p.y + t.x * d); });
+}
+/* Extrudiert eine Kontur (optional mit Loch) nach oben; Kontur-Tiefe zeigt nach -z. */
+function poolSlab(g, outer, hole, depth, mat, y) {
+  const shape = new THREE.Shape(outer); if (hole) shape.holes.push(new THREE.Path(hole));
+  const m = mesh(new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false }), mat, 0, y, 0, g);
+  m.rotation.x = -Math.PI / 2; return m;
+}
+/* Zwei Halbbögen ergeben eine liegende Welle «~» auf dem Wasser. */
+function poolRipple(g, x, z, r, angle) {
+  const s = G(); g.add(s); s.position.set(x, 0.006, z); s.rotation.y = angle;
+  [-1, 1].forEach(d => mesh(new THREE.TorusGeometry(r, 0.011, 6, 12, Math.PI), POOL_WAVE, d * r, 0, 0, s).rotation.set(-Math.PI / 2, 0, d > 0 ? Math.PI : 0));
+}
+function poolFrogHead(f) {
+  sph(f, 0.06, POOL_FROG, 0, 0.03, 0.09);
+  [-0.035, 0.035].forEach(x => { sph(f, 0.026, POOL_FROG, x, 0.08, 0.1); sph(f, 0.015, MAT.white, x, 0.084, 0.118); sph(f, 0.007, MAT.black, x, 0.084, 0.13); });
+}
+function poolFrogSwimming(g, x, z, angle) {
+  const f = G(); g.add(f); f.position.set(x, 0, z); f.rotation.y = angle;
+  sph(f, 0.08, POOL_FROG, 0, 0, 0, 1.1, 0.55, 1.25);
+  [-1, 1].forEach(s => sph(f, 0.03, POOL_FROG, s * 0.11, 0.01, 0.05, 1.7, 0.5, 0.8));
+  poolFrogHead(f);
+}
+function poolFrogPeeking(g, x, z, angle) {
+  const f = G(); g.add(f); f.position.set(x, -0.03, z); f.rotation.y = angle; poolFrogHead(f);
+}
+
 /* ---------------- Möbel ---------------- */
 const FURN = {
   bett() { const g = G();
@@ -171,9 +212,13 @@ const FURN = {
     return g; },
   /* Dach */
   pool() { const g = G();
-    cyl(g, 0.68, 0.62, 0.4, MAT.water, 0, 0.2, 0, 28); cyl(g, 0.6, 0.6, 0.03, L(0x7fc4dd), 0, 0.41, 0, 28);
-    cyl(g, 0.71, 0.71, 0.06, MAT.woodL, 0, 0.42, 0, 28);
-    const lad = G(); g.add(lad); lad.position.set(0.62, 0, 0);
+    const outer = poolOutline(), lining = poolInset(outer, 0.07), water = poolInset(outer, 0.11), rim = poolInset(outer, -0.04);
+    poolSlab(g, outer, lining, 0.36, MAT.wood, 0); poolSlab(g, lining, water, 0.36, POOL_TILE, 0);
+    poolSlab(g, water, null, 0.29, MAT.water, 0); poolSlab(g, rim, water, 0.06, MAT.woodL, 0.36);
+    const surf = G(); g.add(surf); surf.position.y = 0.29;
+    [[0.05, -0.05, 0.06, 0.15], [0.14, 0.22, 0.055, -0.2], [-0.15, 0.2, 0.05, 0.3], [0.4, -0.22, 0.04, 0.1]].forEach(([x, z, r, a]) => poolRipple(surf, x, z, r, a));
+    poolFrogSwimming(surf, -0.36, -0.02, 0.9); poolFrogPeeking(surf, 0.4, 0.12, -0.4);
+    const lad = G(); g.add(lad); lad.position.set(Math.max(...rim.map(p => p.x)) - 0.028, 0, 0);
     [-0.09, 0.09].forEach(z => cyl(lad, 0.022, 0.022, 0.75, MAT.grey, 0.05, 0.38, z));
     for (let i = 0; i < 3; i++) box(lad, 0.03, 0.03, 0.18, MAT.grey, 0.05, 0.18 + i * 0.2, 0);
     return g; },
