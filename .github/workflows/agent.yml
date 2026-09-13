@@ -19,6 +19,16 @@ jobs:
       runner-labels: '["ubuntu-latest"]'
       default-model: claude-sonnet-5
       pipeline-ref: v2
+      # The agent's own wall-clock cap, distinct from the job's. It defaults to
+      # 10 minutes, which was harmless only while the pipeline was dropping it
+      # on the floor (agent-workflow#341, fixed in v2.0.5) — now that it applies,
+      # 10 is demonstrably too low: the run on #16 was still doing useful work
+      # at 27 minutes before it was cancelled. Every plan in this repo asks for
+      # headless Playwright verification, and the 184 MB browser download comes
+      # out of the same budget. Kept under the job's 30-minute cap so the agent
+      # is stopped first and the run still reports a result.
+      # Revisit if agent-workflow#311 raises the upstream default.
+      claude-timeout-minutes: 25
       # Three `## ai-implement run` reports on #17 are artefacts of the broken
       # @v1 pipeline (no git identity on the runner, classify-turns.sh absent),
       # not attempts at the problem. The cap counts reports and cannot be told
