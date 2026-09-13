@@ -4,6 +4,16 @@ All notable changes to this project are documented here, following
 [Keep a Changelog](https://keepachangelog.com) and
 [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Fixed
+
+- Der Liegestuhl auf der Dachterrasse war ein schräges Brett, das an vier
+  Stäben vorbeischwebte. Er ist jetzt ein richtiger Klapp-Liegestuhl: flache
+  Sitzfläche und steilere Rückenlehne mit Knick, rot-weisse Stoffbahnen,
+  Holzgestell mit Streben, das die Liegefläche an Fuss- und Kopfende trägt,
+  und ein kleines Kissen (#13)
+
 ## [0.4.0] - 2026-09-13
 
 ### Fixed
