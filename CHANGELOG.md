@@ -4,6 +4,15 @@ All notable changes to this project are documented here, following
 [Keep a Changelog](https://keepachangelog.com) and
 [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Fixed
+
+- Einziehende Tiere wurden fix an die Rückwand gesetzt und standen teils in
+  Möbeln. Sie erscheinen jetzt an der Stelle im Raum mit dem grössten Abstand
+  zu vorhandenem Mobiliar — bei freier Mitte in der Mitte, sonst an der
+  nächstfreien Stelle (#14)
+
 ## [0.4.0] - 2026-09-13
 
 ### Fixed

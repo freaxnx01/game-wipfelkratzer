@@ -633,13 +633,41 @@ function removeItem(pick) {
 }
 
 /* ---------- Bewohner & Wünsche ---------- */
+/* Freieste Stelle im Raum für einziehende Tiere: 5x3-Punktraster, gewählt wird
+   der Punkt mit dem grössten Abstand zum nächsten Möbelstück (Box3, wie in
+   surfaceYAt). Kandidaten werden dafür ins Weltkoordinatensystem übersetzt,
+   weil floorGroups[k] neben der Verschiebung auch eine kleine Zufallsrotation
+   trägt (siehe floorPose) und Box3.setFromObject Weltkoordinaten liefert. */
+function tenantSpot(k) {
+  const boxes = itemMeshes[k].filter(m => {
+    const id = m.userData.pick.entry.id;
+    return !DECO.has(id) && !WALL_ITEMS.has(id);
+  }).map(m => new THREE.Box3().setFromObject(m));
+  if (!boxes.length) return { x: 0, z: 0 };
+  const { w, d } = dims(k), parent = parentOf(k); parent.updateWorldMatrix(true, false);
+  const cols = 5, rows = 3;
+  let best = { x: 0, z: 0 }, bestScore = -Infinity;
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const x = -w / 2 + (c + 0.5) * w / cols, z = -d / 2 + (r + 0.5) * d / rows;
+    const wp = parent.localToWorld(new THREE.Vector3(x, 0, z));
+    let minDist = Infinity;
+    boxes.forEach(bb => {
+      const dx = Math.max(bb.min.x - wp.x, 0, wp.x - bb.max.x);
+      const dz = Math.max(bb.min.z - wp.z, 0, wp.z - bb.max.z);
+      const dist = Math.hypot(dx, dz);
+      if (dist < minDist) minDist = dist;
+    });
+    if (minDist > bestScore) { bestScore = minDist; best = { x, z }; }
+  }
+  return best;
+}
 function spawnTenant(i, silent) {
   if (tenantGroups[i]) return;
   const t = TENANTS[i]; const g = new THREE.Group();
   g.userData = { type: 'tenant', floor: i };
-  const { d } = dims(i);
+  const spot = tenantSpot(i);
   t.animals.forEach((sp, n) => { const a = makeAnimal(sp);
-    a.position.set((n - (t.animals.length - 1) / 2) * 0.55, baseY(i), -d / 2 + 0.28);
+    a.position.set(spot.x + (n - (t.animals.length - 1) / 2) * 0.55, baseY(i), spot.z);
     a.rotation.y = (n - 0.5) * 0.5;
     g.add(a); critters.push({ g: a, ph: i * 2 + n, base: baseY(i) }); });
   floorGroups[i].add(g); tenantGroups[i] = g;
