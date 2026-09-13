@@ -29,9 +29,3 @@ jobs:
       # is stopped first and the run still reports a result.
       # Revisit if agent-workflow#311 raises the upstream default.
       claude-timeout-minutes: 25
-      # Three `## ai-implement run` reports on #17 are artefacts of the broken
-      # @v1 pipeline (no git identity on the runner, classify-turns.sh absent),
-      # not attempts at the problem. The cap counts reports and cannot be told
-      # they were infra failures — agent-workflow#321. Raised so #17 gets two
-      # real attempts against @v2; drop back to the default once #321 lands.
-      max-attempts: 5
