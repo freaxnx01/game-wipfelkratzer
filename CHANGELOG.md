@@ -21,6 +21,11 @@ All notable changes to this project are documented here, following
   Möbeln. Sie erscheinen jetzt an der Stelle im Raum mit dem grössten Abstand
   zu vorhandenem Mobiliar — bei freier Mitte in der Mitte, sonst an der
   nächstfreien Stelle (#14)
+- Der Liegestuhl auf der Dachterrasse war ein schräges Brett, das an vier
+  Stäben vorbeischwebte. Er ist jetzt ein richtiger Klapp-Liegestuhl: flache
+  Sitzfläche und steilere Rückenlehne mit Knick, rot-weisse Stoffbahnen,
+  Holzgestell mit Streben, das die Liegefläche an Fuss- und Kopfende trägt,
+  und ein kleines Kissen (#13)
 
 ## [0.4.0] - 2026-09-13
 
