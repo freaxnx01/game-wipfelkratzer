@@ -4,6 +4,19 @@ All notable changes to this project are documented here, following
 [Keep a Changelog](https://keepachangelog.com) and
 [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Added
+
+- Auf der Dachterrasse lässt sich jetzt ein kleines Häuschen mit grünem
+  Schilfdach aufstellen, wie auf der Buchseite mit dem Pool. Die Wände
+  sind ockerfarbener Putz, das Satteldach besteht aus grünen
+  Schilfbündeln mit weit überstehenden, ausgefransten Traufen, und
+  vorne führt eine rundbogige Türöffnung in einen dunklen Innenraum, aus
+  dem ein Frosch lugt. Das Häuschen ist gross — es lässt sich über die
+  ganze Terrasse schieben, weicht dem Treppenaufgang aber automatisch
+  aus, und Pool und Häuschen haben nebeneinander Platz (#49)
+
 ## [0.5.0] - 2026-09-13
 
 ### Added

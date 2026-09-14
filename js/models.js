@@ -61,6 +61,28 @@ function poolFrogPeeking(g, x, z, angle) {
   const f = G(); g.add(f); f.position.set(x, -0.03, z); f.rotation.y = angle; poolFrogHead(f);
 }
 
+/* ---------- Terrassenhaus-Helfer: Schilfdach-Häuschen nach der Buchseite ---------- */
+const HAUS_WALL = L(0xdf9d4f); /* eigene Instanz, kein wiederverwendeter MAT-Ton (Regel aus #34) */
+/* Rundbogen-Öffnung als Pfad (Mittelpunkt cx, Unterkante cy, Breite w, Höhe h). */
+function hausArch(cx, cy, w, h) {
+  const r = w / 2, p = new THREE.Path();
+  p.moveTo(cx - r, cy); p.lineTo(cx - r, cy + h - r); p.absarc(cx, cy + h - r, r, Math.PI, 0, true); p.lineTo(cx + r, cy); p.closePath();
+  return p;
+}
+/* Wandscheibe: Kontur in der xy-Ebene, Dicke t nach +z; optional mit Bogenloch. */
+function hausWall(g, pts, t, arch) {
+  const shape = new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y))); if (arch) shape.holes.push(arch);
+  return mesh(new THREE.ExtrudeGeometry(shape, { depth: t, bevelEnabled: false }), HAUS_WALL, 0, 0, 0, g);
+}
+/* Eine Dachhälfte: dunkle Grundplatte, darauf Halmbündel als liegende Zylinder, die am First
+   bündig beginnen und an der Traufe unterschiedlich weit herausstehen (ausgefranst). */
+function hausRoofHalf(g, s, angle, len) {
+  const half = G(); g.add(half); half.position.set(0, 1.34, s * 0.41); half.rotation.set(s * angle, s > 0 ? 0 : Math.PI, 0);
+  box(half, 2.4, 0.08, len, MAT.leafD, 0, 0, 0);
+  for (let i = 0; i < 17; i++) { const l = len - 0.02 + ((i * 7 + (s > 0 ? 0 : 3)) % 5) * 0.02;
+    const b = cyl(half, 0.075, 0.075, l, i % 2 ? MAT.leaf : MAT.green2, -1.12 + i * 0.14, 0.115, (l - len) / 2, 8); b.rotation.x = Math.PI / 2; }
+}
+
 /* ---------------- Möbel ---------------- */
 const FURN = {
   bett() { const g = G();
@@ -246,6 +268,25 @@ const FURN = {
     box(g, 0.8, 0.015, 0.015, MAT.dark, 0, 1.05);
     [[-0.25, MAT.glow], [0, MAT.fire], [0.25, MAT.glow]].forEach(([x, m]) => sph(g, 0.09, m, x, 0.93, 0, 1, 1.15, 1));
     return g; },
+  /* Nutzt poolFrogHead()/POOL_FROG für den Frosch in der Tür — wer diese Pool-Helfer
+     umbaut, verändert auch dieses Modell. */
+  terrassenhaus() { const g = G();
+    /* Wandkörper 1.8 × 1.4; Traufwände vorn/hinten bis unter die Dachplatte (1.0), Giebelwände als Fünfeck.
+       Der dunkle Innenblock macht Tür und Fenster zu echten Öffnungen ohne Scheiben. */
+    box(g, 1.62, 1.0, 1.22, MAT.dark, 0, 0.5, 0);
+    hausWall(g, [[-0.9, 0], [0.9, 0], [0.9, 1.0], [-0.9, 1.0]], 0.12, hausArch(0, 0, 0.44, 0.62)).position.z = 0.58;
+    box(g, 1.8, 1.0, 0.12, HAUS_WALL, 0, 0.5, -0.64);
+    const gable = [[-0.7, 0], [0.7, 0], [0.7, 1.0], [0, 1.72], [-0.7, 1.0]];
+    [[1, hausArch(-0.1, 0.32, 0.28, 0.42)], [-1, null]].forEach(([s, arch]) => { const w = hausWall(g, gable, 0.12, arch); w.position.x = s * 0.9 - (s > 0 ? 0.12 : 0); w.rotation.y = Math.PI / 2; });
+    box(g, 0.6, 0.05, 0.22, MAT.woodL, 0, 0.025, 0.78);
+    /* Satteldach: First entlang x, Traufen vorn und hinten weit über die Tür hinaus. */
+    const angle = Math.atan2(1.08, 1.0);
+    [1, -1].forEach(s => hausRoofHalf(g, s, angle, 1.28));
+    cyl(g, 0.17, 0.17, 2.4, MAT.leafD, 0, 1.84, 0, 10).rotation.z = Math.PI / 2;
+    /* Ein Frosch lugt aus der Türöffnung. */
+    const f = G(); g.add(f); f.position.set(0.1, 0.04, 0.6); f.rotation.y = -0.35;
+    sph(f, 0.075, POOL_FROG, 0, 0.02, -0.06, 1.1, 0.75, 1.1); poolFrogHead(f);
+    return g; },
 };
 
 export const CATALOG = [
@@ -267,6 +308,7 @@ export const CATALOG = [
   { id: 'spiegel', name: 'Spiegel', cat: 'wand' }, { id: 'fenster', name: 'Fenster', cat: 'wand' },
   { id: 'pool', name: 'Pool', cat: 'dach' }, { id: 'liegestuhl', name: 'Liegestuhl', cat: 'dach' },
   { id: 'sonnenschirm', name: 'Sonnenschirm', cat: 'dach' }, { id: 'lampion', name: 'Lampions', cat: 'dach' },
+  { id: 'terrassenhaus', name: 'Häuschen', cat: 'dach' },
 ];
 export const CATS = [['mobel', 'Möbel'], ['gemut', 'Gemütlich'], ['deko', 'Deko'], ['wand', 'Wand'], ['spass', 'Spass'], ['farbe', 'Tapete'], ['boden', 'Boden'], ['dach', 'Dach']];
 export const WALL_ITEMS = new Set(['poster_wald', 'poster_mond', 'poster_willi', 'uhr', 'spiegel', 'fenster']);
