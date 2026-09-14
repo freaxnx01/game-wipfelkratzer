@@ -120,6 +120,7 @@
   #resident-list li { display: flex; gap: 10px; padding: 4px 0; border-bottom: 2px dotted #e3cfa5; }
   #resident-list .fl { font-weight: 700; width: 28px; color: var(--wood); }
   #resident-list .free { opacity: .55; font-style: italic; }
+  #resident-list .hint { display: block; font-size: 12px; opacity: .6; }
   /* Toast — bleibt offen, bis er weggetippt wird; Stapel über Werkzeug- und
      Auswahlleiste, deren gemessene Höhen er wie #catalog mitrechnet. Der
      Container selbst ist klickdurchlässig, nur die Toasts fangen Tipps ab. */
@@ -153,7 +154,7 @@
 <div id="hud">
   <div class="panel"><h1>Willi baut den Wipfelkratzer</h1></div>
   <div class="panel" id="nutrow"><span class="nut"></span><span><span id="nuts">0</span> Haselnüsse</span></div>
-  <div class="panel" id="floorinfo">Stockwerke: <span id="floors">0</span> / 10</div>
+  <div class="panel" id="floorinfo">Erdgeschoss + <span id="floors">0</span> von <span id="floors-max">10</span> Stockwerken</div>
 </div>
 
 <div id="wishes"></div>
