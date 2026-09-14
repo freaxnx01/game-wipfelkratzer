@@ -1008,15 +1008,26 @@ function endParty() {
 
 /* Tag/Nacht */
 let nightK = state.night ? 1 : 0;
+/* Issue #41: Bei Nacht verrät die Fassade, ob in der Wohnung Licht brennt.
+   Eine Wohnung OHNE Lampe verhält sich weiter wie bisher — sonst wären alle
+   bestehenden Spielstände über Nacht schwarz. */
+function floorLampState(i) {
+  const lamps = roomOf(i).filter(e => e.id === 'lampe');
+  return { has: lamps.length > 0, any: lamps.some(isOn) };
+}
 function applyNight(k) {
   nightK = k;
   scene.background.lerpColors(SKY.d, SKY.n, k); scene.fog.color.copy(scene.background);
   hemi.color.lerpColors(HEMI.d, HEMI.n, k); hemi.groundColor.lerpColors(GRND.d, GRND.n, k);
   hemi.intensity = 1.05 - 0.62 * k; dir.intensity = 1.15 - 1.0 * k;
   starMat.opacity = k * 0.9; moonMat.opacity = k;
-  for (let i = 0; i <= MAXF; i++) { const lit = k > 0.5 && tenantIn(i);
+  for (let i = 0; i <= MAXF; i++) { const ls = floorLampState(i);
+    const lit = k > 0.5 && tenantIn(i) && (!ls.has || ls.any);
     floorGroups[i].userData.wins.forEach(w => { w.material.color.set(lit ? 0xffd98a : 0x6b4526);
       w.material.emissive.set(lit ? 0xffc257 : 0x000000); w.material.emissiveIntensity = lit ? 0.9 : 0; }); }
+  /* Birnen folgen der Tageszeit — applyLampe rechnet mit nightK. */
+  for (let i = 0; i <= MAXF; i++) (itemMeshes[i] || []).forEach(m => {
+    if (m.userData.pick.entry.id === 'lampe') applyLampe(m, isOn(m.userData.pick.entry), 1); });
   $('btn-night').textContent = k > 0.5 ? 'Tag' : 'Nacht';
 }
 function setNight(on) {
