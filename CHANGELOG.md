@@ -15,6 +15,23 @@ All notable changes to this project are documented here, following
   `E`-Zeile, dass das Erdgeschoss schon vor dem ersten Klick da war. Die
   Zielzahl kommt in HUD, Bauknopf und Dach-Tipp aus `MAXF` statt aus
   Literalen (#35)
+### Added
+
+- Tiere lassen sich jetzt beim Einrichten antippen, verschieben und
+  drehen — genau wie ein Möbel, mit derselben Auswahlleiste. Wer ein Tier
+  von Hand an seinen Platz stellt, behält ihn: die automatische Platzsuche
+  beim Einzug gilt dann für diese Wohnung nicht mehr, und der Platz
+  überlebt das Neuladen. Weggeworfen werden kann ein Tier nicht (#39)
+### Added
+
+- Auf der Dachterrasse lässt sich jetzt ein kleines Häuschen mit grünem
+  Schilfdach aufstellen, wie auf der Buchseite mit dem Pool. Die Wände
+  sind ockerfarbener Putz, das Satteldach besteht aus grünen
+  Schilfbündeln mit weit überstehenden, ausgefransten Traufen, und
+  vorne führt eine rundbogige Türöffnung in einen dunklen Innenraum, aus
+  dem ein Frosch lugt. Das Häuschen ist gross — es lässt sich über die
+  ganze Terrasse schieben, weicht dem Treppenaufgang aber automatisch
+  aus, und Pool und Häuschen haben nebeneinander Platz (#49)
 - Auf schmalen Fenstern brach die Werkzeugleiste auf mehrere Zeilen um und die
   unterste Zeile verschwand unter der Navileiste am unteren Bildrand — «Foto»
   und «Musik aus» waren sichtbar, liessen sich aber nicht antippen. Die Leiste
