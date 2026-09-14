@@ -1061,6 +1061,23 @@ const sfx = {
   splash() { if (!AC) return; noiseBurst(AC.currentTime, 0.5, 2800, 260, 0.22); },
   whoosh() { if (!AC) return; noiseBurst(AC.currentTime, 0.28, 500, 2400, 0.07); },
   shutter() { if (!AC) return; const t = AC.currentTime; noiseBurst(t, 0.04, 6000, 1500, 0.3); noiseBurst(t + 0.07, 0.05, 3000, 800, 0.25); },
+  /* Lichtschalter: kurzer, trockener Klick aus zwei Rauschstössen. */
+  click() { if (!AC) return; const t = AC.currentTime;
+    noiseBurst(t, 0.03, 5200, 1800, 0.18); tone(196, t, 0.06, 'square', 0.08); },
+  /* Fenster: tiefes Holzknarzen, das in der Tonhöhe wandert. */
+  creak() { if (!AC) return; const t = AC.currentTime;
+    const o = tone(150, t, 0.45, 'sawtooth', 0.07);
+    if (o) o.frequency.exponentialRampToValueAtTime(96, t + 0.4);
+    noiseBurst(t + 0.05, 0.3, 900, 320, 0.05); },
+  /* Wasser läuft ein: rauschen, das heller wird, dazu ein steigender Ton. */
+  fill() { if (!AC) return; const t = AC.currentTime;
+    noiseBurst(t, 0.9, 700, 3000, 0.13);
+    const o = tone(280, t, 0.85, 'sine', 0.05);
+    if (o) o.frequency.exponentialRampToValueAtTime(520, t + 0.8); },
+  /* Wasser läuft ab: dasselbe rückwärts, mit Gluckern. */
+  drain() { if (!AC) return; const t = AC.currentTime;
+    noiseBurst(t, 0.9, 2600, 420, 0.12);
+    [0, 0.22, 0.46, 0.68].forEach((d, i) => tone(220 - i * 32, t + d, 0.12, 'sine', 0.07)); },
 };
 $('btn-music').onclick = () => { musicOn = !musicOn; $('btn-music').textContent = musicOn ? 'Musik aus' : 'Musik an'; };
 
