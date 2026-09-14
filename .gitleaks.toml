@@ -1,0 +1,25 @@
+# gitleaks-Konfiguration für game-wipfelkratzer.
+#
+# Die Standardregeln bleiben vollständig aktiv; hier steht nur eine eng
+# gefasste Ausnahme.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = """
+localStorage-Schlüsselnamen sind keine Geheimnisse.
+
+Die generic-api-key-Regel feuert auf das Muster `…Key: "…"`. Der Spielstand
+benennt seine Schlüssel aber genau so — `standKey: "wipfelkratzer-v1"`,
+`fotoKey: "wipfelkratzer-fotos-sk3f9"` —, und diese Namen stehen zwangsläufig
+in den Entwurfsdokumenten und im ausgelieferten JavaScript. Es gibt in diesem
+Spiel überhaupt kein Geheimnis: es ist eine statische Seite ohne Server,
+ohne Anmeldung und ohne API.
+
+Eng gefasst auf genau diese zwei Feldnamen, damit ein echter Fund anderswo
+weiterhin auffällt.
+"""
+targetRules = ["generic-api-key"]
+regexTarget = "line"
+regexes = ['''(standKey|fotoKey)\s*:\s*["'][a-z0-9-]+["']''']

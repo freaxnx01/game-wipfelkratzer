@@ -433,7 +433,7 @@ Schritte:
           const built = i <= state.floors;
           const nm = !built ? '<span class="free">noch nicht gebaut</span>' : tenantIn(i) ? `<b>${TENANTS[i].unit || TENANTS[i].name}</b>` : '<span class="free">zurzeit frei</span>';
           /* Ebene 0 wird nie gebaut (js/game.js:297) — sie ist von Anfang an da.
-             Der Hinweis beantwortet genau dort, wo man die elf Zeilen abzaehlt,
+             Der Hinweis beantwortet genau dort, wo man die elf Zeilen abzählt,
              warum es zehn gebaute Stockwerke und trotzdem elf Ebenen sind. */
           const hint = i === 0 ? '<span class="hint">Erdgeschoss, war schon da</span>' : '';
           li.innerHTML = `<span class="fl">${flLabel(i)}</span><span>${nm}${hint}</span>`;
@@ -524,7 +524,7 @@ Schritte:
                       ok &= check(f"pageerror bei floors={floors}", errors, [])
                       browser.close()
 
-                  # Bestehender Spielstand laedt unveraendert weiter.
+                  # Bestehender Spielstand laedt unverändert weiter.
                   browser, page, errors = open_game(pw, floors=None)
                   page.evaluate(
                       "() => localStorage.setItem('wipfelkratzer-v1',"

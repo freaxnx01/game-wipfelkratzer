@@ -144,9 +144,9 @@ Wegwerf-Skripte liegen unter `.superpowers/sdd/2026-09-13-moebelfarbe/`
         const tisch = mats(m.makeFurniture('tisch'));
         if (mats(m.makeFurniture('tisch', 'blau')) !== tisch) out.errors.push('tisch reagiert auf Farbe');
 
-        // 6. Unbekannte Farb-id faellt auf Standard zurueck.
+        // 6. Unbekannte Farb-id fällt auf Standard zurueck.
         if (mats(m.makeFurniture('sofa', 'tuerkis')) !== before['sofa'])
-          out.errors.push('unbekannte Farb-id faellt nicht auf Standard zurueck');
+          out.errors.push('unbekannte Farb-id fällt nicht auf Standard zurueck');
         return out;
       }
       """
@@ -300,7 +300,7 @@ Wegwerf-Skripte liegen unter `.superpowers/sdd/2026-09-13-moebelfarbe/`
                   {"id": "bett", "cell": 1, "x": 1.5, "z": -0.8, "y": 2.2, "rot": 0, "color": "blau"},
                   # unbekannte Farbe -> muss entfernt werden
                   {"id": "teppich", "cell": 2, "x": -1.5, "z": 0.8, "y": 2.2, "rot": 0, "color": "tuerkis"},
-                  # Farbe an nicht einfaerbbarem Moebel -> muss entfernt werden
+                  # Farbe an nicht einfaerbbarem Möbel -> muss entfernt werden
                   {"id": "tisch", "cell": 3, "x": 1.5, "z": 0.8, "y": 2.2, "rot": 0, "color": "rosa"},
               ]
           },
@@ -343,7 +343,7 @@ Wegwerf-Skripte liegen unter `.superpowers/sdd/2026-09-13-moebelfarbe/`
       assert "color" not in room["sofa"], "alter Eintrag darf keine Farbe bekommen"
       assert room["bett"]["color"] == "blau", room["bett"]
       assert "color" not in room["teppich"], "unbekannte Farbe nicht entfernt"
-      assert "color" not in room["tisch"], "Farbe an nicht einfaerbbarem Moebel nicht entfernt"
+      assert "color" not in room["tisch"], "Farbe an nicht einfaerbbarem Möbel nicht entfernt"
       assert "color" not in saved["teppich"], "bereinigter Stand nicht zurueckgeschrieben"
       assert "c0432e" in res["sofa"], "Sofa nicht mehr in Standardrot"
       assert "3f6fb5" in res["bett"], "Bett nicht blau"
@@ -503,7 +503,7 @@ Wegwerf-Skripte liegen unter `.superpowers/sdd/2026-09-13-moebelfarbe/`
           }""")
           assert reset["has"] is False, reset
 
-          # Nicht einfaerbbares Moebel: kein Farbknopf
+          # Nicht einfaerbbares Möbel: kein Farbknopf
           page.evaluate(SELECT, "tisch")
           assert not page.locator("#btn-color").is_visible(), "Farbknopf am Tisch sichtbar"
           assert not page.locator("#colorpick.open").count(), "Farbreihe bleibt offen"
@@ -641,7 +641,7 @@ Wegwerf-Skripte liegen unter `.superpowers/sdd/2026-09-13-moebelfarbe/`
       TINT = ["sofa", "bett", "etagenbett", "teppich", "lampe", "badewanne", "pflanze", "liegestuhl"]
       COLORS = ["rot", "blau", "orange", "gruen", "rosa", "creme"]
 
-      # Alter Spielstand, exakt in der Struktur vor dieser Aenderung (kein color-Feld).
+      # Alter Spielstand, exakt in der Struktur vor dieser Änderung (kein color-Feld).
       OLD = {
           "floors": 1, "nuts": 99, "bridge": False, "garden": False, "night": False,
           "cutaway": False, "fulfilled": {}, "wallpaper": {}, "flooring": {},
@@ -656,7 +656,7 @@ Wegwerf-Skripte liegen unter `.superpowers/sdd/2026-09-13-moebelfarbe/`
       def run(page):
           out = {}
           out["baseMats"] = page.evaluate("() => window.wipfelkratzer.matCount()")
-          # AC: alter Stand laedt unveraendert
+          # AC: alter Stand laedt unverändert
           out["old"] = page.evaluate("""() => {
             const w = window.wipfelkratzer;
             const cols = {}; w.floorGroups[0].traverse(o => { const p = o.userData && o.userData.pick;
@@ -664,7 +664,7 @@ Wegwerf-Skripte liegen unter `.superpowers/sdd/2026-09-13-moebelfarbe/`
               (cols[p.entry.id] = cols[p.entry.id] || []).push(c); });
             return { cols, entries: w.state.rooms[0] };
           }""")
-          # alle acht Moebel in allen sechs Toenen: nur der Korpus darf sich aendern
+          # alle acht Möbel in allen sechs Toenen: nur der Korpus darf sich aendern
           out["matrix"] = page.evaluate("""async ([tint, colors]) => {
             const m = await import('/js/models.js');
             const mats = g => { const s = []; g.traverse(o => { if (o.material) s.push(o.material.uuid); }); return s; };
@@ -674,10 +674,10 @@ Wegwerf-Skripte liegen unter `.superpowers/sdd/2026-09-13-moebelfarbe/`
               for (const c of colors) {
                 const want = m.MAT[m.FURN_COLORS.find(x => x.id === c).mat].uuid;
                 const got = mats(m.makeFurniture(id, c));
-                if (got.length !== base.length) { bad.push('Teilezahl geaendert: ' + id + '/' + c); continue; }
+                if (got.length !== base.length) { bad.push('Teilezahl geändert: ' + id + '/' + c); continue; }
                 const changed = got.filter((u, i) => u !== base[i]);
                 /* Traegt das Modell den Ton schon als Standard (z.B. sofa/rot),
-                   ist «nichts geaendert» das korrekte Ergebnis. */
+                   ist «nichts geändert» das korrekte Ergebnis. */
                 if (!changed.length && !base.includes(want)) bad.push('nicht eingefaerbt: ' + id + '/' + c);
                 if (changed.some(u => u !== want)) bad.push('fremdes Material getauscht: ' + id + '/' + c);
               }
