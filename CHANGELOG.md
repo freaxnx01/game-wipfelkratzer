@@ -15,6 +15,13 @@ All notable changes to this project are documented here, following
   `E`-Zeile, dass das Erdgeschoss schon vor dem ersten Klick da war. Die
   Zielzahl kommt in HUD, Bauknopf und Dach-Tipp aus `MAXF` statt aus
   Literalen (#35)
+### Added
+
+- Tiere lassen sich jetzt beim Einrichten antippen, verschieben und
+  drehen — genau wie ein Möbel, mit derselben Auswahlleiste. Wer ein Tier
+  von Hand an seinen Platz stellt, behält ihn: die automatische Platzsuche
+  beim Einzug gilt dann für diese Wohnung nicht mehr, und der Platz
+  überlebt das Neuladen. Weggeworfen werden kann ein Tier nicht (#39)
 
 ## [0.5.0] - 2026-09-13
 
