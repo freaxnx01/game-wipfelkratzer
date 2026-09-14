@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MAT, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, lookCanvas, lookTexture, makeFurniture, makeAnimal, makeWilli, makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge, makeGarden } from './models.js';
+import { zipStore } from './zip.js';
 
 /* ---------- Konstanten ---------- */
 const PLAT_Y = 2.2, E_H = 2.4, FLOOR_H = 2.0, MAXF = 10;
@@ -1218,6 +1219,27 @@ function photoFilename(p) {
   const dt = new Date(p.t), pad = n => String(n).padStart(2, '0');
   return `wipfelkratzer-${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}-${pad(dt.getHours())}${pad(dt.getMinutes())}${pad(dt.getSeconds())}.jpg`;
 }
+function dataUrlToBytes(url) {
+  const bin = atob(url.slice(url.indexOf(',') + 1));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+/* Zwei Fotos in derselben Sekunde ergeben denselben Namen — im Archiv und im
+   Share-Sheet muss jeder Name eindeutig sein. */
+function uniquePhotoNames(list) {
+  const seen = new Map();
+  return list.map(p => {
+    const base = photoFilename(p);
+    const n = (seen.get(base) || 0) + 1;
+    seen.set(base, n);
+    return n === 1 ? base : base.replace(/\.jpg$/, `-${n}.jpg`);
+  });
+}
+function photoZipFilename() {
+  const d = new Date(), pad = n => String(n).padStart(2, '0');
+  return `wipfelkratzer-fotos-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.zip`;
+}
 function renderGallery() {
   const grid = $('photo-grid'); grid.innerHTML = '';
   if (!photos.length) { grid.innerHTML = '<div class="empty">Noch keine Fotos. Drücke unten auf «Foto»!</div>'; return; }
@@ -1253,7 +1275,8 @@ for (let i = 0; i <= MAXF; i++) applyLook(i);
 if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
 window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, scene, camera, controls, WALL_KEYS, get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
-  itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; } };
+  itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
+  photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename } };
 applyNight(state.night ? 1 : 0);
 applyFronts();
 makeThumbs();
