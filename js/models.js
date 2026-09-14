@@ -140,6 +140,14 @@ const FURN = {
       for (let i = 0; i < 5; i++) box(g, 0.09, 0.24 - (i % 2) * 0.04, 0.2, cols[(i + r) % 5], -0.28 + i * 0.13, y + 0.15 - (i % 2) * 0.02, 0); });
     box(g, 0.85, 0.05, 0.3, MAT.wood, 0, 1.1);
     return g; },
+  kommode() { const g = G();
+    /* Korpus auf kurzen Füssen, drei Schubladen, Deckplatte als Ablage (SURFACES). */
+    box(g, 0.86, 0.76, 0.40, MAT.wood, 0, 0.48);
+    box(g, 0.94, 0.07, 0.46, MAT.woodL, 0, 0.89);
+    [0.26, 0.50, 0.74].forEach(y => { box(g, 0.76, 0.20, 0.03, MAT.woodL, 0, y, 0.205);
+      [-0.18, 0.18].forEach(x => sph(g, 0.035, MAT.woodD, x, y, 0.235)); });
+    [-0.35, 0.35].forEach(x => [-0.15, 0.15].forEach(z => box(g, 0.09, 0.10, 0.09, MAT.woodD, x, 0.05, z)));
+    return g; },
   teppich(body = MAT.red) { const g = G();
     const m1 = cyl(g, 0.52, 0.52, 0.025, body, 0, 0.012, 0, 28); m1.scale.z = 0.72;
     const m2 = cyl(g, 0.36, 0.36, 0.03, MAT.orange, 0, 0.014, 0, 28); m2.scale.z = 0.72;
@@ -188,11 +196,93 @@ const FURN = {
     for (let i = 0; i < 7; i++) box(g, 0.05, 0.04, 0.1, MAT.black, -0.3 + i * 0.1, 0.5, 0.1);
     [-0.36, 0.36].forEach(x => box(g, 0.07, 0.2, 0.24, MAT.dark, x, 0.1, 0));
     return g; },
+  /* Instrumente */
+  harfe() { const g = G();
+    /* Seitenprofil in der x-y-Ebene: Säule vorne senkrecht, Resonanzkörper schräg
+       nach hinten-unten, Hals dazwischen, Saiten spannen als Fächer darüber.
+       bar() spannt einen Quader von Punkt a nach Punkt b (beide [x, y]). */
+    const bar = (a, b, w, d, mat, ext = 0) => { const dx = b[0] - a[0], dy = b[1] - a[1];
+      const m = box(g, w, Math.hypot(dx, dy) + ext, d, mat, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0);
+      m.rotation.z = -Math.atan2(dx, dy); return m; };
+    const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    box(g, 0.44, 0.08, 0.28, MAT.woodD, 0, 0.04);
+    cyl(g, 0.045, 0.05, 1.12, MAT.wood, 0.22, 0.64, 0, 10);
+    bar([-0.18, 0.08], [0.05, 0.95], 0.15, 0.22, MAT.woodL, 0.06);
+    bar([-0.16, 0.10], [0.06, 0.93], 0.03, 0.16, MAT.woodD);
+    bar([0.06, 0.97], [0.22, 1.15], 0.10, 0.16, MAT.woodD, 0.05);
+    sph(g, 0.06, MAT.gold, 0.22, 1.20, 0);
+    for (let i = 0; i < 7; i++) { const t = i / 6;
+      bar(lerp([-0.09, 0.36], [0.03, 0.82], t), lerp([0.07, 0.99], [0.21, 1.14], t), 0.014, 0.014, MAT.gold); }
+    return g; },
+  schlagzeug() { const g = G();
+    /* Kompaktes Set: grosse Trommel liegend (Achse entlang z), Tom obenauf,
+       Snare rechts und Becken links auf dünnen Ständern. Die Gesamtbreite
+       bleibt unter der schmalsten Zellenbreite (~0.95, js/game.js:358-362). */
+    cyl(g, 0.26, 0.26, 0.24, MAT.red, 0, 0.28, 0, 20).rotation.x = Math.PI / 2;
+    [-0.12, 0.12].forEach(z => {
+      cyl(g, 0.235, 0.235, 0.02, MAT.cream, 0, 0.28, z, 20).rotation.x = Math.PI / 2;
+      mesh(new THREE.TorusGeometry(0.26, 0.016, 8, 20), MAT.gold, 0, 0.28, z, g); });
+    [-0.19, 0.19].forEach(x => box(g, 0.05, 0.08, 0.3, MAT.black, x, 0.04, 0));
+    cyl(g, 0.12, 0.12, 0.15, MAT.red, -0.02, 0.62, 0, 16);
+    cyl(g, 0.125, 0.125, 0.02, MAT.cream, -0.02, 0.70, 0, 16);
+    mesh(new THREE.TorusGeometry(0.125, 0.014, 8, 16), MAT.gold, -0.02, 0.70, 0, g).rotation.x = -Math.PI / 2;
+    cyl(g, 0.14, 0.14, 0.11, MAT.white, 0.30, 0.44, 0.08, 16);
+    cyl(g, 0.145, 0.145, 0.02, MAT.cream, 0.30, 0.50, 0.08, 16);
+    for (let i = 0; i < 3; i++) { const a = i * 2.094;
+      const l = cyl(g, 0.014, 0.014, 0.44, MAT.grey, 0.30 + Math.sin(a) * 0.06, 0.21, 0.08 + Math.cos(a) * 0.06, 6);
+      l.rotation.set(Math.cos(a) * 0.26, 0, -Math.sin(a) * 0.26); }
+    cyl(g, 0.015, 0.015, 0.64, MAT.grey, -0.30, 0.32, 0.05, 6);
+    cyl(g, 0.15, 0.15, 0.012, MAT.gold, -0.30, 0.66, 0.05, 20).rotation.z = 0.22;
+    sph(g, 0.035, MAT.gold, -0.30, 0.68, 0.05);
+    [-0.07, 0.07].forEach(d => { const s = cyl(g, 0.012, 0.016, 0.32, MAT.woodL, 0.04 + d, 0.30, 0.20, 6);
+      s.rotation.set(-1.15, 0, d * 3); });
+    return g; },
+  blockfloete() { const g = G();
+    cyl(g, 0.07, 0.085, 0.025, MAT.woodL, 0, 0.012, 0, 12);
+    cyl(g, 0.026, 0.026, 0.03, MAT.woodD, 0, 0.04, 0, 10);
+    cyl(g, 0.017, 0.020, 0.30, MAT.cream, 0, 0.20, 0, 10);
+    cyl(g, 0.024, 0.019, 0.05, MAT.woodD, 0, 0.37, 0, 10);
+    for (let i = 0; i < 5; i++) sph(g, 0.008, MAT.black, 0, 0.14 + i * 0.042, 0.016);
+    return g; },
   nusskiste() { const g = G();
     box(g, 0.6, 0.06, 0.45, MAT.woodL, 0, 0.03);
     [-0.28, 0.28].forEach(x => box(g, 0.05, 0.3, 0.45, MAT.wood, x, 0.17));
     [-0.21, 0.21].forEach(z => box(g, 0.6, 0.3, 0.05, MAT.wood, 0, 0.17, z));
     [[-0.12, 0.32, 0], [0.1, 0.32, 0.08], [0, 0.34, -0.09], [0.16, 0.3, -0.05], [-0.05, 0.38, 0.05]].forEach(p => sph(g, 0.075, MAT.woodD, p[0], p[1], p[2], 1, 1.2, 1));
+    return g; },
+  ball() { const g = G();
+    /* Liegt einfach da — bewusst ohne Physik und ohne Spinner (Spec A2).
+       Zwei leicht grössere, plattgedrückte Kugeln geben die Streifen. */
+    const r = 0.20;
+    sph(g, r, MAT.red, 0, r, 0);
+    sph(g, r * 1.01, MAT.cream, 0, r, 0, 1, 0.26, 1);
+    sph(g, r * 1.02, MAT.blue, 0, r, 0, 0.24, 1, 1);
+    return g; },
+  kuscheltier() { const g = G();
+    /* Sitzender Teddy, nur aus Kugeln — warm und entsättigt, kein Fell-Shader. */
+    const fell = L(0xc99a63);
+    sph(g, 0.17, fell, 0, 0.18, 0, 1, 0.95, 0.9);
+    sph(g, 0.13, fell, 0, 0.42, 0.01);
+    [-0.09, 0.09].forEach(x => sph(g, 0.05, fell, x, 0.52, -0.01));
+    sph(g, 0.06, MAT.cream, 0, 0.40, 0.10, 1, 0.8, 0.6);
+    sph(g, 0.02, MAT.black, 0, 0.42, 0.14);
+    [-0.05, 0.05].forEach(x => sph(g, 0.016, MAT.black, x, 0.46, 0.12));
+    [-1, 1].forEach(s => { const a = sph(g, 0.055, fell, s * 0.14, 0.22, 0.06, 1, 1.4, 1); a.rotation.z = s * 0.5; });
+    [-1, 1].forEach(s => sph(g, 0.07, MAT.woodD, s * 0.10, 0.08, 0.15, 1, 0.8, 1.4));
+    box(g, 0.22, 0.05, 0.04, MAT.red, 0, 0.31, 0.08);
+    return g; },
+  tischkicker() { const g = G();
+    /* Kasten auf vier Beinen, grünes Feld, vier Stangen quer (entlang z) mit je zwei Figuren. */
+    box(g, 0.90, 0.16, 0.56, MAT.wood, 0, 0.68);
+    box(g, 0.80, 0.04, 0.46, MAT.green2, 0, 0.77);
+    box(g, 0.80, 0.012, 0.02, MAT.white, 0, 0.79);
+    [-0.38, 0.38].forEach(x => box(g, 0.03, 0.10, 0.22, MAT.white, x, 0.82));
+    [-0.40, 0.40].forEach(x => [-0.24, 0.24].forEach(z => box(g, 0.08, 0.60, 0.08, MAT.woodD, x, 0.30, z)));
+    [[-0.28, MAT.red], [-0.09, MAT.blue], [0.09, MAT.red], [0.28, MAT.blue]].forEach(([x, m]) => {
+      const rod = cyl(g, 0.015, 0.015, 0.78, MAT.grey, x, 0.86, 0, 8); rod.rotation.x = Math.PI / 2;
+      [-0.14, 0.14].forEach(z => box(g, 0.06, 0.14, 0.05, m, x, 0.82, z));
+      [-1, 1].forEach(s => { const k = cyl(g, 0.025, 0.025, 0.05, MAT.woodD, x, 0.86, s * 0.42, 8); k.rotation.x = Math.PI / 2; }); });
+    sph(g, 0.03, MAT.white, 0.10, 0.80, 0.10);
     return g; },
   /* Deko */
   vase() { const g = G();
@@ -252,6 +342,22 @@ const FURN = {
     box(g, 0.86, 0.06, 0.16, MAT.woodL, 0, -0.5, 0.08);
     [-0.34, 0.34].forEach(x => box(g, 0.14, 0.9, 0.05, MAT.red, x + (x > 0 ? 0.08 : -0.08), 0.02, 0.09));
     return g; },
+  dartscheibe() { const g = G();
+    /* Wandobjekt: liegt in der xy-Ebene, +z zeigt in den Raum (wie uhr/spiegel). */
+    const ring = (r, h, mat, z) => { const m = cyl(g, r, r, h, mat, 0, 0, z, 24); m.rotation.x = Math.PI / 2; return m; };
+    ring(0.30, 0.05, MAT.woodD, 0.025);
+    ring(0.26, 0.03, MAT.cream, 0.05);
+    ring(0.19, 0.02, MAT.dark, 0.065);
+    ring(0.12, 0.02, MAT.red, 0.075);
+    ring(0.05, 0.02, MAT.green2, 0.085);
+    sph(g, 0.025, MAT.gold, 0, 0, 0.09);
+    /* Drei Pfeile stecken schräg in der Scheibe. */
+    [[-0.10, 0.08, -0.4], [0.13, -0.02, 0.3], [0.02, -0.14, 0.1]].forEach(([x, y, a]) => {
+      const s = G(); g.add(s); s.position.set(x, y, 0.08); s.rotation.z = a; s.rotation.x = -0.3;
+      const sh = cyl(s, 0.012, 0.012, 0.14, MAT.grey, 0, 0, 0.07, 8); sh.rotation.x = Math.PI / 2;
+      const tp = cyl(s, 0.010, 0.020, 0.05, MAT.red, 0, 0, 0.16, 8); tp.rotation.x = Math.PI / 2;
+      box(s, 0.006, 0.07, 0.07, MAT.orange, 0, 0, 0.185); });
+    return g; },
   /* Dach */
   pool() { const g = G();
     const outer = poolOutline(), lining = poolInset(outer, 0.07), water = poolInset(outer, 0.11), rim = poolInset(outer, -0.04);
@@ -307,6 +413,22 @@ const FURN = {
     const f = G(); g.add(f); f.position.set(0.1, 0.04, 0.6); f.rotation.y = -0.35;
     sph(f, 0.075, POOL_FROG, 0, 0.02, -0.06, 1.1, 0.75, 1.1); poolFrogHead(f);
     return g; },
+  bar() { const g = G();
+    /* Tresen mit Front nach +z, Rückbord mit Flaschen, zwei Hocker davor. */
+    box(g, 1.50, 0.92, 0.50, MAT.wood, 0, 0.46, -0.25);
+    box(g, 1.62, 0.08, 0.62, MAT.woodL, 0, 0.96, -0.25);
+    box(g, 1.50, 0.05, 0.04, MAT.woodD, 0, 0.16, -0.02);
+    [-0.45, 0.45].forEach(x => box(g, 0.50, 0.46, 0.03, MAT.woodD, x, 0.52, -0.005));
+    [-0.62, 0.62].forEach(x => box(g, 0.07, 0.85, 0.22, MAT.woodD, x, 0.42, -0.62));
+    [0.45, 0.78].forEach(y => box(g, 1.30, 0.05, 0.22, MAT.woodL, 0, y, -0.62));
+    [[MAT.red, -0.30], [MAT.green2, -0.12], [MAT.blue, 0.06], [MAT.orange, 0.24]].forEach(([m, x]) => {
+      cyl(g, 0.045, 0.05, 0.20, m, x, 0.58, -0.62, 10); cyl(g, 0.018, 0.018, 0.07, m, x, 0.71, -0.62, 8); });
+    [-0.20, 0.10].forEach(x => cyl(g, 0.05, 0.035, 0.09, MAT.white, x, 0.86, -0.62, 10));
+    [-0.42, 0.42].forEach(x => { cyl(g, 0.17, 0.17, 0.07, MAT.red, x, 0.66, 0.34, 14);
+      cyl(g, 0.05, 0.06, 0.62, MAT.woodD, x, 0.31, 0.34, 10);
+      cyl(g, 0.20, 0.20, 0.04, MAT.woodD, x, 0.02, 0.34, 14);
+      const f = mesh(new THREE.TorusGeometry(0.12, 0.018, 8, 14), MAT.grey, x, 0.22, 0.34, g); f.rotation.x = Math.PI / 2; });
+    return g; },
 };
 
 export const CATALOG = [
@@ -314,24 +436,31 @@ export const CATALOG = [
   { id: 'tisch', name: 'Tisch', cat: 'mobel' }, { id: 'stuhl', name: 'Stuhl', cat: 'mobel' },
   { id: 'sofa', name: 'Sofa', cat: 'mobel' }, { id: 'schrank', name: 'Schrank', cat: 'mobel' },
   { id: 'regal', name: 'Bücherregal', cat: 'mobel' },
+  { id: 'kommode', name: 'Kommode', cat: 'mobel' },
   { id: 'teppich', name: 'Teppich', cat: 'gemut' }, { id: 'lampe', name: 'Lampe', cat: 'gemut' },
   { id: 'ofen', name: 'Ofen', cat: 'gemut' }, { id: 'badewanne', name: 'Badewanne', cat: 'gemut' },
   { id: 'pflanze', name: 'Pflanze', cat: 'gemut' }, { id: 'bild', name: 'Blumenbild', cat: 'gemut' },
   { id: 'schaukelstuhl', name: 'Schaukelstuhl', cat: 'gemut' },
   { id: 'hamsterrad', name: 'Hamsterrad', cat: 'spass' }, { id: 'klavier', name: 'Klavier', cat: 'spass' },
   { id: 'nusskiste', name: 'Nusskiste', cat: 'spass' },
+  { id: 'blockfloete', name: 'Blockflöte', cat: 'spass' }, { id: 'harfe', name: 'Harfe', cat: 'spass' },
+  { id: 'schlagzeug', name: 'Schlagzeug', cat: 'spass' },
+  { id: 'ball', name: 'Ball', cat: 'spass' }, { id: 'kuscheltier', name: 'Kuscheltier', cat: 'spass' },
+  { id: 'tischkicker', name: 'Tischkicker', cat: 'spass' },
   { id: 'vase', name: 'Blumenvase', cat: 'deko' }, { id: 'teekanne', name: 'Teekanne', cat: 'deko' },
   { id: 'kerze', name: 'Kerze', cat: 'deko' }, { id: 'buecher', name: 'Bücherstapel', cat: 'deko' },
   { id: 'nussschale', name: 'Nussschale', cat: 'deko' },
   { id: 'poster_wald', name: 'Waldbild', cat: 'wand' }, { id: 'poster_mond', name: 'Mondposter', cat: 'wand' },
   { id: 'poster_willi', name: 'Willi-Poster', cat: 'wand' }, { id: 'uhr', name: 'Wanduhr', cat: 'wand' },
   { id: 'spiegel', name: 'Spiegel', cat: 'wand' }, { id: 'fenster', name: 'Fenster', cat: 'wand' },
+  { id: 'dartscheibe', name: 'Dartscheibe', cat: 'wand' },
   { id: 'pool', name: 'Pool', cat: 'dach' }, { id: 'liegestuhl', name: 'Liegestuhl', cat: 'dach' },
   { id: 'sonnenschirm', name: 'Sonnenschirm', cat: 'dach' }, { id: 'lampion', name: 'Lampions', cat: 'dach' },
   { id: 'terrassenhaus', name: 'Häuschen', cat: 'dach' },
+  { id: 'bar', name: 'Bar', cat: 'dach' },
 ];
 export const CATS = [['mobel', 'Möbel'], ['gemut', 'Gemütlich'], ['deko', 'Deko'], ['wand', 'Wand'], ['spass', 'Spass'], ['farbe', 'Tapete'], ['boden', 'Boden'], ['dach', 'Dach']];
-export const WALL_ITEMS = new Set(['poster_wald', 'poster_mond', 'poster_willi', 'uhr', 'spiegel', 'fenster']);
+export const WALL_ITEMS = new Set(['poster_wald', 'poster_mond', 'poster_willi', 'uhr', 'spiegel', 'fenster', 'dartscheibe']);
 
 /* ---------- Tapeten & Böden ---------- */
 export const WALLS = [

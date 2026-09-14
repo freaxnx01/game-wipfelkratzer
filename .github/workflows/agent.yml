@@ -19,13 +19,18 @@ jobs:
       runner-labels: '["ubuntu-latest"]'
       default-model: claude-sonnet-5
       pipeline-ref: v2
+      # Hard cap on the whole job. Raised from the upstream default of 30 so
+      # claude-timeout-minutes below still has room under it.
+      timeout-minutes: 50
       # The agent's own wall-clock cap, distinct from the job's. It defaults to
       # 10 minutes, which was harmless only while the pipeline was dropping it
       # on the floor (agent-workflow#341, fixed in v2.0.5) — now that it applies,
       # 10 is demonstrably too low: the run on #16 was still doing useful work
       # at 27 minutes before it was cancelled. Every plan in this repo asks for
       # headless Playwright verification, and the 184 MB browser download comes
-      # out of the same budget. Kept under the job's 30-minute cap so the agent
-      # is stopped first and the run still reports a result.
+      # out of the same budget. 25 was still too low — #34 was killed at exactly
+      # 25:00 on Opus with the implementation finished and three commits on its
+      # branch, mid-verification, before it could open a PR. Kept under the job's
+      # cap above so the agent is stopped first and the run still reports a result.
       # Revisit if agent-workflow#311 raises the upstream default.
-      claude-timeout-minutes: 25
+      claude-timeout-minutes: 40
