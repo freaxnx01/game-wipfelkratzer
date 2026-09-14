@@ -366,7 +366,7 @@ function cellPos(k, cell) { const { w, d } = dims(k); const cols = colsOf(k);
 function parentOf(k) { return k === 'roof' ? roofG : floorGroups[k]; }
 function baseY(k) { return k === 'roof' ? ROOF_DECK_T : 0.155; }
 
-const DECO = new Set(['vase', 'teekanne', 'kerze', 'buecher', 'nussschale']);
+const DECO = new Set(['vase', 'teekanne', 'kerze', 'buecher', 'nussschale', 'blockfloete']);
 /* Wandplatzierung für alle vier Wände, symmetrisch zur bisherigen Rückwand-Formel
    -D(k)/2 + 0.125 / rot=0 (dieselben Konstanten wie die Wandpanels selbst, siehe
    deren Aufbau weiter oben). */
