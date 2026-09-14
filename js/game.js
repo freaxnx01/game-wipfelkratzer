@@ -425,7 +425,7 @@ function surfaceYAt(k, x, z, exclude) {
       if (ly < 1.8 && (top === null || ly > top)) top = ly; } });
   return top === null ? baseY(k) : top + 0.005;
 }
-const SURFACES = ['tisch', 'regal', 'schrank', 'klavier', 'nusskiste'];
+const SURFACES = ['tisch', 'regal', 'schrank', 'klavier', 'nusskiste', 'kommode'];
 function clampEntry(k, m, en) {
   if (WALL_ITEMS.has(en.id)) {
     en.wall = en.wall || 'back';
