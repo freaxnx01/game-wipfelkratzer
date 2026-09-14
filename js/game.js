@@ -1242,6 +1242,7 @@ function photoZipFilename() {
 }
 function renderGallery() {
   const grid = $('photo-grid'); grid.innerHTML = '';
+  $('btn-download-all').classList.toggle('hidden', !photos.length);
   if (!photos.length) { grid.innerHTML = '<div class="empty">Noch keine Fotos. Drücke unten auf «Foto»!</div>'; return; }
   photos.forEach((p, i) => { const d = document.createElement('div'); d.className = 'photo';
     const dt = new Date(p.t);
