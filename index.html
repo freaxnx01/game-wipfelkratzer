@@ -45,7 +45,19 @@
   .nut { width: 18px; height: 20px; border-radius: 50% 50% 46% 46%; background: #8a5a2b; border: 2px solid #5b3a1f; display: inline-block; }
   #floorinfo { font-size: 14px; font-weight: 600; }
   /* Toolbar */
-  #toolbar { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; z-index: 5; max-width: 96vw; }
+  /* Die Leiste bleibt bei bottom: 10px stehen, reserviert aber als
+     Innenabstand den Streifen, den die Navileiste #game-nav (Ende dieser
+     Datei, aus der ai-instructions-Vorlage, z-index 2147483647) am unteren
+     Rand belegt — sonst liegt die unterste umbrochene Knopfzeile darunter und
+     «Foto» und «Musik aus» sind nicht mehr anklickbar (Issue #32). Weil
+     --toolbar-h aus offsetHeight kommt, wachsen #selbar, #extras-menu,
+     #catalog und #toast-stack von allein mit; deren Formeln bleiben
+     unverändert. Ohne Navileiste greift der Fallback 0px.
+     Klickdurchlässig, damit der reservierte Streifen und die Lücken zwischen
+     den Knöpfen Tipps an die 3D-Szene durchlassen; die Knöpfe selbst fangen
+     sie weiterhin ab. */
+  #toolbar { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; z-index: 5; max-width: 96vw; padding-bottom: var(--nav-h, 0px); pointer-events: none; }
+  #toolbar > button { pointer-events: auto; }
   /* Wishes */
   #wishes { position: fixed; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 8px; z-index: 5; max-width: 260px; }
   .wish { padding: 8px 12px; font-size: 14px; line-height: 1.25; cursor: pointer; border-left: none; }
@@ -144,7 +156,9 @@
   @media (max-width: 640px) {
     #hud h1 { font-size: 15px; }
     button { font-size: 14px; padding: 4px 10px; }
-    #wishes { max-width: 190px; top: auto; bottom: 130px; }
+    /* Dieselbe Formel wie #selbar: ein fester Abstand kannte die Höhe der
+       umbrechenden Werkzeugleiste nicht und überlappte sie (Issue #32). */
+    #wishes { max-width: 190px; top: auto; bottom: calc(var(--toolbar-h, 60px) + 16px); }
   }
 </style>
 </head>

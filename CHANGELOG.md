@@ -32,6 +32,13 @@ All notable changes to this project are documented here, following
   dem ein Frosch lugt. Das Häuschen ist gross — es lässt sich über die
   ganze Terrasse schieben, weicht dem Treppenaufgang aber automatisch
   aus, und Pool und Häuschen haben nebeneinander Platz (#49)
+- Auf schmalen Fenstern brach die Werkzeugleiste auf mehrere Zeilen um und die
+  unterste Zeile verschwand unter der Navileiste am unteren Bildrand — «Foto»
+  und «Musik aus» waren sichtbar, liessen sich aber nicht antippen. Die Leiste
+  hält jetzt den Streifen frei, den die Navileiste tatsächlich belegt, und
+  alles, was über ihr hängt (Auswahlleiste, Extras-Menü, Katalog, Meldungen),
+  rückt mit. Auf schmalen Fenstern richten sich auch die Wunschzettel nach der
+  gemessenen Leistenhöhe statt nach einem festen Abstand (#32)
 
 ## [0.5.0] - 2026-09-13
 

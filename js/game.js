@@ -473,15 +473,35 @@ function freeCell(k, from = 0) { const total = colsOf(k) * 2;
 const $ = id => document.getElementById(id);
 /* #selbar's bottom offset tracks #toolbar's real rendered height (it wraps to two
    rows on narrow viewports), so the two never overlap and #selbar never has to
-   guess the toolbar's height. */
+   guess the toolbar's height. Beobachtet wird ausdrücklich die Border-Box: die
+   Werkzeugleiste hält den Navileisten-Streifen als Innenabstand frei, und auf der
+   Content-Box feuert der Beobachter bei dessen Änderung nicht — --toolbar-h bliebe
+   stehen und das Extras-Menü rutschte in die Leiste hinein. */
 (() => { const tb = $('toolbar');
   const sync = () => document.documentElement.style.setProperty('--toolbar-h', tb.offsetHeight + 'px');
-  new ResizeObserver(sync).observe(tb); sync(); })();
+  new ResizeObserver(sync).observe(tb, { box: 'border-box' }); sync(); })();
 /* #catalog's bottom offset also tracks #selbar's real rendered height, so the
    catalog drawer never covers the selection bar either. */
 (() => { const sb = $('selbar');
   const sync = () => document.documentElement.style.setProperty('--selbar-h', sb.offsetHeight + 'px');
   new ResizeObserver(sync).observe(sb); sync(); })();
+/* --nav-h ist der Streifen am unteren Bildrand, den die Navileiste #game-nav aus
+   der ai-instructions-Vorlage belegt (index.html, Ende der Datei): Höhe plus
+   eigener Bodenabstand in einer Zahl, damit keine Zahl aus deren Inline-Style
+   hier abgeschrieben wird — die Höhe schwankt je nach Umbruch zwischen 37 und
+   48 Pixeln. #toolbar hält diesen Streifen frei; ohne Navileiste bleibt die
+   Variable ungesetzt und der CSS-Fallback 0px stellt das frühere Layout her.
+   Die Vorlage selbst wird nicht angefasst, sonst überschreibt sie der nächste
+   Sync (Issue #32). */
+(() => { const nav = $('game-nav'); if (!nav) return;
+  const sync = () => {
+    if (!nav.isConnected) { document.documentElement.style.removeProperty('--nav-h'); return; }
+    document.documentElement.style.setProperty('--nav-h',
+      Math.max(0, Math.round(window.innerHeight - nav.getBoundingClientRect().top)) + 'px');
+  };
+  new ResizeObserver(sync).observe(nav);
+  new ResizeObserver(sync).observe(document.documentElement);
+  addEventListener('resize', sync); sync(); })();
 /* Toasts verschwinden nie von selbst — ein Kind soll fertig lesen können. Sie
    stapeln sich stattdessen und werden einzeln (× oder Tipp auf den Toast) oder
    alle zusammen weggetippt. TOAST_MAX_VISIBLE begrenzt den Stapel, damit eine
