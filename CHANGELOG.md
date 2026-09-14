@@ -6,6 +6,11 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added
+
+- Fotos lassen sich jetzt alle auf einmal sichern — auf dem Tablet über das
+  System-Sheet, am Rechner als ein ZIP mit allen Bildern (#33)
+
 ### Fixed
 
 - Wer die Stockwerke am fertigen Turm abzählte, kam auf 11 statt der
