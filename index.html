@@ -117,6 +117,7 @@
   .photo-actions { display: flex; gap: 6px; justify-content: flex-end; align-self: flex-end; }
   .photo button { min-height: 36px; font-size: 13px; padding: 2px 10px; }
   #gallery .empty { text-align: center; opacity: .7; padding: 24px 0; }
+  #gallery-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
   #flash { position: fixed; inset: 0; z-index: 30; background: #fff; opacity: 0; pointer-events: none; transition: opacity .35s; }
   #flash.on { opacity: .9; transition: none; }
   .item.look img { border-radius: 8px; border: 2px solid var(--woodL); }
@@ -240,7 +241,10 @@
   <div class="panel">
     <h2>Fotogalerie</h2>
     <div id="photo-grid"></div>
-    <button id="btn-galclose" class="primary">Zu</button>
+    <div id="gallery-actions">
+      <button id="btn-download-all" class="hidden">Alle herunterladen</button>
+      <button id="btn-galclose" class="primary">Zu</button>
+    </div>
   </div>
 </div>
 <div id="flash"></div>
