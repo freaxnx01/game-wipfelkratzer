@@ -32,7 +32,9 @@ const TENANTS = [
 const flLabel = i => i === 0 ? 'E' : String(i);
 
 /* ---------- Zustand ---------- */
-let state = { floors: 0, rooms: {}, nuts: 0, bridge: false, garden: false, night: false, cutaway: false, fulfilled: {}, wallpaper: {}, flooring: {} };
+/* tenantPos: von Hand gesetzte Tierplätze pro Stockwerk; fehlt der Eintrag,
+   platziert tenantSpot automatisch (#14). */
+let state = { floors: 0, rooms: {}, nuts: 0, bridge: false, garden: false, night: false, cutaway: false, fulfilled: {}, wallpaper: {}, flooring: {}, tenantPos: {} };
 try { const s = localStorage.getItem('wipfelkratzer-v1'); if (s) state = Object.assign(state, JSON.parse(s)); } catch (e) {}
 let saveT = 0;
 const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { try {
@@ -240,7 +242,7 @@ function buildFlight(i, stairs) {
   stairs.userData.flight = makeFlight(foot, top, stairs);
 }
 
-const floorGroups = [], hitboxes = [], itemMeshes = {}, tenantGroups = {}, critters = [], spinners = [];
+const floorGroups = [], hitboxes = [], itemMeshes = {}, tenantMeshes = {}, tenantGroups = {}, critters = [], spinners = [];
 const towerG = new THREE.Group(); scene.add(towerG);
 
 for (let i = 0; i <= MAXF; i++) {
@@ -296,7 +298,7 @@ for (let i = 0; i <= MAXF; i++) {
   hit.position.y = h / 2; hit.userData = { type: 'floor', floor: i }; g.add(hit); hitboxes.push(hit);
   g.visible = i === 0 || i <= state.floors;
   towerG.add(g); floorGroups.push(g);
-  itemMeshes[i] = []; tenantGroups[i] = null;
+  itemMeshes[i] = []; tenantMeshes[i] = []; tenantGroups[i] = null;
 }
 itemMeshes.roof = [];
 
@@ -520,7 +522,8 @@ function renderToasts() {
 }
 toastClearEl.onclick = dismissAllToasts;
 function updateHUD() { $('nuts').textContent = state.nuts; $('floors').textContent = state.floors;
-  $('btn-build').textContent = state.floors >= MAXF ? 'Fertig gebaut!' : `Stockwerk bauen (${state.floors + 1}/10)`;
+  $('floors-max').textContent = MAXF;
+  $('btn-build').textContent = state.floors >= MAXF ? 'Fertig gebaut!' : `Stockwerk bauen (${state.floors + 1}/${MAXF})`;
   $('btn-build').disabled = state.floors >= MAXF || !!edit;
   $('btn-party').classList.toggle('hidden', !(state.floors === MAXF && tenantIn(MAXF)));
 }
@@ -675,6 +678,8 @@ function select(pick) { deselect(); selected = pick;
   $('btn-move').classList.toggle('hidden', wall);
   $('btn-rot').classList.toggle('hidden', wall);
   $('wallpad').classList.toggle('hidden', !wall);
+  /* Ein Bewohner lässt sich nicht wegwerfen (#39). */
+  $('btn-del').classList.toggle('hidden', !!pick.tenant);
   $('selbar').classList.add('on'); }
 
 function addItem(id) {
@@ -719,20 +724,21 @@ function removeItem(pick) {
 }
 
 /* ---------- Bewohner & Wünsche ---------- */
-/* Freieste Stelle im Raum für einziehende Tiere: 5x3-Punktraster, gewählt wird
-   der Punkt mit dem grössten Abstand zum nächsten Möbelstück (Box3, wie in
-   surfaceYAt). Kandidaten werden dafür ins Weltkoordinatensystem übersetzt,
-   weil floorGroups[k] neben der Verschiebung auch eine kleine Zufallsrotation
-   trägt (siehe floorPose) und Box3.setFromObject Weltkoordinaten liefert. */
-function tenantSpot(k) {
+/* Plätze im Raum für Tiere: 5x3-Punktraster, bewertet mit dem Abstand zum
+   nächsten Möbelstück (Box3, wie in surfaceYAt), absteigend sortiert.
+   Kandidaten werden dafür ins Weltkoordinatensystem übersetzt, weil
+   floorGroups[k] neben der Verschiebung auch eine kleine Zufallsrotation trägt
+   (siehe floorPose) und Box3.setFromObject Weltkoordinaten liefert. */
+function tenantSpots(k) {
   const boxes = itemMeshes[k].filter(m => {
     const id = m.userData.pick.entry.id;
     return !DECO.has(id) && !WALL_ITEMS.has(id);
   }).map(m => new THREE.Box3().setFromObject(m));
-  if (!boxes.length) return { x: 0, z: 0 };
   const { w, d } = dims(k), parent = parentOf(k); parent.updateWorldMatrix(true, false);
-  const cols = 5, rows = 3;
-  let best = { x: 0, z: 0 }, bestScore = -Infinity;
+  const cols = 5, rows = 3, out = [];
+  /* Ohne Möbel bleibt die Raummitte der beste Platz (Verhalten aus #14); das
+     Raster dahinter liefert trotzdem Ausweichpunkte für «Verschieben». */
+  if (!boxes.length) out.push({ x: 0, z: 0, score: Infinity });
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
     const x = -w / 2 + (c + 0.5) * w / cols, z = -d / 2 + (r + 0.5) * d / rows;
     const wp = parent.localToWorld(new THREE.Vector3(x, 0, z));
@@ -743,19 +749,42 @@ function tenantSpot(k) {
       const dist = Math.hypot(dx, dz);
       if (dist < minDist) minDist = dist;
     });
-    if (minDist > bestScore) { bestScore = minDist; best = { x, z }; }
+    out.push({ x, z, score: minDist });
   }
-  return best;
+  return out.sort((a, b) => b.score - a.score);
+}
+/* Freieste Stelle im Raum (Verhalten aus #14): der bestbewertete Kandidat. */
+const tenantSpot = k => { const s = tenantSpots(k)[0]; return { x: s.x, z: s.z }; };
+/* Von Hand gesetzter Platz schaltet die Automatik für die ganze Wohnung ab:
+   der Mitbewohner würde sonst beim nächsten Laden zu einem neu berechneten
+   tenantSpot springen, womöglich in das eben gestellte Tier hinein (#39, A3). */
+function setTenantPos(i, n, en) {
+  const arr = state.tenantPos[i] || (state.tenantPos[i] = []);
+  tenantMeshes[i].forEach((m, j) => { if (!arr[j]) { const e = m.userData.pick.entry;
+    arr[j] = { x: +e.x.toFixed(3), z: +e.z.toFixed(3), rot: +e.rot.toFixed(3) }; } });
+  arr[n] = { x: +en.x.toFixed(3), z: +en.z.toFixed(3), rot: +en.rot.toFixed(3) };
+  en.manual = true; save();
 }
 function spawnTenant(i, silent) {
   if (tenantGroups[i]) return;
   const t = TENANTS[i]; const g = new THREE.Group();
   g.userData = { type: 'tenant', floor: i };
-  const spot = tenantSpot(i);
+  const saved = state.tenantPos[i];
+  const spot = saved ? null : tenantSpot(i);
+  tenantMeshes[i] = [];
   t.animals.forEach((sp, n) => { const a = makeAnimal(sp);
-    a.position.set(spot.x + (n - (t.animals.length - 1) / 2) * 0.55, baseY(i), spot.z);
-    a.rotation.y = (n - 0.5) * 0.5;
-    g.add(a); critters.push({ g: a, ph: i * 2 + n, base: baseY(i) }); });
+    const man = saved && saved[n];
+    /* Tier-entry trägt bewusst kein id-Feld: DECO.has/WALL_ITEMS.has liefern
+       für undefined false, damit verhält sich ein Tier überall wie ein
+       gewöhnliches Bodenmöbel. */
+    const entry = man
+      ? { x: man.x, z: man.z, rot: man.rot, manual: true }
+      : { x: spot.x + (n - (t.animals.length - 1) / 2) * 0.55, z: spot.z,
+          rot: (n - 0.5) * 0.5, manual: false };
+    a.position.set(entry.x, baseY(i), entry.z);
+    a.rotation.y = entry.rot;
+    a.userData.pick = { k: i, entry, mesh: a, tenant: { floor: i, idx: n } };
+    g.add(a); tenantMeshes[i].push(a); critters.push({ g: a, ph: i * 2 + n, base: baseY(i) }); });
   floorGroups[i].add(g); tenantGroups[i] = g;
   if (!silent) { toast(`${t.name} — eingezogen!`); sfx.chime();
     g.scale.setScalar(0.01); tween(0.5, q => g.scale.setScalar(0.01 + 0.99 * q)); }
@@ -794,7 +823,8 @@ function renderResidents() {
     const li = document.createElement('li');
     const built = i <= state.floors;
     const nm = !built ? '<span class="free">noch nicht gebaut</span>' : tenantIn(i) ? `<b>${TENANTS[i].unit || TENANTS[i].name}</b>` : '<span class="free">zurzeit frei</span>';
-    li.innerHTML = `<span class="fl">${flLabel(i)}</span><span>${nm}</span>`;
+    const hint = i === 0 ? '<span class="hint">Erdgeschoss, war schon da</span>' : '';
+    li.innerHTML = `<span class="fl">${flLabel(i)}</span><span>${nm}${hint}</span>`;
     ul.appendChild(li); }
 }
 
@@ -974,7 +1004,7 @@ const TIPS = [
 let tipI = 0;
 $('btn-tip').onclick = () => { if (!edit) return;
   const k = edit.k;
-  if (k === 'roof') { toast(state.floors === MAXF && wishOpen(10) ? 'Die Frösche warten auf einen Pool!' : 'Lampions, Sonnenschirm und Liegestuhl machen die Dachterrasse fein.'); return; }
+  if (k === 'roof') { toast(state.floors === MAXF && wishOpen(MAXF) ? 'Die Frösche warten auf einen Pool!' : 'Lampions, Sonnenschirm und Liegestuhl machen die Dachterrasse fein.'); return; }
   if (!tenantIn(k)) { toast(`Noch ${Math.max(0, 3 - roomOf(k).length)} Sachen einrichten, dann zieht ${TENANTS[k].name} ein!`); return; }
   if (wishOpen(k)) { toast(TENANTS[k].wtext); return; }
   toast(TIPS[tipI++ % TIPS.length]); };
@@ -997,8 +1027,12 @@ renderer.domElement.addEventListener('pointerup', e => {
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, camera);
   if (edit) {
-    const tg = edit.k !== 'roof' && tenantGroups[edit.k] ? [tenantGroups[edit.k]] : [];
-    if (tg.length && ray.intersectObjects(tg, true).length) { tenantTalk(edit.k); return; }
+    /* Ein Tipp auf ein Tier wählt es aus UND lässt es reden (#39). */
+    if (edit.k !== 'roof' && tenantMeshes[edit.k] && tenantMeshes[edit.k].length) {
+      const th = ray.intersectObjects(tenantMeshes[edit.k], true);
+      if (th.length) { let o = th[0].object; while (o && !(o.userData && o.userData.pick)) o = o.parent;
+        if (o) { select(o.userData.pick); tenantTalk(edit.k); return; } }
+    }
     const hits = ray.intersectObjects(itemMeshes[edit.k], true);
     if (hits.length) { let o = hits[0].object; while (o && !(o.userData && o.userData.pick)) o = o.parent;
       if (o) { select(o.userData.pick); sfx.pop(); return; } }
@@ -1041,6 +1075,15 @@ $('btn-catalog').onclick = () => {
 $('btn-catclose').onclick = () => $('catalog').classList.remove('open');
 $('btn-extras').onclick = () => $('extras-menu').classList.toggle('open');
 $('btn-move').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.id)) return;
+  /* Tiere kennen keine Möbelzelle — sie springen auf den nächstbesten Punkt
+     des Tier-Rasters, der weit genug vom jetzigen Platz entfernt ist (#39). */
+  if (selected.tenant) { const en = selected.entry;
+    const cands = tenantSpots(selected.k);
+    const far = cands.find(c => Math.hypot(c.x - en.x, c.z - en.z) > 0.4) || cands[0];
+    en.x = far.x; en.z = far.z;
+    clampEntry(selected.k, selected.mesh, en);
+    setTenantPos(selected.tenant.floor, selected.tenant.idx, en);
+    selHelper.update(); sfx.pop(); return; }
   const c = freeCell(selected.k, selected.entry.cell + 1);
   if (c < 0) { toast('Kein Platz frei!'); return; }
   const en = selected.entry; en.cell = c; const p = cellPos(selected.k, c);
@@ -1051,8 +1094,9 @@ $('btn-rot').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.id
   selected.entry.rot += Math.PI / 2;
   selected.mesh.rotation.y = selected.entry.rot;
   clampEntry(selected.k, selected.mesh, selected.entry);
-  selHelper.update(); sfx.pop(); save(); };
-$('btn-del').onclick = () => { if (selected) removeItem(selected); };
+  if (selected.tenant) setTenantPos(selected.tenant.floor, selected.tenant.idx, selected.entry); else save();
+  selHelper.update(); sfx.pop(); };
+$('btn-del').onclick = () => { if (selected && !selected.tenant) removeItem(selected); };
 
 /* Wandobjekt verschieben: dx entlang der Wand, dy in der Höhe — von Tastatur und Touch-Pad geteilt */
 const WALL_STEP = 0.12;
@@ -1074,15 +1118,18 @@ addEventListener('keydown', e => {
     if (WALL_ITEMS.has(en.id)) { moveWallItem(selected, st[0], -st[1]); return; }
     en.x += st[0]; en.z += st[1];
     clampEntry(selected.k, selected.mesh, en);
-    en.y = DECO.has(en.id) ? surfaceYAt(selected.k, en.x, en.z, selected.mesh) : baseY(selected.k);
-    selected.mesh.position.y = en.y;
-    selHelper.update(); save(); return; }
+    /* Bei einem Tier gehört position.y allein der Wackel-Animation (#39). */
+    if (selected.tenant) { setTenantPos(selected.tenant.floor, selected.tenant.idx, en); }
+    else { en.y = DECO.has(en.id) ? surfaceYAt(selected.k, en.x, en.z, selected.mesh) : baseY(selected.k);
+           selected.mesh.position.y = en.y; save(); }
+    selHelper.update(); return; }
   if (e.key === 'PageUp' || e.key === 'PageDown') { e.preventDefault();
     en.rot += (e.key === 'PageUp' ? 1 : -1) * Math.PI / 12;
     selected.mesh.rotation.y = en.rot;
     clampEntry(selected.k, selected.mesh, en);
-    selHelper.update(); save(); return; }
-  if (e.key === 'Delete') { e.preventDefault(); removeItem(selected); }
+    if (selected.tenant) setTenantPos(selected.tenant.floor, selected.tenant.idx, en); else save();
+    selHelper.update(); return; }
+  if (e.key === 'Delete' && !selected.tenant) { e.preventDefault(); removeItem(selected); }
 });
 
 /* Mit Willi reden */
@@ -1185,7 +1232,8 @@ for (let i = 0; i <= MAXF; i++) if (tenantIn(i)) spawnTenant(i, true);
 for (let i = 0; i <= MAXF; i++) applyLook(i);
 if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
-window.wipfelkratzer = { state, floorGroups, roofG, roofStairG, roofGapG, scene, camera, controls, WALL_KEYS, get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; } };
+window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, scene, camera, controls, WALL_KEYS, get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
+  itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; } };
 applyNight(state.night ? 1 : 0);
 applyFronts();
 makeThumbs();
@@ -1206,6 +1254,9 @@ function tick() {
   magpie.lookAt(nx, mh, nz);
   magInner.userData.wings.forEach((w, i) => w.rotation.x = Math.sin(t * 9 + i) * 0.55);
   critters.forEach(c => { c.g.position.y = c.base + Math.abs(Math.sin(t * 2.2 + c.ph)) * 0.03; });
+  /* Der Auswahlrahmen misst sich nur auf update() neu — beim wackelnden Tier
+     stünde er sonst daneben. */
+  if (selHelper && selected && selected.tenant) selHelper.update();
   dancers.forEach(d => { d.g.position.y = 0.18 + Math.abs(Math.sin(t * 4.5 + d.ph)) * 0.22;
     d.g.rotation.y += dt * (0.8 + (d.ph % 3) * 0.5); });
   spinners.forEach(w => w.rotation.z += dt * 2.4);

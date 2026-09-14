@@ -6,6 +6,22 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed
+
+- Wer die Stockwerke am fertigen Turm abzählte, kam auf 11 statt der
+  angezeigten 10 — das Erdgeschoss ist von Anfang an da und wird nie gebaut,
+  sah am Turm aber wie ein vollwertiges Stockwerk aus. Das HUD sagt jetzt
+  «Erdgeschoss + N von 10 Stockwerken», und die Bewohnerliste erklärt in der
+  `E`-Zeile, dass das Erdgeschoss schon vor dem ersten Klick da war. Die
+  Zielzahl kommt in HUD, Bauknopf und Dach-Tipp aus `MAXF` statt aus
+  Literalen (#35)
+### Added
+
+- Tiere lassen sich jetzt beim Einrichten antippen, verschieben und
+  drehen — genau wie ein Möbel, mit derselben Auswahlleiste. Wer ein Tier
+  von Hand an seinen Platz stellt, behält ihn: die automatische Platzsuche
+  beim Einzug gilt dann für diese Wohnung nicht mehr, und der Platz
+  überlebt das Neuladen. Weggeworfen werden kann ein Tier nicht (#39)
 ### Added
 
 - Auf der Dachterrasse lässt sich jetzt ein kleines Häuschen mit grünem
