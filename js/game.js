@@ -1256,6 +1256,25 @@ function renderGallery() {
     d.querySelector('.danger').onclick = () => { photos.splice(i, 1); savePhotos(); renderGallery(); };
     grid.appendChild(d); });
 }
+async function downloadAllPhotos() {
+  if (!photos.length) return;
+  const btn = $('btn-download-all');
+  btn.disabled = true;
+  try {
+    const names = uniquePhotoNames(photos);
+    const bytes = photos.map(p => dataUrlToBytes(p.url));
+    const blob = zipStore(photos.map((p, i) => ({ name: names[i], data: bytes[i], date: new Date(p.t) })));
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = href; a.download = photoZipFilename();
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(href), 10000);
+    toast(`${photos.length} Fotos als ZIP gespeichert.`);
+  } finally {
+    btn.disabled = false;
+  }
+}
+$('btn-download-all').onclick = downloadAllPhotos;
 $('btn-photo').onclick = takePhoto;
 $('btn-gallery').onclick = () => { $('extras-menu').classList.remove('open'); renderGallery(); $('gallery').classList.add('open'); };
 $('btn-galclose').onclick = () => $('gallery').classList.remove('open');
