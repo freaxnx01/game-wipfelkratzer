@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { MAT, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, lookCanvas, lookTexture, makeFurniture, makeAnimal, makeWilli, makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge, makeGarden } from './models.js';
+import { MAT, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, TINTABLE, lookCanvas, lookTexture, makeFurniture, makeAnimal, makeWilli, makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge, makeGarden } from './models.js';
 
 /* ---------- Konstanten ---------- */
 const PLAT_Y = 2.2, E_H = 2.4, FLOOR_H = 2.0, MAXF = 10;
@@ -387,6 +387,13 @@ function wallpaperOf(k) {
   else if (!wp || typeof wp !== 'object') { wp = state.wallpaper[k] = {}; }
   return wp;
 }
+/* Farbe pro Möbel. Alte Stände haben hier nichts — das ist gültig und heisst
+   «Standardfarbe». Ein unbekannter Wert oder eine Farbe an einem nicht
+   einfärbbaren Möbel wird still entfernt (wie die Tapeten-Migration). */
+function normalizeColor(en) {
+  if (!en.color) return;
+  if (!TINTABLE.has(en.id) || !FURN_COLORS.some(c => c.id === en.color)) { delete en.color; migrated = true; }
+}
 function applyLook(k) {
   if (k === 'roof') return; const g = floorGroups[k];
   const wp = wallpaperOf(k), fl = state.flooring[k];
@@ -447,8 +454,9 @@ function clampEntry(k, m, en) {
   m.position.set(en.x, en.y ?? baseY(k), en.z);
 }
 function placeItemMesh(k, entry) {
+  normalizeColor(entry);
   if (entry.x === undefined) { const p = cellPos(k, entry.cell || 0); entry.x = p.x; entry.z = p.z; entry.rot = (entry.rot || 0) * Math.PI / 2; }
-  const m = makeFurniture(entry.id);
+  const m = makeFurniture(entry.id, entry.color);
   if (WALL_ITEMS.has(entry.id)) {
     /* entry.x ist die Position entlang der Wand (siehe wallPlacement); die feste Achse
        (Wandebene) wird aus entry.wall/k neu bestimmt, nicht mitgespeichert. */
@@ -1252,7 +1260,9 @@ for (let i = 0; i <= MAXF; i++) if (tenantIn(i)) spawnTenant(i, true);
 for (let i = 0; i <= MAXF; i++) applyLook(i);
 if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
-window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, scene, camera, controls, WALL_KEYS, get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
+window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, scene, camera, controls, WALL_KEYS, FURN_COLORS, TINTABLE,
+  matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
+  get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; } };
 applyNight(state.night ? 1 : 0);
 applyFronts();
