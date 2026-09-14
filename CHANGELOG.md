@@ -4,6 +4,18 @@ All notable changes to this project are documented here, following
 [Keep a Changelog](https://keepachangelog.com) and
 [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Fixed
+
+- Wer die Stockwerke am fertigen Turm abzählte, kam auf 11 statt der
+  angezeigten 10 — das Erdgeschoss ist von Anfang an da und wird nie gebaut,
+  sah am Turm aber wie ein vollwertiges Stockwerk aus. Das HUD sagt jetzt
+  «Erdgeschoss + N von 10 Stockwerken», und die Bewohnerliste erklärt in der
+  `E`-Zeile, dass das Erdgeschoss schon vor dem ersten Klick da war. Die
+  Zielzahl kommt in HUD, Bauknopf und Dach-Tipp aus `MAXF` statt aus
+  Literalen (#35)
+
 ## [0.5.0] - 2026-09-13
 
 ### Added

@@ -520,7 +520,8 @@ function renderToasts() {
 }
 toastClearEl.onclick = dismissAllToasts;
 function updateHUD() { $('nuts').textContent = state.nuts; $('floors').textContent = state.floors;
-  $('btn-build').textContent = state.floors >= MAXF ? 'Fertig gebaut!' : `Stockwerk bauen (${state.floors + 1}/10)`;
+  $('floors-max').textContent = MAXF;
+  $('btn-build').textContent = state.floors >= MAXF ? 'Fertig gebaut!' : `Stockwerk bauen (${state.floors + 1}/${MAXF})`;
   $('btn-build').disabled = state.floors >= MAXF || !!edit;
   $('btn-party').classList.toggle('hidden', !(state.floors === MAXF && tenantIn(MAXF)));
 }
@@ -794,7 +795,8 @@ function renderResidents() {
     const li = document.createElement('li');
     const built = i <= state.floors;
     const nm = !built ? '<span class="free">noch nicht gebaut</span>' : tenantIn(i) ? `<b>${TENANTS[i].unit || TENANTS[i].name}</b>` : '<span class="free">zurzeit frei</span>';
-    li.innerHTML = `<span class="fl">${flLabel(i)}</span><span>${nm}</span>`;
+    const hint = i === 0 ? '<span class="hint">Erdgeschoss, war schon da</span>' : '';
+    li.innerHTML = `<span class="fl">${flLabel(i)}</span><span>${nm}${hint}</span>`;
     ul.appendChild(li); }
 }
 
@@ -974,7 +976,7 @@ const TIPS = [
 let tipI = 0;
 $('btn-tip').onclick = () => { if (!edit) return;
   const k = edit.k;
-  if (k === 'roof') { toast(state.floors === MAXF && wishOpen(10) ? 'Die Frösche warten auf einen Pool!' : 'Lampions, Sonnenschirm und Liegestuhl machen die Dachterrasse fein.'); return; }
+  if (k === 'roof') { toast(state.floors === MAXF && wishOpen(MAXF) ? 'Die Frösche warten auf einen Pool!' : 'Lampions, Sonnenschirm und Liegestuhl machen die Dachterrasse fein.'); return; }
   if (!tenantIn(k)) { toast(`Noch ${Math.max(0, 3 - roomOf(k).length)} Sachen einrichten, dann zieht ${TENANTS[k].name} ein!`); return; }
   if (wishOpen(k)) { toast(TENANTS[k].wtext); return; }
   toast(TIPS[tipI++ % TIPS.length]); };
