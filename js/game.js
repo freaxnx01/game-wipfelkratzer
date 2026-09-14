@@ -1263,6 +1263,18 @@ async function downloadAllPhotos() {
   try {
     const names = uniquePhotoNames(photos);
     const bytes = photos.map(p => dataUrlToBytes(p.url));
+    const files = bytes.map((b, i) => new File([b], names[i], { type: 'image/jpeg' }));
+    /* iPad/Android: das System-Sheet legt alle Bilder auf einmal in «Fotos» —
+       dort gehören sie hin, nicht als Archiv nach «Dateien». */
+    if (navigator.canShare && navigator.canShare({ files })) {
+      try {
+        await navigator.share({ files, title: 'Wipfelkratzer-Fotos' });
+        toast(`${files.length} Fotos weitergegeben.`);
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;  // abgebrochen: kein Ersatzweg
+      }
+    }
     const blob = zipStore(photos.map((p, i) => ({ name: names[i], data: bytes[i], date: new Date(p.t) })));
     const href = URL.createObjectURL(blob);
     const a = document.createElement('a');
