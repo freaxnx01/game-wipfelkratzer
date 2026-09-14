@@ -426,7 +426,7 @@ function surfaceYAt(k, x, z, exclude) {
       if (ly < 1.8 && (top === null || ly > top)) top = ly; } });
   return top === null ? baseY(k) : top + 0.005;
 }
-const SURFACES = ['tisch', 'regal', 'schrank', 'klavier', 'nusskiste', 'kommode'];
+const SURFACES = ['tisch', 'regal', 'schrank', 'klavier', 'nusskiste', 'kommode', 'wk_regal', 'wk_tisch'];
 function clampEntry(k, m, en) {
   if (WALL_ITEMS.has(en.id)) {
     en.wall = en.wall || 'back';
@@ -812,17 +812,22 @@ function spawnTenant(i, silent) {
   renderWishes(); renderResidents(); updateHUD();
 }
 function checkTenant(k) { if (k !== 'roof' && tenantIn(k) && !tenantGroups[k]) spawnTenant(k); }
+/* Ein Serienmöbel zählt bei Wünschen wie sein klassisches Gegenstück:
+   'wk_sofa' erfüllt den Sofa-Wunsch. Die Wipfkea-ids sind genau dafür als
+   'wk_' + klassische id gebaut (siehe Spec «Wipfkea»). Wer ein Serienstück
+   ergänzt, muss diese Namensregel einhalten. */
+const wishKey = id => id.startsWith('wk_') ? id.slice(3) : id;
 function wishOpen(i) {
   if (!tenantIn(i) || state.fulfilled[i]) return false;
   const t = TENANTS[i]; const where = t.roofWish ? 'roof' : i;
-  if (roomOf(where).some(e => e.id === t.wish)) { state.fulfilled[i] = true; return false; }
+  if (roomOf(where).some(e => wishKey(e.id) === t.wish)) { state.fulfilled[i] = true; return false; }
   return true;
 }
 function checkWishes(placedId, k) {
   for (let i = 0; i <= MAXF; i++) { const t = TENANTS[i];
     if (!tenantIn(i) || state.fulfilled[i]) continue;
     const where = t.roofWish ? 'roof' : i;
-    if (where === k && t.wish === placedId) {
+    if (where === k && t.wish === wishKey(placedId)) {
       state.fulfilled[i] = true; state.nuts += 3;
       toast('Wunsch erfüllt! +3 Haselnüsse'); sfx.chime(true);
       if (placedId === 'pool') sfx.splash();
