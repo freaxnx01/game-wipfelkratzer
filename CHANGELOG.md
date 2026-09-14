@@ -8,6 +8,13 @@ All notable changes to this project are documented here, following
 
 ### Fixed
 
+- Wer die Stockwerke am fertigen Turm abzählte, kam auf 11 statt der
+  angezeigten 10 — das Erdgeschoss ist von Anfang an da und wird nie gebaut,
+  sah am Turm aber wie ein vollwertiges Stockwerk aus. Das HUD sagt jetzt
+  «Erdgeschoss + N von 10 Stockwerken», und die Bewohnerliste erklärt in der
+  `E`-Zeile, dass das Erdgeschoss schon vor dem ersten Klick da war. Die
+  Zielzahl kommt in HUD, Bauknopf und Dach-Tipp aus `MAXF` statt aus
+  Literalen (#35)
 - Auf schmalen Fenstern brach die Werkzeugleiste auf mehrere Zeilen um und die
   unterste Zeile verschwand unter der Navileiste am unteren Bildrand — «Foto»
   und «Musik aus» waren sichtbar, liessen sich aber nicht antippen. Die Leiste
