@@ -176,6 +176,54 @@ const FURN = {
     for (let i = 0; i < 7; i++) box(g, 0.05, 0.04, 0.1, MAT.black, -0.3 + i * 0.1, 0.5, 0.1);
     [-0.36, 0.36].forEach(x => box(g, 0.07, 0.2, 0.24, MAT.dark, x, 0.1, 0));
     return g; },
+  /* Instrumente */
+  harfe() { const g = G();
+    /* Seitenprofil in der x-y-Ebene: Säule vorne senkrecht, Resonanzkörper schräg
+       nach hinten-unten, Hals dazwischen, Saiten spannen als Fächer darüber.
+       bar() spannt einen Quader von Punkt a nach Punkt b (beide [x, y]). */
+    const bar = (a, b, w, d, mat, ext = 0) => { const dx = b[0] - a[0], dy = b[1] - a[1];
+      const m = box(g, w, Math.hypot(dx, dy) + ext, d, mat, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0);
+      m.rotation.z = -Math.atan2(dx, dy); return m; };
+    const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    box(g, 0.44, 0.08, 0.28, MAT.woodD, 0, 0.04);
+    cyl(g, 0.045, 0.05, 1.12, MAT.wood, 0.22, 0.64, 0, 10);
+    bar([-0.18, 0.08], [0.05, 0.95], 0.15, 0.22, MAT.woodL, 0.06);
+    bar([-0.16, 0.10], [0.06, 0.93], 0.03, 0.16, MAT.woodD);
+    bar([0.06, 0.97], [0.22, 1.15], 0.10, 0.16, MAT.woodD, 0.05);
+    sph(g, 0.06, MAT.gold, 0.22, 1.20, 0);
+    for (let i = 0; i < 7; i++) { const t = i / 6;
+      bar(lerp([-0.09, 0.36], [0.03, 0.82], t), lerp([0.07, 0.99], [0.21, 1.14], t), 0.014, 0.014, MAT.gold); }
+    return g; },
+  schlagzeug() { const g = G();
+    /* Kompaktes Set: grosse Trommel liegend (Achse entlang z), Tom obenauf,
+       Snare rechts und Becken links auf dünnen Ständern. Die Gesamtbreite
+       bleibt unter der schmalsten Zellenbreite (~0.95, js/game.js:358-362). */
+    cyl(g, 0.26, 0.26, 0.24, MAT.red, 0, 0.28, 0, 20).rotation.x = Math.PI / 2;
+    [-0.12, 0.12].forEach(z => {
+      cyl(g, 0.235, 0.235, 0.02, MAT.cream, 0, 0.28, z, 20).rotation.x = Math.PI / 2;
+      mesh(new THREE.TorusGeometry(0.26, 0.016, 8, 20), MAT.gold, 0, 0.28, z, g); });
+    [-0.19, 0.19].forEach(x => box(g, 0.05, 0.08, 0.3, MAT.black, x, 0.04, 0));
+    cyl(g, 0.12, 0.12, 0.15, MAT.red, -0.02, 0.62, 0, 16);
+    cyl(g, 0.125, 0.125, 0.02, MAT.cream, -0.02, 0.70, 0, 16);
+    mesh(new THREE.TorusGeometry(0.125, 0.014, 8, 16), MAT.gold, -0.02, 0.70, 0, g).rotation.x = -Math.PI / 2;
+    cyl(g, 0.14, 0.14, 0.11, MAT.white, 0.30, 0.44, 0.08, 16);
+    cyl(g, 0.145, 0.145, 0.02, MAT.cream, 0.30, 0.50, 0.08, 16);
+    for (let i = 0; i < 3; i++) { const a = i * 2.094;
+      const l = cyl(g, 0.014, 0.014, 0.44, MAT.grey, 0.30 + Math.sin(a) * 0.06, 0.21, 0.08 + Math.cos(a) * 0.06, 6);
+      l.rotation.set(Math.cos(a) * 0.26, 0, -Math.sin(a) * 0.26); }
+    cyl(g, 0.015, 0.015, 0.64, MAT.grey, -0.30, 0.32, 0.05, 6);
+    cyl(g, 0.15, 0.15, 0.012, MAT.gold, -0.30, 0.66, 0.05, 20).rotation.z = 0.22;
+    sph(g, 0.035, MAT.gold, -0.30, 0.68, 0.05);
+    [-0.07, 0.07].forEach(d => { const s = cyl(g, 0.012, 0.016, 0.32, MAT.woodL, 0.04 + d, 0.30, 0.20, 6);
+      s.rotation.set(-1.15, 0, d * 3); });
+    return g; },
+  blockfloete() { const g = G();
+    cyl(g, 0.07, 0.085, 0.025, MAT.woodL, 0, 0.012, 0, 12);
+    cyl(g, 0.026, 0.026, 0.03, MAT.woodD, 0, 0.04, 0, 10);
+    cyl(g, 0.017, 0.020, 0.30, MAT.cream, 0, 0.20, 0, 10);
+    cyl(g, 0.024, 0.019, 0.05, MAT.woodD, 0, 0.37, 0, 10);
+    for (let i = 0; i < 5; i++) sph(g, 0.008, MAT.black, 0, 0.14 + i * 0.042, 0.016);
+    return g; },
   nusskiste() { const g = G();
     box(g, 0.6, 0.06, 0.45, MAT.woodL, 0, 0.03);
     [-0.28, 0.28].forEach(x => box(g, 0.05, 0.3, 0.45, MAT.wood, x, 0.17));
@@ -375,6 +423,8 @@ export const CATALOG = [
   { id: 'schaukelstuhl', name: 'Schaukelstuhl', cat: 'gemut' },
   { id: 'hamsterrad', name: 'Hamsterrad', cat: 'spass' }, { id: 'klavier', name: 'Klavier', cat: 'spass' },
   { id: 'nusskiste', name: 'Nusskiste', cat: 'spass' },
+  { id: 'blockfloete', name: 'Blockflöte', cat: 'spass' }, { id: 'harfe', name: 'Harfe', cat: 'spass' },
+  { id: 'schlagzeug', name: 'Schlagzeug', cat: 'spass' },
   { id: 'ball', name: 'Ball', cat: 'spass' }, { id: 'kuscheltier', name: 'Kuscheltier', cat: 'spass' },
   { id: 'tischkicker', name: 'Tischkicker', cat: 'spass' },
   { id: 'vase', name: 'Blumenvase', cat: 'deko' }, { id: 'teekanne', name: 'Teekanne', cat: 'deko' },
