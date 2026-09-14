@@ -758,7 +758,37 @@ function select(pick) { deselect(); selected = pick;
   $('wallpad').classList.toggle('hidden', !wall);
   /* Ein Bewohner lässt sich nicht wegwerfen (#39). */
   $('btn-del').classList.toggle('hidden', !!pick.tenant);
+  updateActionBtn();
   $('selbar').classList.add('on'); }
+
+/* Der Aktionsknopf sagt, was der nächste Druck TUT — nicht, wie der Zustand
+   gerade heisst. Er erscheint nur für Objekte, die in ACTIONS stehen. */
+function updateActionBtn() {
+  const b = $('btn-action');
+  const label = selected ? actionLabel(selected.entry) : null;
+  b.classList.toggle('hidden', !label);
+  if (label) b.textContent = label;
+}
+/* Antippen bleibt mit Auswählen belegt (js/game.js:1003-1005) — geschaltet
+   wird über diesen Knopf. Ein Eintrag ohne `apply` (Instrumente, Issue #36)
+   spielt nur seinen Ton und schreibt nichts in den Spielstand. */
+function toggleAction() {
+  if (!selected) return;
+  const en = selected.entry, a = ACTIONS[en.id];
+  if (!a) return;
+  if (!a.apply) { a.sound(true); return; }
+  const next = !isOn(en);
+  en.on = next;
+  a.sound(next);
+  const mesh = selected.mesh;
+  tween(0.7, q => a.apply(mesh, next, q));
+  updateActionBtn();
+  /* Die Fassade hängt an den Lampenzuständen (applyNight) — ohne dieses
+     Nachziehen hinkte sie bis zum nächsten Tag/Nacht-Wechsel hinterher. */
+  if (en.id === 'lampe') applyNight(nightK);
+  save();
+}
+$('btn-action').onclick = toggleAction;
 
 function addItem(id) {
   if (!edit) return;
