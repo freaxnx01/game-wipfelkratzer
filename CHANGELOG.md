@@ -8,6 +8,11 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- Lampe, Badewanne und Fenster machen jetzt etwas: ein Knopf in der
+  Auswahlleiste schaltet das Licht an und aus, lässt Wasser in die Wanne und
+  wieder ab und kippt den Fensterflügel auf und zu — jedes mit eigenem
+  Geräusch. Der Zustand bleibt beim Neuladen erhalten, und bei Nacht sieht man
+  von draussen, in welcher Wohnung noch Licht brennt (#41)
 - Fotos lassen sich jetzt alle auf einmal sichern — auf dem Tablet über das
   System-Sheet, am Rechner als ein ZIP mit allen Bildern (#33)
 
