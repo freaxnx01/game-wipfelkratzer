@@ -3,7 +3,6 @@
 ## Geplant
 - [ ] Pixi (der Wal aus dem Pixi-Bücher-Logo) soll irgendwo/irgendwann im Spiel auftauchen
 - [ ] Tag/Nacht mit Beleuchtung (Innenlicht, Lampen leuchten richtig)
-- [ ] Bei Nacht soll die Lampe wirklich Licht geben — pro Lampe an/aus schaltbar
 - [ ] Wetter (Regen, Wind, Schnee)
 - [ ] Material sammeln: Willi nagt Äste, Schilf, Gras — Bauen kostet Material
 
@@ -33,6 +32,7 @@
 - [x] Bodenbelag wieder entfernbar (#5)
 - [x] Alle Fotos auf einmal herunterladen — Teilen auf dem Tablet, ZIP am Rechner (#33)
 - [x] «Wipfkea»-Möbelserie in Braun und Pink: Regal, Tisch, Stuhl, Sofa (#42)
+- [x] Fenster, Badewanne und Lampe sind schaltbar — mit Geräusch, gespeichert, und bei Nacht sieht man das Licht von aussen (#41)
 
 ## Gefunden beim Aufräumen (noch offen)
 

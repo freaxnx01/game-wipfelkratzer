@@ -454,6 +454,62 @@ function clampEntry(k, m, en) {
   }
   m.position.set(en.x, en.y ?? baseY(k), en.z);
 }
+/* ---------- Schaltbare Objekte (Issue #41) ---------- */
+/* Der Zustand ist ein einziges Feld `on` am Eintrag in state.rooms. Fehlt es,
+   greift DEFAULT_ON — und DEFAULT_ON bildet exakt das Aussehen ab, das die
+   Modelle vor dieser Änderung hatten. Ein alter Spielstand sieht damit gleich
+   aus wie vorher und wird beim Laden NICHT umgeschrieben (anders als bei der
+   Tapete, wallpaperOf oben — dort änderte sich die Form des Werts, hier fehlt
+   nur ein Feld mit wohldefinierter Vorgabe). */
+const DEFAULT_ON = { lampe: true, badewanne: true, fenster: false };
+const isOn = en => en.on === undefined ? !!DEFAULT_ON[en.id] : en.on;
+
+const BULB_ON = 0xffd98a, BULB_OFF = 0xcfc0a4, SHADE_ON = 0x3a2408;
+function applyLampe(m, on, q) {
+  const bulb = m.userData.bulb, shade = m.userData.shade;
+  if (!bulb) return;
+  const f = on ? q : 1 - q;   /* 0 = aus, 1 = an */
+  bulb.material.color.setHex(f > 0.5 ? BULB_ON : BULB_OFF);
+  /* Bei Nacht deutlich heller als bei Tag — das ist der Ersatz für eine
+     echte Lichtquelle pro Lampe (Spec A5). */
+  bulb.material.emissiveIntensity = f * (0.5 + 0.5 * nightK);
+  if (shade) shade.material.emissive.setHex(f > 0.5 ? SHADE_ON : 0x000000);
+}
+function applyWanne(m, on, q) {
+  const w = m.userData.water; if (!w) return;
+  const f = on ? q : 1 - q;
+  w.scale.y = 0.05 + 0.95 * f;
+  w.position.y = 0.115 + 0.305 * f;
+  w.visible = f > 0.02;
+}
+const SASH_OPEN = -0.45;
+function applyFenster(m, on, q) {
+  const s = m.userData.sash; if (!s) return;
+  s.rotation.x = SASH_OPEN * (on ? q : 1 - q);
+}
+
+/* Registry der Objekte, die etwas tun.
+   - Eintrag MIT `apply` trägt einen Zustand (Feld `on` im Spielstand).
+   - Eintrag OHNE `apply`, nur mit `label` + `sound`, ist ein reiner Auslöser.
+     Das ist der Fall, den die Instrumente aus Issue #36 brauchen: Tipp -> Ton,
+     kein Zustand, kein save(). Ein Instrument kostet dann genau eine Zeile
+     hier plus einen sfx-Effekt. */
+const ACTIONS = {
+  lampe:     { doOn: 'Licht an',     doOff: 'Licht aus',    apply: applyLampe,   sound: () => sfx.click() },
+  fenster:   { doOn: 'Fenster auf',  doOff: 'Fenster zu',   apply: applyFenster, sound: () => sfx.creak() },
+  badewanne: { doOn: 'Wanne füllen', doOff: 'Wanne leeren', apply: applyWanne,   sound: on => on ? sfx.fill() : sfx.drain() },
+};
+const actionLabel = en => { const a = ACTIONS[en.id]; if (!a) return null;
+  return a.label || (isOn(en) ? a.doOff : a.doOn); };
+/* animate === false: Endzustand sofort setzen (beim Aufbau aus dem Spielstand). */
+function applyItemState(m, animate) {
+  const en = m.userData.pick.entry, a = ACTIONS[en.id];
+  if (!a || !a.apply) return;
+  const on = isOn(en);
+  if (animate === false) { a.apply(m, on, 1); return; }
+  tween(0.7, q => a.apply(m, on, q));
+}
+
 function placeItemMesh(k, entry) {
   normalizeColor(entry);
   if (entry.x === undefined) { const p = cellPos(k, entry.cell || 0); entry.x = p.x; entry.z = p.z; entry.rot = (entry.rot || 0) * Math.PI / 2; }
@@ -472,6 +528,7 @@ function placeItemMesh(k, entry) {
   m.userData.pick = { k, entry, mesh: m };
   parentOf(k).add(m); itemMeshes[k].push(m);
   if (m.userData.wheel) spinners.push(m.userData.wheel);
+  applyItemState(m, false);
   return m;
 }
 function freeCell(k, from = 0) { const total = colsOf(k) * 2;
@@ -712,6 +769,7 @@ function select(pick) { deselect(); selected = pick;
   renderColorPick();
   /* Ein Bewohner lässt sich nicht wegwerfen (#39). */
   $('btn-del').classList.toggle('hidden', !!pick.tenant);
+  updateActionBtn();
   $('selbar').classList.add('on'); }
 /* Die Reihe zeigt «Standard» plus die Palette; die Punkte tragen den Farbwert
    der MAT-Instanz, damit kein zweiter Ort eine Farbe festlegt. */
@@ -736,6 +794,35 @@ function setItemColor(colorId) {
   $('colorpick').classList.add('open'); renderColorPick();
   sfx.pop(); save();
 }
+
+/* Der Aktionsknopf sagt, was der nächste Druck TUT — nicht, wie der Zustand
+   gerade heisst. Er erscheint nur für Objekte, die in ACTIONS stehen. */
+function updateActionBtn() {
+  const b = $('btn-action');
+  const label = selected ? actionLabel(selected.entry) : null;
+  b.classList.toggle('hidden', !label);
+  if (label) b.textContent = label;
+}
+/* Antippen bleibt mit Auswählen belegt (js/game.js:1003-1005) — geschaltet
+   wird über diesen Knopf. Ein Eintrag ohne `apply` (Instrumente, Issue #36)
+   spielt nur seinen Ton und schreibt nichts in den Spielstand. */
+function toggleAction() {
+  if (!selected) return;
+  const en = selected.entry, a = ACTIONS[en.id];
+  if (!a) return;
+  if (!a.apply) { a.sound(true); return; }
+  const next = !isOn(en);
+  en.on = next;
+  a.sound(next);
+  const mesh = selected.mesh;
+  tween(0.7, q => a.apply(mesh, next, q));
+  updateActionBtn();
+  /* Die Fassade hängt an den Lampenzuständen (applyNight) — ohne dieses
+     Nachziehen hinkte sie bis zum nächsten Tag/Nacht-Wechsel hinterher. */
+  if (en.id === 'lampe') applyNight(nightK);
+  save();
+}
+$('btn-action').onclick = toggleAction;
 
 function addItem(id) {
   if (!edit) return;
@@ -972,15 +1059,26 @@ function endParty() {
 
 /* Tag/Nacht */
 let nightK = state.night ? 1 : 0;
+/* Issue #41: Bei Nacht verrät die Fassade, ob in der Wohnung Licht brennt.
+   Eine Wohnung OHNE Lampe verhält sich weiter wie bisher — sonst wären alle
+   bestehenden Spielstände über Nacht schwarz. */
+function floorLampState(i) {
+  const lamps = roomOf(i).filter(e => e.id === 'lampe');
+  return { has: lamps.length > 0, any: lamps.some(isOn) };
+}
 function applyNight(k) {
   nightK = k;
   scene.background.lerpColors(SKY.d, SKY.n, k); scene.fog.color.copy(scene.background);
   hemi.color.lerpColors(HEMI.d, HEMI.n, k); hemi.groundColor.lerpColors(GRND.d, GRND.n, k);
   hemi.intensity = 1.05 - 0.62 * k; dir.intensity = 1.15 - 1.0 * k;
   starMat.opacity = k * 0.9; moonMat.opacity = k;
-  for (let i = 0; i <= MAXF; i++) { const lit = k > 0.5 && tenantIn(i);
+  for (let i = 0; i <= MAXF; i++) { const ls = floorLampState(i);
+    const lit = k > 0.5 && tenantIn(i) && (!ls.has || ls.any);
     floorGroups[i].userData.wins.forEach(w => { w.material.color.set(lit ? 0xffd98a : 0x6b4526);
       w.material.emissive.set(lit ? 0xffc257 : 0x000000); w.material.emissiveIntensity = lit ? 0.9 : 0; }); }
+  /* Birnen folgen der Tageszeit — applyLampe rechnet mit nightK. */
+  for (let i = 0; i <= MAXF; i++) (itemMeshes[i] || []).forEach(m => {
+    if (m.userData.pick.entry.id === 'lampe') applyLampe(m, isOn(m.userData.pick.entry), 1); });
   $('btn-night').textContent = k > 0.5 ? 'Tag' : 'Nacht';
 }
 function setNight(on) {
@@ -1055,6 +1153,23 @@ const sfx = {
   splash() { if (!AC) return; noiseBurst(AC.currentTime, 0.5, 2800, 260, 0.22); },
   whoosh() { if (!AC) return; noiseBurst(AC.currentTime, 0.28, 500, 2400, 0.07); },
   shutter() { if (!AC) return; const t = AC.currentTime; noiseBurst(t, 0.04, 6000, 1500, 0.3); noiseBurst(t + 0.07, 0.05, 3000, 800, 0.25); },
+  /* Lichtschalter: kurzer, trockener Klick aus zwei Rauschstössen. */
+  click() { if (!AC) return; const t = AC.currentTime;
+    noiseBurst(t, 0.03, 5200, 1800, 0.18); tone(196, t, 0.06, 'square', 0.08); },
+  /* Fenster: tiefes Holzknarzen, das in der Tonhöhe wandert. */
+  creak() { if (!AC) return; const t = AC.currentTime;
+    const o = tone(150, t, 0.45, 'sawtooth', 0.07);
+    if (o) o.frequency.exponentialRampToValueAtTime(96, t + 0.4);
+    noiseBurst(t + 0.05, 0.3, 900, 320, 0.05); },
+  /* Wasser läuft ein: rauschen, das heller wird, dazu ein steigender Ton. */
+  fill() { if (!AC) return; const t = AC.currentTime;
+    noiseBurst(t, 0.9, 700, 3000, 0.13);
+    const o = tone(280, t, 0.85, 'sine', 0.05);
+    if (o) o.frequency.exponentialRampToValueAtTime(520, t + 0.8); },
+  /* Wasser läuft ab: dasselbe rückwärts, mit Gluckern. */
+  drain() { if (!AC) return; const t = AC.currentTime;
+    noiseBurst(t, 0.9, 2600, 420, 0.12);
+    [0, 0.22, 0.46, 0.68].forEach((d, i) => tone(220 - i * 32, t + d, 0.12, 'sine', 0.07)); },
 };
 $('btn-music').onclick = () => { musicOn = !musicOn; $('btn-music').textContent = musicOn ? 'Musik aus' : 'Musik an'; };
 
@@ -1363,6 +1478,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
+  ACTIONS, isOn,
   photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename } };
 applyNight(state.night ? 1 : 0);
 applyFronts();

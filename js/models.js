@@ -220,7 +220,13 @@ const FURN = {
     return g; },
   lampe(body = MAT.orange) { const g = G();
     cyl(g, 0.14, 0.18, 0.05, MAT.woodD, 0, 0.025); cyl(g, 0.025, 0.025, 0.85, MAT.wood, 0, 0.45);
-    cyl(g, 0.12, 0.24, 0.24, body, 0, 0.95); sph(g, 0.06, MAT.glow, 0, 0.86);
+    /* Schirm und Birne sind schaltbar (Issue #41), darum bekommen beide ein
+       eigenes Material: MAT.glow ist modulweit geteilt, ein Schalten daran
+       träfe jede Lampe im Turm gleichzeitig. Der Schirm klont den Korpuston
+       aus #34 — die Farbe bleibt gewählt, das Material aber privat, weil
+       applyLampe() emissive darauf setzt. */
+    g.userData.shade = cyl(g, 0.12, 0.24, 0.24, body.clone(), 0, 0.95);
+    g.userData.bulb = sph(g, 0.06, MAT.glow.clone(), 0, 0.86);
     return g; },
   ofen() { const g = G();
     cyl(g, 0.25, 0.28, 0.62, MAT.dark, 0, 0.31); box(g, 0.2, 0.18, 0.04, MAT.fire, 0, 0.28, 0.26);
@@ -229,7 +235,11 @@ const FURN = {
     return g; },
   badewanne(body = MAT.white) { const g = G();
     const t = cyl(g, 0.34, 0.26, 0.36, body, 0, 0.28, 0, 24); t.scale.x = 1.35;
+    /* Wasser ist schaltbar (Issue #41) — js/game.js greift über userData.water
+       zu und ändert nur visible/scale/position, nie das geteilte MAT.water.
+       Der Wannenkorpus darf sein MAT teilen, er wird nie mutiert. */
     const w = cyl(g, 0.29, 0.29, 0.03, MAT.water, 0, 0.42, 0, 24); w.scale.x = 1.35;
+    g.userData.water = w;
     [-0.3, 0.3].forEach(x => [-0.18, 0.18].forEach(z => sph(g, 0.06, MAT.gold, x, 0.06, z)));
     cyl(g, 0.02, 0.02, 0.3, MAT.grey, 0.42, 0.55); sph(g, 0.045, MAT.grey, 0.42, 0.7);
     return g; },
@@ -402,8 +412,16 @@ const FURN = {
     const m = cyl(g, 0.21, 0.21, 0.02, L(0xd8ecf4), 0, 0, 0.055, 24); m.rotation.x = Math.PI / 2; m.scale.z = 1.35;
     return g; },
   fenster() { const g = G();
-    box(g, 0.74, 0.94, 0.06, MAT.woodD, 0, 0, 0.03); box(g, 0.62, 0.82, 0.04, L(0xb8dcf0, { emissive: 0x9cc8e6, emissiveIntensity: 0.25 }), 0, 0, 0.05);
-    box(g, 0.04, 0.82, 0.03, MAT.woodD, 0, 0, 0.075); box(g, 0.62, 0.04, 0.03, MAT.woodD, 0, 0.1, 0.075);
+    box(g, 0.74, 0.94, 0.06, MAT.woodD, 0, 0, 0.03);
+    /* Kippflügel (Issue #41): Scheibe und Sprossen hängen in einer Gruppe,
+       deren Drehpunkt auf der Scheibenunterkante sitzt (y = -0.41). Offen ist
+       rotation.x = -0.45; ein nach innen aufschlagender Drehflügel würde bei
+       0.62 Scheibenbreite durch Schrank und Regal schneiden — Wandobjekte
+       kennen keine Kollisionsprüfung (js/game.js:427-434). */
+    const sash = G(); sash.position.y = -0.41; g.add(sash); g.userData.sash = sash;
+    box(sash, 0.62, 0.82, 0.04, L(0xb8dcf0, { emissive: 0x9cc8e6, emissiveIntensity: 0.25 }), 0, 0.41, 0.05);
+    box(sash, 0.04, 0.82, 0.03, MAT.woodD, 0, 0.41, 0.075);
+    box(sash, 0.62, 0.04, 0.03, MAT.woodD, 0, 0.51, 0.075);
     box(g, 0.86, 0.06, 0.16, MAT.woodL, 0, -0.5, 0.08);
     [-0.34, 0.34].forEach(x => box(g, 0.14, 0.9, 0.05, MAT.red, x + (x > 0 ? 0.08 : -0.08), 0.02, 0.09));
     return g; },
