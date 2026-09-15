@@ -39,6 +39,31 @@ const cyl = (g, rt, rb, h, mat, x = 0, y = 0, z = 0, seg = 20) => mesh(new THREE
 const sph = (g, r, mat, x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1) => { const m = mesh(new THREE.SphereGeometry(r, 20, 14), mat, x, y, z, g); m.scale.set(sx, sy, sz); return m; };
 const G = () => new THREE.Group();
 
+/* ---------- Wipfkea: die gemeinsame Formsprache der Serie ----------
+   Alles, was die Serienmöbel zusammenhält, steht hier. Eine Serie ist in
+   diesem Spiel bewusst eine Form- und keine Farbfrage: die Farbwahl pro
+   Möbel ist Issue #34, die Serie sind Brettstärke, rechte Winkel,
+   sichtbare Dübel und Wangen statt Beine. Ein Serienmöbel greift nie
+   direkt auf ein MAT zu, sondern immer über die Rollen unten. */
+const WK_T = 0.06;           /* Brettstärke, in der ganzen Serie identisch */
+const WK_LEG = 0.05;         /* Kantenmass der Vierkantbeine */
+const WK_BOARD = MAT.woodD;  /* Braun: alles Tragende */
+const WK_SOFT = MAT.pink;    /* Pink: Polster und Blenden */
+const WK_DOWEL = MAT.woodL;  /* Hell: sichtbare Dübel und Rückwand */
+
+/* Liegendes Brett (Boden, Tablar, Sitzfläche). */
+const wkBoard = (g, w, d, mat, x, y, z) => box(g, w, WK_T, d, mat, x, y, z);
+/* Stehende Wange (Seitenteil, Armlehne). */
+const wkPanel = (g, h, d, mat, x, y, z) => box(g, WK_T, h, d, mat, x, y, z);
+/* Sichtbarer Dübelkopf — das Erkennungszeichen der Serie.
+   axis 'x' zeigt seitlich heraus, 'y' nach oben, 'z' nach vorn. */
+function wkDowel(g, x, y, z, axis = 'z') {
+  const d = cyl(g, 0.02, 0.02, 0.03, WK_DOWEL, x, y, z, 8);
+  if (axis === 'z') d.rotation.x = Math.PI / 2;
+  else if (axis === 'x') d.rotation.z = Math.PI / 2;
+  return d;
+}
+
 /* ---------- Pool-Helfer: Nierenform nach der Buchseite ---------- */
 /* Kontur (x, Tiefe) gegen den Uhrzeigersinn, beginnt an der Leiter-Spitze; die Delle
    bei x≈0 liegt hinten. Wird als geschlossener Spline geglättet. */
@@ -139,6 +164,46 @@ const FURN = {
       const cols = [MAT.red, MAT.blue, MAT.leafD, MAT.orange, MAT.grey];
       for (let i = 0; i < 5; i++) box(g, 0.09, 0.24 - (i % 2) * 0.04, 0.2, cols[(i + r) % 5], -0.28 + i * 0.13, y + 0.15 - (i % 2) * 0.02, 0); });
     box(g, 0.85, 0.05, 0.3, MAT.wood, 0, 1.1);
+    return g; },
+  /* Wipfkea — Serie in Braun und Pink, siehe Spec «Wipfkea». Der
+     body-Parameter folgt der Signatur aus Issue #34: ohne Argument sieht
+     das Möbel genau so aus wie hier beschrieben. */
+  wk_regal(body = WK_BOARD) { const g = G();
+    const w = 0.8, d = 0.3, h = 1.2, inner = w - 2 * WK_T;
+    [-1, 1].forEach(s => wkPanel(g, h, d, body, s * (w / 2 - WK_T / 2), h / 2, 0));
+    const shelves = [0.05, 0.42, 0.79, 1.16];
+    shelves.forEach(y => wkBoard(g, inner, d, body, 0, y, 0));
+    box(g, inner, h, 0.02, WK_DOWEL, 0, h / 2, -d / 2 + 0.01);
+    shelves.forEach(y => [-1, 1].forEach(s => wkDowel(g, s * (w / 2 + 0.005), y, d / 2 - 0.07, 'x')));
+    return g; },
+  wk_tisch(body = WK_BOARD) { const g = G();
+    const w = 0.7, top = 0.46, legH = top - WK_T, off = w / 2 - 0.06;
+    wkBoard(g, w, w, body, 0, top - WK_T / 2);
+    [-1, 1].forEach(sx => [-1, 1].forEach(sz => {
+      box(g, WK_LEG, legH, WK_LEG, body, sx * off, legH / 2, sz * off);
+      wkDowel(g, sx * off, top + 0.005, sz * off, 'y'); }));
+    return g; },
+  /* body ist hier das Kissen: die einzige bunte Fläche am Stuhl. */
+  wk_stuhl(body = WK_SOFT) { const g = G();
+    const w = 0.42, d = 0.42, seat = 0.38, inner = w - 2 * WK_T;
+    [-1, 1].forEach(s => wkPanel(g, seat, d, WK_BOARD, s * (w / 2 - WK_T / 2), seat / 2, 0));
+    wkBoard(g, inner, d, WK_BOARD, 0, seat - WK_T / 2);
+    const back = box(g, w, 0.42, WK_T, WK_BOARD, 0, seat + 0.21, -d / 2 + WK_T / 2);
+    back.rotation.x = -0.12;
+    box(g, inner - 0.02, 0.05, d - 0.08, body, 0, seat + 0.025, 0.01);
+    [-1, 1].forEach(s => [-0.14, 0.14].forEach(z =>
+      wkDowel(g, s * (w / 2 + 0.005), seat - WK_T / 2, z, 'x')));
+    return g; },
+  /* body sind die vier Kissen — Sitz und Rücken. Das Gestell bleibt braun. */
+  wk_sofa(body = WK_SOFT) { const g = G();
+    const w = 0.86, d = 0.48, inner = w - 2 * WK_T;
+    [-1, 1].forEach(s => wkPanel(g, 0.54, d, WK_BOARD, s * (w / 2 - WK_T / 2), 0.27, 0));
+    box(g, inner, 0.44, WK_T, WK_BOARD, 0, 0.32, -d / 2 + WK_T / 2);
+    wkBoard(g, inner, d - WK_T, WK_BOARD, 0, 0.28, 0.03);
+    [-0.185, 0.185].forEach(x => box(g, 0.34, 0.12, 0.38, body, x, 0.37, 0.03));
+    [-0.185, 0.185].forEach(x => box(g, 0.34, 0.26, 0.1, body, x, 0.53, -0.13));
+    [-1, 1].forEach(s => [0.1, 0.28].forEach(y =>
+      wkDowel(g, s * (w / 2 + 0.005), y, 0.16, 'x')));
     return g; },
   kommode() { const g = G();
     /* Korpus auf kurzen Füssen, drei Schubladen, Deckplatte als Ablage (SURFACES). */
@@ -437,6 +502,12 @@ export const CATALOG = [
   { id: 'sofa', name: 'Sofa', cat: 'mobel' }, { id: 'schrank', name: 'Schrank', cat: 'mobel' },
   { id: 'regal', name: 'Bücherregal', cat: 'mobel' },
   { id: 'kommode', name: 'Kommode', cat: 'mobel' },
+  /* Wipfkea — die Serie steht geschlossen am Ende der Möbel, damit sie im
+     Katalog als Gruppe lesbar ist. */
+  { id: 'wk_regal', name: 'Wipfkea Regal', cat: 'mobel' },
+  { id: 'wk_tisch', name: 'Wipfkea Tisch', cat: 'mobel' },
+  { id: 'wk_stuhl', name: 'Wipfkea Stuhl', cat: 'mobel' },
+  { id: 'wk_sofa',  name: 'Wipfkea Sofa',  cat: 'mobel' },
   { id: 'teppich', name: 'Teppich', cat: 'gemut' }, { id: 'lampe', name: 'Lampe', cat: 'gemut' },
   { id: 'ofen', name: 'Ofen', cat: 'gemut' }, { id: 'badewanne', name: 'Badewanne', cat: 'gemut' },
   { id: 'pflanze', name: 'Pflanze', cat: 'gemut' }, { id: 'bild', name: 'Blumenbild', cat: 'gemut' },

@@ -32,6 +32,7 @@
 - [x] Tapete pro Wand auswählbar, nur innen, wieder entfernbar (#4)
 - [x] Bodenbelag wieder entfernbar (#5)
 - [x] Alle Fotos auf einmal herunterladen — Teilen auf dem Tablet, ZIP am Rechner (#33)
+- [x] «Wipfkea»-Möbelserie in Braun und Pink: Regal, Tisch, Stuhl, Sofa (#42)
 
 ## Gefunden beim Aufräumen (noch offen)
 
