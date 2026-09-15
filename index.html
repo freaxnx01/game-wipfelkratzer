@@ -89,6 +89,14 @@
   #btn-wall-left { grid-column: 1; grid-row: 2; }
   #btn-wall-down { grid-column: 2; grid-row: 2; }
   #btn-wall-right { grid-column: 3; grid-row: 2; }
+  /* Farbreihe schwebt über der Auswahlleiste — #selbar ist fixed und damit schon
+     der Bezugsrahmen, und --selbar-h bleibt so unverändert. */
+  #colorpick { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    display: none; gap: 6px; padding: 8px; background: var(--cream);
+    border: 3px solid var(--woodL); border-radius: 16px; box-shadow: 0 4px 14px rgba(74,58,36,.25); }
+  #colorpick.open { display: flex; }
+  #colorpick button { min-width: 44px; min-height: 44px; padding: 0; border-radius: 50%; font-size: 13px; }
+  #colorpick button.on { outline: 3px solid var(--wood); outline-offset: 2px; }
   /* Extras menu */
   #extras-menu { position: fixed; bottom: calc(var(--toolbar-h, 60px) + 16px); left: 50%; transform: translateX(-50%); z-index: 7; display: none; flex-direction: column; gap: 8px; padding: 12px; width: 260px; }
   #extras-menu.open { display: flex; }
@@ -210,6 +218,8 @@
     <button id="btn-wall-right" aria-label="Nach rechts">→</button>
   </div>
   <button id="btn-action" class="hidden"></button>
+  <button id="btn-color">Farbe</button>
+  <div id="colorpick" aria-label="Farbe wählen"></div>
   <button id="btn-del" class="danger">Weg damit</button>
 </div>
 

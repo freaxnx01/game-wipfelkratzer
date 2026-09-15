@@ -11,6 +11,25 @@ export const MAT = {
   terra: L(0xb56a45), green2: L(0x8fb96a), pink: L(0xe6a0b8),
 };
 
+/* Palette für einfärbbare Möbel. Jeder Eintrag verweist auf eine bestehende
+   MAT-Instanz — es wird nie eine neue erzeugt und nie eine mutiert, sonst
+   färbt sich der halbe Turm mit. */
+export const FURN_COLORS = [
+  { id: 'rot', name: 'Rot', mat: 'red' },
+  { id: 'blau', name: 'Blau', mat: 'blue' },
+  { id: 'orange', name: 'Orange', mat: 'orange' },
+  { id: 'gruen', name: 'Grün', mat: 'green2' },
+  { id: 'rosa', name: 'Rosa', mat: 'pink' },
+  { id: 'creme', name: 'Creme', mat: 'cream' },
+];
+/* Möbel mit einer einfärbbaren Korpusfläche (Stoff/Korpuston, kein Holz,
+   kein Beschlag, kein Effekt). Siehe Spec «Korpusregel». */
+export const TINTABLE = new Set(['sofa', 'bett', 'etagenbett', 'teppich', 'lampe', 'badewanne', 'pflanze', 'liegestuhl']);
+export const matOfColor = colorId => {
+  const def = FURN_COLORS.find(c => c.id === colorId);
+  return def ? MAT[def.mat] : null;
+};
+
 function mesh(geo, mat, x = 0, y = 0, z = 0, g) {
   const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z);
   m.castShadow = true; m.receiveShadow = true; if (g) g.add(m); return m;
@@ -19,6 +38,31 @@ const box = (g, w, h, d, mat, x = 0, y = 0, z = 0) => mesh(new THREE.BoxGeometry
 const cyl = (g, rt, rb, h, mat, x = 0, y = 0, z = 0, seg = 20) => mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat, x, y, z, g);
 const sph = (g, r, mat, x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1) => { const m = mesh(new THREE.SphereGeometry(r, 20, 14), mat, x, y, z, g); m.scale.set(sx, sy, sz); return m; };
 const G = () => new THREE.Group();
+
+/* ---------- Wipfkea: die gemeinsame Formsprache der Serie ----------
+   Alles, was die Serienmöbel zusammenhält, steht hier. Eine Serie ist in
+   diesem Spiel bewusst eine Form- und keine Farbfrage: die Farbwahl pro
+   Möbel ist Issue #34, die Serie sind Brettstärke, rechte Winkel,
+   sichtbare Dübel und Wangen statt Beine. Ein Serienmöbel greift nie
+   direkt auf ein MAT zu, sondern immer über die Rollen unten. */
+const WK_T = 0.06;           /* Brettstärke, in der ganzen Serie identisch */
+const WK_LEG = 0.05;         /* Kantenmass der Vierkantbeine */
+const WK_BOARD = MAT.woodD;  /* Braun: alles Tragende */
+const WK_SOFT = MAT.pink;    /* Pink: Polster und Blenden */
+const WK_DOWEL = MAT.woodL;  /* Hell: sichtbare Dübel und Rückwand */
+
+/* Liegendes Brett (Boden, Tablar, Sitzfläche). */
+const wkBoard = (g, w, d, mat, x, y, z) => box(g, w, WK_T, d, mat, x, y, z);
+/* Stehende Wange (Seitenteil, Armlehne). */
+const wkPanel = (g, h, d, mat, x, y, z) => box(g, WK_T, h, d, mat, x, y, z);
+/* Sichtbarer Dübelkopf — das Erkennungszeichen der Serie.
+   axis 'x' zeigt seitlich heraus, 'y' nach oben, 'z' nach vorn. */
+function wkDowel(g, x, y, z, axis = 'z') {
+  const d = cyl(g, 0.02, 0.02, 0.03, WK_DOWEL, x, y, z, 8);
+  if (axis === 'z') d.rotation.x = Math.PI / 2;
+  else if (axis === 'x') d.rotation.z = Math.PI / 2;
+  return d;
+}
 
 /* ---------- Pool-Helfer: Nierenform nach der Buchseite ---------- */
 /* Kontur (x, Tiefe) gegen den Uhrzeigersinn, beginnt an der Leiter-Spitze; die Delle
@@ -85,14 +129,15 @@ function hausRoofHalf(g, s, angle, len) {
 
 /* ---------------- Möbel ---------------- */
 const FURN = {
-  bett() { const g = G();
+  bett(body = MAT.red) { const g = G();
     box(g, 0.8, 0.22, 1.05, MAT.wood, 0, 0.16); box(g, 0.8, 0.34, 0.08, MAT.wood, 0, 0.3, -0.5);
     box(g, 0.72, 0.1, 0.95, MAT.cream, 0, 0.31); box(g, 0.5, 0.09, 0.26, MAT.white, 0, 0.38, -0.32);
-    box(g, 0.74, 0.07, 0.55, MAT.red, 0, 0.35, 0.2);
+    box(g, 0.74, 0.07, 0.55, body, 0, 0.35, 0.2);
     [-0.34, 0.34].forEach(x => [-0.46, 0.46].forEach(z => box(g, 0.07, 0.12, 0.07, MAT.woodD, x, 0.05, z)));
     return g; },
-  etagenbett() { const g = G();
-    [0.2, 0.85].forEach(y => { box(g, 0.8, 0.14, 1.0, MAT.wood, 0, y); box(g, 0.72, 0.08, 0.9, MAT.cream, 0, y + 0.11); box(g, 0.7, 0.06, 0.4, y > 0.5 ? MAT.blue : MAT.red, 0, y + 0.14, 0.2); });
+  /* Ohne gewählte Farbe behalten obere und untere Decke ihren Rot/Blau-Kontrast. */
+  etagenbett(body) { const g = G();
+    [0.2, 0.85].forEach(y => { box(g, 0.8, 0.14, 1.0, MAT.wood, 0, y); box(g, 0.72, 0.08, 0.9, MAT.cream, 0, y + 0.11); box(g, 0.7, 0.06, 0.4, body || (y > 0.5 ? MAT.blue : MAT.red), 0, y + 0.14, 0.2); });
     [-0.37, 0.37].forEach(x => [-0.47, 0.47].forEach(z => box(g, 0.07, 1.15, 0.07, MAT.woodD, x, 0.57, z)));
     for (let i = 0; i < 4; i++) box(g, 0.26, 0.04, 0.04, MAT.woodL, 0.45, 0.18 + i * 0.22, 0.3);
     box(g, 0.04, 0.75, 0.04, MAT.woodD, 0.45 - 0.13, 0.5, 0.3); box(g, 0.04, 0.75, 0.04, MAT.woodD, 0.58, 0.5, 0.3);
@@ -104,9 +149,9 @@ const FURN = {
     box(g, 0.34, 0.05, 0.34, MAT.wood, 0, 0.34); box(g, 0.34, 0.42, 0.05, MAT.wood, 0, 0.57, -0.15);
     [-0.13, 0.13].forEach(x => [-0.13, 0.13].forEach(z => box(g, 0.05, 0.33, 0.05, MAT.woodD, x, 0.17, z)));
     return g; },
-  sofa() { const g = G();
-    box(g, 0.85, 0.26, 0.44, MAT.red, 0, 0.2); box(g, 0.85, 0.36, 0.12, MAT.red, 0, 0.48, -0.17);
-    [-0.4, 0.4].forEach(x => box(g, 0.11, 0.4, 0.44, MAT.red, x, 0.3));
+  sofa(body = MAT.red) { const g = G();
+    box(g, 0.85, 0.26, 0.44, body, 0, 0.2); box(g, 0.85, 0.36, 0.12, body, 0, 0.48, -0.17);
+    [-0.4, 0.4].forEach(x => box(g, 0.11, 0.4, 0.44, body, x, 0.3));
     box(g, 0.3, 0.09, 0.3, MAT.orange, -0.16, 0.37, 0.03); box(g, 0.3, 0.09, 0.3, MAT.cream, 0.16, 0.37, 0.03);
     return g; },
   schrank() { const g = G();
@@ -120,6 +165,46 @@ const FURN = {
       for (let i = 0; i < 5; i++) box(g, 0.09, 0.24 - (i % 2) * 0.04, 0.2, cols[(i + r) % 5], -0.28 + i * 0.13, y + 0.15 - (i % 2) * 0.02, 0); });
     box(g, 0.85, 0.05, 0.3, MAT.wood, 0, 1.1);
     return g; },
+  /* Wipfkea — Serie in Braun und Pink, siehe Spec «Wipfkea». Der
+     body-Parameter folgt der Signatur aus Issue #34: ohne Argument sieht
+     das Möbel genau so aus wie hier beschrieben. */
+  wk_regal(body = WK_BOARD) { const g = G();
+    const w = 0.8, d = 0.3, h = 1.2, inner = w - 2 * WK_T;
+    [-1, 1].forEach(s => wkPanel(g, h, d, body, s * (w / 2 - WK_T / 2), h / 2, 0));
+    const shelves = [0.05, 0.42, 0.79, 1.16];
+    shelves.forEach(y => wkBoard(g, inner, d, body, 0, y, 0));
+    box(g, inner, h, 0.02, WK_DOWEL, 0, h / 2, -d / 2 + 0.01);
+    shelves.forEach(y => [-1, 1].forEach(s => wkDowel(g, s * (w / 2 + 0.005), y, d / 2 - 0.07, 'x')));
+    return g; },
+  wk_tisch(body = WK_BOARD) { const g = G();
+    const w = 0.7, top = 0.46, legH = top - WK_T, off = w / 2 - 0.06;
+    wkBoard(g, w, w, body, 0, top - WK_T / 2);
+    [-1, 1].forEach(sx => [-1, 1].forEach(sz => {
+      box(g, WK_LEG, legH, WK_LEG, body, sx * off, legH / 2, sz * off);
+      wkDowel(g, sx * off, top + 0.005, sz * off, 'y'); }));
+    return g; },
+  /* body ist hier das Kissen: die einzige bunte Fläche am Stuhl. */
+  wk_stuhl(body = WK_SOFT) { const g = G();
+    const w = 0.42, d = 0.42, seat = 0.38, inner = w - 2 * WK_T;
+    [-1, 1].forEach(s => wkPanel(g, seat, d, WK_BOARD, s * (w / 2 - WK_T / 2), seat / 2, 0));
+    wkBoard(g, inner, d, WK_BOARD, 0, seat - WK_T / 2);
+    const back = box(g, w, 0.42, WK_T, WK_BOARD, 0, seat + 0.21, -d / 2 + WK_T / 2);
+    back.rotation.x = -0.12;
+    box(g, inner - 0.02, 0.05, d - 0.08, body, 0, seat + 0.025, 0.01);
+    [-1, 1].forEach(s => [-0.14, 0.14].forEach(z =>
+      wkDowel(g, s * (w / 2 + 0.005), seat - WK_T / 2, z, 'x')));
+    return g; },
+  /* body sind die vier Kissen — Sitz und Rücken. Das Gestell bleibt braun. */
+  wk_sofa(body = WK_SOFT) { const g = G();
+    const w = 0.86, d = 0.48, inner = w - 2 * WK_T;
+    [-1, 1].forEach(s => wkPanel(g, 0.54, d, WK_BOARD, s * (w / 2 - WK_T / 2), 0.27, 0));
+    box(g, inner, 0.44, WK_T, WK_BOARD, 0, 0.32, -d / 2 + WK_T / 2);
+    wkBoard(g, inner, d - WK_T, WK_BOARD, 0, 0.28, 0.03);
+    [-0.185, 0.185].forEach(x => box(g, 0.34, 0.12, 0.38, body, x, 0.37, 0.03));
+    [-0.185, 0.185].forEach(x => box(g, 0.34, 0.26, 0.1, body, x, 0.53, -0.13));
+    [-1, 1].forEach(s => [0.1, 0.28].forEach(y =>
+      wkDowel(g, s * (w / 2 + 0.005), y, 0.16, 'x')));
+    return g; },
   kommode() { const g = G();
     /* Korpus auf kurzen Füssen, drei Schubladen, Deckplatte als Ablage (SURFACES). */
     box(g, 0.86, 0.76, 0.40, MAT.wood, 0, 0.48);
@@ -128,17 +213,19 @@ const FURN = {
       [-0.18, 0.18].forEach(x => sph(g, 0.035, MAT.woodD, x, y, 0.235)); });
     [-0.35, 0.35].forEach(x => [-0.15, 0.15].forEach(z => box(g, 0.09, 0.10, 0.09, MAT.woodD, x, 0.05, z)));
     return g; },
-  teppich() { const g = G();
-    const m1 = cyl(g, 0.52, 0.52, 0.025, MAT.red, 0, 0.012, 0, 28); m1.scale.z = 0.72;
+  teppich(body = MAT.red) { const g = G();
+    const m1 = cyl(g, 0.52, 0.52, 0.025, body, 0, 0.012, 0, 28); m1.scale.z = 0.72;
     const m2 = cyl(g, 0.36, 0.36, 0.03, MAT.orange, 0, 0.014, 0, 28); m2.scale.z = 0.72;
     const m3 = cyl(g, 0.18, 0.18, 0.035, MAT.cream, 0, 0.016, 0, 24); m3.scale.z = 0.72;
     return g; },
-  lampe() { const g = G();
+  lampe(body = MAT.orange) { const g = G();
     cyl(g, 0.14, 0.18, 0.05, MAT.woodD, 0, 0.025); cyl(g, 0.025, 0.025, 0.85, MAT.wood, 0, 0.45);
-    /* Schirm und Birne sind schaltbar (Issue #41), darum bekommt die Birne ein
+    /* Schirm und Birne sind schaltbar (Issue #41), darum bekommen beide ein
        eigenes Material: MAT.glow ist modulweit geteilt, ein Schalten daran
-       träfe jede Lampe im Turm gleichzeitig. */
-    g.userData.shade = cyl(g, 0.12, 0.24, 0.24, MAT.orange.clone(), 0, 0.95);
+       träfe jede Lampe im Turm gleichzeitig. Der Schirm klont den Korpuston
+       aus #34 — die Farbe bleibt gewählt, das Material aber privat, weil
+       applyLampe() emissive darauf setzt. */
+    g.userData.shade = cyl(g, 0.12, 0.24, 0.24, body.clone(), 0, 0.95);
     g.userData.bulb = sph(g, 0.06, MAT.glow.clone(), 0, 0.86);
     return g; },
   ofen() { const g = G();
@@ -146,17 +233,18 @@ const FURN = {
     cyl(g, 0.07, 0.07, 0.7, MAT.dark, 0, 0.9); cyl(g, 0.1, 0.07, 0.08, MAT.dark, 0, 1.25);
     [-0.12, 0.12].forEach(x => box(g, 0.06, 0.08, 0.06, MAT.black, x, 0.04, 0.18));
     return g; },
-  badewanne() { const g = G();
-    const t = cyl(g, 0.34, 0.26, 0.36, MAT.white, 0, 0.28, 0, 24); t.scale.x = 1.35;
+  badewanne(body = MAT.white) { const g = G();
+    const t = cyl(g, 0.34, 0.26, 0.36, body, 0, 0.28, 0, 24); t.scale.x = 1.35;
     /* Wasser ist schaltbar (Issue #41) — js/game.js greift über userData.water
-       zu und ändert nur visible/scale/position, nie das geteilte MAT.water. */
+       zu und ändert nur visible/scale/position, nie das geteilte MAT.water.
+       Der Wannenkorpus darf sein MAT teilen, er wird nie mutiert. */
     const w = cyl(g, 0.29, 0.29, 0.03, MAT.water, 0, 0.42, 0, 24); w.scale.x = 1.35;
     g.userData.water = w;
     [-0.3, 0.3].forEach(x => [-0.18, 0.18].forEach(z => sph(g, 0.06, MAT.gold, x, 0.06, z)));
     cyl(g, 0.02, 0.02, 0.3, MAT.grey, 0.42, 0.55); sph(g, 0.045, MAT.grey, 0.42, 0.7);
     return g; },
-  pflanze() { const g = G();
-    cyl(g, 0.14, 0.1, 0.2, MAT.terra, 0, 0.1); cyl(g, 0.02, 0.03, 0.4, MAT.leafD, 0, 0.38);
+  pflanze(body = MAT.terra) { const g = G();
+    cyl(g, 0.14, 0.1, 0.2, body, 0, 0.1); cyl(g, 0.02, 0.03, 0.4, MAT.leafD, 0, 0.38);
     sph(g, 0.16, MAT.leaf, 0, 0.62); sph(g, 0.12, MAT.leafD, 0.13, 0.5); sph(g, 0.11, MAT.leaf, -0.12, 0.53);
     return g; },
   bild() { const g = G();
@@ -365,14 +453,14 @@ const FURN = {
     [-0.09, 0.09].forEach(z => cyl(lad, 0.022, 0.022, 0.75, MAT.grey, 0.05, 0.38, z));
     for (let i = 0; i < 3; i++) box(lad, 0.03, 0.03, 0.18, MAT.grey, 0.05, 0.18 + i * 0.2, 0);
     return g; },
-  liegestuhl() { const g = G();
+  liegestuhl(body = MAT.red) { const g = G();
     /* Seitenprofil als Punkte [z, y]: Fussende F, Knick K, Kopfende T; Beine stehen bei GF/GB auf dem Boden.
        Alle Latten werden von Punkt zu Punkt gespannt, damit Gestell und Liegefläche sich wirklich berühren. */
     const F = [0.36, 0.23], K = [-0.04, 0.21], T = [-0.27, 0.48], GF = [0.26, 0.02], GB = [-0.36, 0.02];
     const pt = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
     const bar = (a, b, x, mat, w = 0.04, t = 0.04, ext = t) => { const dz = b[0] - a[0], dy = b[1] - a[1];
       const m = box(g, w, t, Math.hypot(dz, dy) + ext, mat, x, (a[1] + b[1]) / 2, (a[0] + b[0]) / 2); m.rotation.x = Math.atan2(-dy, dz); return m; };
-    const stripes = (a, b, first) => { for (let i = 0; i < 3; i++) bar(pt(a, b, i / 3), pt(a, b, (i + 1) / 3), 0, (i + first) % 2 ? MAT.white : MAT.red, 0.42, 0.03, -0.012); };
+    const stripes = (a, b, first) => { for (let i = 0; i < 3; i++) bar(pt(a, b, i / 3), pt(a, b, (i + 1) / 3), 0, (i + first) % 2 ? MAT.white : body, 0.42, 0.03, -0.012); };
     [-0.235, 0.235].forEach(x => { bar(F, K, x, MAT.wood); bar(K, T, x, MAT.wood); bar(GF, F, x, MAT.woodD); bar(GB, T, x, MAT.woodD); bar(GB, K, x, MAT.woodD); });
     [F, T, GB].forEach(p => box(g, 0.51, 0.045, 0.045, MAT.woodD, 0, p[1], p[0]));
     stripes(F, K, 0); stripes(K, T, 1);
@@ -432,6 +520,12 @@ export const CATALOG = [
   { id: 'sofa', name: 'Sofa', cat: 'mobel' }, { id: 'schrank', name: 'Schrank', cat: 'mobel' },
   { id: 'regal', name: 'Bücherregal', cat: 'mobel' },
   { id: 'kommode', name: 'Kommode', cat: 'mobel' },
+  /* Wipfkea — die Serie steht geschlossen am Ende der Möbel, damit sie im
+     Katalog als Gruppe lesbar ist. */
+  { id: 'wk_regal', name: 'Wipfkea Regal', cat: 'mobel' },
+  { id: 'wk_tisch', name: 'Wipfkea Tisch', cat: 'mobel' },
+  { id: 'wk_stuhl', name: 'Wipfkea Stuhl', cat: 'mobel' },
+  { id: 'wk_sofa',  name: 'Wipfkea Sofa',  cat: 'mobel' },
   { id: 'teppich', name: 'Teppich', cat: 'gemut' }, { id: 'lampe', name: 'Lampe', cat: 'gemut' },
   { id: 'ofen', name: 'Ofen', cat: 'gemut' }, { id: 'badewanne', name: 'Badewanne', cat: 'gemut' },
   { id: 'pflanze', name: 'Pflanze', cat: 'gemut' }, { id: 'bild', name: 'Blumenbild', cat: 'gemut' },
@@ -492,7 +586,14 @@ export function lookTexture(kind, id) {
   t.repeat.set(kind === 'wall' ? 5 : 4, kind === 'wall' ? 1.6 : 3); t.colorSpace = THREE.SRGBColorSpace;
   texCache[key] = t; return t;
 }
-export function makeFurniture(id) { const g = FURN[id](); g.userData.itemId = id; return g; }
+/* Ein nicht einfärbbares Möbel ignoriert colorId, eine unbekannte Farb-id fällt
+   still auf die Standardfarbe zurück (alter Spielstand, geschrumpfte Palette). */
+export function makeFurniture(id, colorId) {
+  const body = TINTABLE.has(id) ? matOfColor(colorId) : null;
+  const g = body ? FURN[id](body) : FURN[id]();
+  g.userData.itemId = id; if (body) g.userData.color = colorId;
+  return g;
+}
 
 /* ---------------- Tiere ---------------- */
 const SPECIES = {

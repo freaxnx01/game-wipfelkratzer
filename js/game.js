@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { MAT, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, lookCanvas, lookTexture, makeFurniture, makeAnimal, makeWilli, makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge, makeGarden } from './models.js';
+import { MAT, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, TINTABLE, lookCanvas, lookTexture, makeFurniture, makeAnimal, makeWilli, makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge, makeGarden } from './models.js';
 import { zipStore } from './zip.js';
 
 /* ---------- Konstanten ---------- */
@@ -388,6 +388,13 @@ function wallpaperOf(k) {
   else if (!wp || typeof wp !== 'object') { wp = state.wallpaper[k] = {}; }
   return wp;
 }
+/* Farbe pro Möbel. Alte Stände haben hier nichts — das ist gültig und heisst
+   «Standardfarbe». Ein unbekannter Wert oder eine Farbe an einem nicht
+   einfärbbaren Möbel wird still entfernt (wie die Tapeten-Migration). */
+function normalizeColor(en) {
+  if (!en.color) return;
+  if (!TINTABLE.has(en.id) || !FURN_COLORS.some(c => c.id === en.color)) { delete en.color; migrated = true; }
+}
 function applyLook(k) {
   if (k === 'roof') return; const g = floorGroups[k];
   const wp = wallpaperOf(k), fl = state.flooring[k];
@@ -426,7 +433,7 @@ function surfaceYAt(k, x, z, exclude) {
       if (ly < 1.8 && (top === null || ly > top)) top = ly; } });
   return top === null ? baseY(k) : top + 0.005;
 }
-const SURFACES = ['tisch', 'regal', 'schrank', 'klavier', 'nusskiste', 'kommode'];
+const SURFACES = ['tisch', 'regal', 'schrank', 'klavier', 'nusskiste', 'kommode', 'wk_regal', 'wk_tisch'];
 function clampEntry(k, m, en) {
   if (WALL_ITEMS.has(en.id)) {
     en.wall = en.wall || 'back';
@@ -504,8 +511,9 @@ function applyItemState(m, animate) {
 }
 
 function placeItemMesh(k, entry) {
+  normalizeColor(entry);
   if (entry.x === undefined) { const p = cellPos(k, entry.cell || 0); entry.x = p.x; entry.z = p.z; entry.rot = (entry.rot || 0) * Math.PI / 2; }
-  const m = makeFurniture(entry.id);
+  const m = makeFurniture(entry.id, entry.color);
   if (WALL_ITEMS.has(entry.id)) {
     /* entry.x ist die Position entlang der Wand (siehe wallPlacement); die feste Achse
        (Wandebene) wird aus entry.wall/k neu bestimmt, nicht mitgespeichert. */
@@ -749,17 +757,43 @@ function exitEdit() {
   $('catalog').classList.remove('open');
   updateHUD();
 }
-function deselect() { if (selHelper) { scene.remove(selHelper); selHelper = null; } selected = null; $('selbar').classList.remove('on'); }
+function deselect() { if (selHelper) { scene.remove(selHelper); selHelper = null; } selected = null;
+  $('colorpick').classList.remove('open'); $('selbar').classList.remove('on'); }
 function select(pick) { deselect(); selected = pick;
   selHelper = new THREE.BoxHelper(pick.mesh, 0xc0432e); scene.add(selHelper);
   const wall = WALL_ITEMS.has(pick.entry.id);
   $('btn-move').classList.toggle('hidden', wall);
   $('btn-rot').classList.toggle('hidden', wall);
   $('wallpad').classList.toggle('hidden', !wall);
+  $('btn-color').classList.toggle('hidden', !TINTABLE.has(pick.entry.id));
+  renderColorPick();
   /* Ein Bewohner lässt sich nicht wegwerfen (#39). */
   $('btn-del').classList.toggle('hidden', !!pick.tenant);
   updateActionBtn();
   $('selbar').classList.add('on'); }
+/* Die Reihe zeigt «Standard» plus die Palette; die Punkte tragen den Farbwert
+   der MAT-Instanz, damit kein zweiter Ort eine Farbe festlegt. */
+function renderColorPick() {
+  const el = $('colorpick'); el.innerHTML = '';
+  if (!selected) return;
+  const cur = selected.entry.color || 'standard';
+  const mk = (id, label, hex) => { const b = document.createElement('button');
+    b.dataset.color = id; b.title = label; b.setAttribute('aria-label', label);
+    if (hex) b.style.background = hex; else b.textContent = '↺';
+    if (id === cur) b.className = 'on';
+    b.onclick = () => setItemColor(id === 'standard' ? null : id);
+    el.appendChild(b); };
+  mk('standard', 'Standardfarbe', null);
+  FURN_COLORS.forEach(c => mk(c.id, c.name, '#' + MAT[c.mat].color.getHexString()));
+}
+function setItemColor(colorId) {
+  if (!selected) return;
+  const en = selected.entry;
+  if (colorId) en.color = colorId; else delete en.color;
+  select(rebuildItemMesh(selected));
+  $('colorpick').classList.add('open'); renderColorPick();
+  sfx.pop(); save();
+}
 
 /* Der Aktionsknopf sagt, was der nächste Druck TUT — nicht, wie der Zustand
    gerade heisst. Er erscheint nur für Objekte, die in ACTIONS stehen. */
@@ -830,6 +864,18 @@ function removeItem(pick) {
   const mi = itemMeshes[pick.k].indexOf(pick.mesh); if (mi >= 0) itemMeshes[pick.k].splice(mi, 1);
   deselect(); sfx.knock(); save(); renderWishes();
 }
+/* Umfärben heisst: Mesh wegwerfen und über placeItemMesh neu bauen. Das ist
+   der einzige Pfad, der Elternknoten, itemMeshes, spinners und userData.pick
+   korrekt verdrahtet — ein zweiter, halber Pfad wäre die Fehlerquelle. */
+function rebuildItemMesh(pick) {
+  const { k, entry, mesh } = pick;
+  parentOf(k).remove(mesh);
+  const mi = itemMeshes[k].indexOf(mesh); if (mi >= 0) itemMeshes[k].splice(mi, 1);
+  if (mesh.userData.wheel) { const si = spinners.indexOf(mesh.userData.wheel); if (si >= 0) spinners.splice(si, 1); }
+  const m = placeItemMesh(k, entry);
+  clampEntry(k, m, entry);
+  return m.userData.pick;
+}
 
 /* ---------- Bewohner & Wünsche ---------- */
 /* Plätze im Raum für Tiere: 5x3-Punktraster, bewertet mit dem Abstand zum
@@ -899,17 +945,22 @@ function spawnTenant(i, silent) {
   renderWishes(); renderResidents(); updateHUD();
 }
 function checkTenant(k) { if (k !== 'roof' && tenantIn(k) && !tenantGroups[k]) spawnTenant(k); }
+/* Ein Serienmöbel zählt bei Wünschen wie sein klassisches Gegenstück:
+   'wk_sofa' erfüllt den Sofa-Wunsch. Die Wipfkea-ids sind genau dafür als
+   'wk_' + klassische id gebaut (siehe Spec «Wipfkea»). Wer ein Serienstück
+   ergänzt, muss diese Namensregel einhalten. */
+const wishKey = id => id.startsWith('wk_') ? id.slice(3) : id;
 function wishOpen(i) {
   if (!tenantIn(i) || state.fulfilled[i]) return false;
   const t = TENANTS[i]; const where = t.roofWish ? 'roof' : i;
-  if (roomOf(where).some(e => e.id === t.wish)) { state.fulfilled[i] = true; return false; }
+  if (roomOf(where).some(e => wishKey(e.id) === t.wish)) { state.fulfilled[i] = true; return false; }
   return true;
 }
 function checkWishes(placedId, k) {
   for (let i = 0; i <= MAXF; i++) { const t = TENANTS[i];
     if (!tenantIn(i) || state.fulfilled[i]) continue;
     const where = t.roofWish ? 'roof' : i;
-    if (where === k && t.wish === placedId) {
+    if (where === k && t.wish === wishKey(placedId)) {
       state.fulfilled[i] = true; state.nuts += 3;
       toast('Wunsch erfüllt! +3 Haselnüsse'); sfx.chime(true);
       if (placedId === 'pool') sfx.splash();
@@ -1232,6 +1283,8 @@ $('btn-rot').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.id
   clampEntry(selected.k, selected.mesh, selected.entry);
   if (selected.tenant) setTenantPos(selected.tenant.floor, selected.tenant.idx, selected.entry); else save();
   selHelper.update(); sfx.pop(); };
+$('btn-color').onclick = () => { if (!selected || !TINTABLE.has(selected.entry.id)) return;
+  $('colorpick').classList.toggle('open'); renderColorPick(); };
 $('btn-del').onclick = () => { if (selected && !selected.tenant) removeItem(selected); };
 
 /* Wandobjekt verschieben: dx entlang der Wand, dy in der Höhe — von Tastatur und Touch-Pad geteilt */
@@ -1421,7 +1474,9 @@ for (let i = 0; i <= MAXF; i++) if (tenantIn(i)) spawnTenant(i, true);
 for (let i = 0; i <= MAXF; i++) applyLook(i);
 if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
-window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, scene, camera, controls, WALL_KEYS, get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
+window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, scene, camera, controls, WALL_KEYS, FURN_COLORS, TINTABLE,
+  matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
+  get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
   ACTIONS, isOn,
   photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename } };

@@ -8,6 +8,12 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- «Wipfkea» — eine eigene Möbelserie in Braun und Pink: Regal, Tisch,
+  Stuhl und Sofa im Bausatz-Stil, alle mit derselben Brettstärke, geraden
+  Kanten und sichtbaren hellen Dübeln, dazu rosa Polster auf Stuhl und
+  Sofa. Die vier Stücke stehen im Katalog unter «Möbel» und lassen sich
+  einrichten wie alles andere; das Wipfkea-Sofa erfüllt den Sofa-Wunsch
+  genauso wie das bisherige (#42)
 - Lampe, Badewanne und Fenster machen jetzt etwas: ein Knopf in der
   Auswahlleiste schaltet das Licht an und aus, lässt Wasser in die Wanne und
   wieder ab und kippt den Fensterflügel auf und zu — jedes mit eigenem
