@@ -6,6 +6,8 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-17
+
 ### Added
 
 - «Wipfkea» — eine eigene Möbelserie in Braun und Pink: Regal, Tisch,
@@ -19,6 +21,30 @@ All notable changes to this project are documented here, following
   wieder ab und kippt den Fensterflügel auf und zu — jedes mit eigenem
   Geräusch. Der Zustand bleibt beim Neuladen erhalten, und bei Nacht sieht man
   von draussen, in welcher Wohnung noch Licht brennt (#41)
+- Möbel lassen sich einfärben: Sofa, Bett, Etagenbett, Teppich, Lampe,
+  Badewanne, Pflanze und Liegestuhl bekommen über eine Farbreihe in der
+  Auswahlleiste eine von sechs Farben oder «Standard» zurück. Die Wahl liegt
+  im Spielstand und überlebt das Neuladen (#34)
+- Sechs neue Katalogeinträge aus der Feedback-Triage: Bar auf der
+  Dachterrasse, Kommode, Ball, Kuscheltier, Tischkicker und eine Dartscheibe
+  an der Wand. Auf der Kommode lässt sich Deko abstellen wie auf Tisch und
+  Regal (#37)
+- Drei neue Instrumente im Katalog unter «Spass» — Blockflöte, Harfe und
+  Schlagzeug, im selben Bilderbuch-Stil wie das Klavier. Die Blockflöte ist
+  klein genug, um auf Tischen und Regalen zu stehen (#36)
+- Tiere lassen sich jetzt beim Einrichten antippen, verschieben und
+  drehen — genau wie ein Möbel, mit derselben Auswahlleiste. Wer ein Tier
+  von Hand an seinen Platz stellt, behält ihn: die automatische Platzsuche
+  beim Einzug gilt dann für diese Wohnung nicht mehr, und der Platz
+  überlebt das Neuladen. Weggeworfen werden kann ein Tier nicht (#39)
+- Auf der Dachterrasse lässt sich jetzt ein kleines Häuschen mit grünem
+  Schilfdach aufstellen, wie auf der Buchseite mit dem Pool. Die Wände
+  sind ockerfarbener Putz, das Satteldach besteht aus grünen
+  Schilfbündeln mit weit überstehenden, ausgefransten Traufen, und
+  vorne führt eine rundbogige Türöffnung in einen dunklen Innenraum, aus
+  dem ein Frosch lugt. Das Häuschen ist gross — es lässt sich über die
+  ganze Terrasse schieben, weicht dem Treppenaufgang aber automatisch
+  aus, und Pool und Häuschen haben nebeneinander Platz (#49)
 - Fotos lassen sich jetzt alle auf einmal sichern — auf dem Tablet über das
   System-Sheet, am Rechner als ein ZIP mit allen Bildern (#33)
 
@@ -31,23 +57,6 @@ All notable changes to this project are documented here, following
   `E`-Zeile, dass das Erdgeschoss schon vor dem ersten Klick da war. Die
   Zielzahl kommt in HUD, Bauknopf und Dach-Tipp aus `MAXF` statt aus
   Literalen (#35)
-### Added
-
-- Tiere lassen sich jetzt beim Einrichten antippen, verschieben und
-  drehen — genau wie ein Möbel, mit derselben Auswahlleiste. Wer ein Tier
-  von Hand an seinen Platz stellt, behält ihn: die automatische Platzsuche
-  beim Einzug gilt dann für diese Wohnung nicht mehr, und der Platz
-  überlebt das Neuladen. Weggeworfen werden kann ein Tier nicht (#39)
-### Added
-
-- Auf der Dachterrasse lässt sich jetzt ein kleines Häuschen mit grünem
-  Schilfdach aufstellen, wie auf der Buchseite mit dem Pool. Die Wände
-  sind ockerfarbener Putz, das Satteldach besteht aus grünen
-  Schilfbündeln mit weit überstehenden, ausgefransten Traufen, und
-  vorne führt eine rundbogige Türöffnung in einen dunklen Innenraum, aus
-  dem ein Frosch lugt. Das Häuschen ist gross — es lässt sich über die
-  ganze Terrasse schieben, weicht dem Treppenaufgang aber automatisch
-  aus, und Pool und Häuschen haben nebeneinander Platz (#49)
 - Auf schmalen Fenstern brach die Werkzeugleiste auf mehrere Zeilen um und die
   unterste Zeile verschwand unter der Navileiste am unteren Bildrand — «Foto»
   und «Musik aus» waren sichtbar, liessen sich aber nicht antippen. Die Leiste
