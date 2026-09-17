@@ -8,6 +8,13 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- Es lassen sich jetzt bis zu vier Türme nebeneinander bauen. Unter «Meine
+  Türme» — im Extras-Menü und gleich im Intro — steht jeder Turm mit
+  Vorschaubild, eigenem Namen und seiner Stockwerkzahl; ein Tipp wechselt
+  hinüber. Jeder Turm hat seine eigene Fotogalerie. Der bisherige Spielstand
+  wird beim ersten Start still zum ersten Turm, ohne dass etwas verloren geht.
+  «Neu anfangen» ist dafür weggefallen: gelöscht wird jetzt ein einzelner Turm
+  über seine Karte — samt seinen Fotos, die der alte Knopf stehen liess (#53)
 - Die Turmhöhe ist jetzt wählbar: Wer ein neues Spiel beginnt, entscheidet
   sich am Startbildschirm für einen kleinen Turm mit 10, einen hohen mit 20
   oder einen Riesenturm mit 50 Stockwerken. Der Turm verjüngt sich dabei

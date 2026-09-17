@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MAT, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, TINTABLE, lookCanvas, lookTexture, makeFurniture, makeAnimal, makeWilli, makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge, makeGarden } from './models.js';
 import { zipStore } from './zip.js';
+import * as staende from './staende.js';
 
 /* ---------- Konstanten ---------- */
 const PLAT_Y = 2.2, E_H = 2.4, FLOOR_H = 2.0;
@@ -96,12 +97,14 @@ function tenantOf(i) {
 /* tenantPos: von Hand gesetzte Tierplätze pro Stockwerk; fehlt der Eintrag,
    platziert tenantSpot automatisch (#14). */
 let state = { floors: 0, rooms: {}, nuts: 0, bridge: false, garden: false, night: false, cutaway: false, fulfilled: {}, wallpaper: {}, flooring: {}, tenantPos: {}, maxFloors: 10 };
-/* Nur ein leerer localStorage zeigt die Höhenwahl (#47) — sobald irgendein
-   Spielstand existiert, auch einer mit floors: 0 direkt nach der Wahl, bleibt
-   die Höhe wie gewählt und der Startbildschirm zeigt nur noch «Los geht's!». */
+/* Welcher Turm gerade gespielt wird, entscheidet die Slot-Ebene. Ein Wechsel
+   lädt die Seite neu, deshalb genügt es, den Eintrag einmal beim Start zu holen. */
+const STAND = staende.aktiverStand();
+/* Nur ein leerer Turm zeigt die Höhenwahl (#47) — sobald der Slot einen
+   Spielstand hat, auch einen mit floors: 0 direkt nach der Wahl, bleibt die
+   Höhe wie gewählt und der Startbildschirm zeigt nur noch «Los geht's!». */
 let hasSave = false;
-try { const s = localStorage.getItem('wipfelkratzer-v1'); if (s) { state = Object.assign(state, JSON.parse(s)); hasSave = true; } } catch (e) {}
-
+try { const s = localStorage.getItem(STAND.standKey); if (s) { state = Object.assign(state, JSON.parse(s)); hasSave = true; } } catch (e) {}
 /* Turmhöhe: einmal pro Spielstand gewählt, danach konstant (#47). Ein
    fremder oder fehlender Wert fällt auf den klassischen Zehner-Turm zurück. */
 const TOWER_CHOICES = [10, 20, 50];
@@ -125,11 +128,12 @@ const REF_TOP = PLAT_Y + E_H + 10 * FLOOR_H;
 const HSCALE = Math.max(1, TOWER_TOP / REF_TOP);
 
 let saveT = 0;
-const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { try {
+const schreibeStand = () => { try {
   const wallpaper = {};
   for (const k in state.wallpaper) { const wp = state.wallpaper[k]; if (wp && typeof wp === 'object' && Object.keys(wp).length) wallpaper[k] = wp; }
-  localStorage.setItem('wipfelkratzer-v1', JSON.stringify({ ...state, wallpaper }));
-} catch (e) {} }, 300); };
+  localStorage.setItem(STAND.standKey, JSON.stringify({ ...state, wallpaper }));
+} catch (e) {} };
+const save = () => { clearTimeout(saveT); saveT = setTimeout(schreibeStand, 300); };
 const roomOf = k => (state.rooms[k] || (state.rooms[k] = []));
 const tenantIn = i => i <= state.floors && roomOf(i).length >= 3;
 
@@ -1208,13 +1212,6 @@ $('btn-night').onclick = () => { if (party && state.night) { toast('Bei der Part
 $('btn-cutaway').onclick = () => { state.cutaway = !state.cutaway; applyFronts(); sfx.whoosh(); save();
   if (state.cutaway) toast('Blick in alle Wohnungen — wie im Buch!'); };
 
-/* Reset */
-let resetArmed = 0;
-$('btn-reset').onclick = () => {
-  if (Date.now() - resetArmed < 4000) { try { localStorage.removeItem('wipfelkratzer-v1'); } catch (e) {} location.reload(); }
-  else { resetArmed = Date.now(); $('btn-reset').textContent = 'Wirklich alles löschen?';
-    setTimeout(() => { $('btn-reset').textContent = 'Neu anfangen'; resetArmed = 0; }, 4000); } };
-
 /* ---------- Audio ---------- */
 let AC = null, master, musGain, musicOn = true, seqPos = 0, nextNote = 0;
 let curSong = 'day';
@@ -1488,8 +1485,9 @@ function mokiTalk() {
 
 /* ---------- Fotos ---------- */
 let photos = [];
-try { photos = JSON.parse(localStorage.getItem('wipfelkratzer-fotos') || '[]'); } catch (e) {}
-function savePhotos() { try { localStorage.setItem('wipfelkratzer-fotos', JSON.stringify(photos)); } catch (e) { toast('Die Galerie ist voll — lösche ein paar Fotos.'); } }
+try { photos = JSON.parse(localStorage.getItem(STAND.fotoKey) || '[]'); } catch (e) {}
+if (!Array.isArray(photos)) photos = [];
+function savePhotos() { try { localStorage.setItem(STAND.fotoKey, JSON.stringify(photos)); } catch (e) { toast('Die Galerie ist voll — lösche ein paar Fotos.'); } }
 function takePhoto() {
   renderer.render(scene, camera);
   const src = renderer.domElement, s = Math.min(1, 800 / src.width);
@@ -1505,6 +1503,19 @@ function photoFilename(p) {
   const dt = new Date(p.t), pad = n => String(n).padStart(2, '0');
   return `wipfelkratzer-${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}-${pad(dt.getHours())}${pad(dt.getMinutes())}${pad(dt.getSeconds())}.jpg`;
 }
+/* Vorschaubild für die Turm-Übersicht: klein und sparsam, weil es im Index
+   liegt und der Index bei jedem Wechsel geschrieben wird. Bewusst nicht im
+   save()-Pfad — der läuft bei jedem Handgriff. */
+function standBild() {
+  renderer.render(scene, camera);
+  const src = renderer.domElement, s = Math.min(1, 240 / src.width);
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(src.width * s));
+  c.height = Math.max(1, Math.round(src.height * s));
+  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.5);
+}
+function merkeStandBild() { try { staende.merkeBild(STAND.id, standBild()); } catch (e) {} }
 function dataUrlToBytes(url) {
   const bin = atob(url.slice(url.indexOf(',') + 1));
   const out = new Uint8Array(bin.length);
@@ -1578,6 +1589,93 @@ $('btn-gallery').onclick = () => { $('extras-menu').classList.remove('open'); re
 $('btn-galclose').onclick = () => $('gallery').classList.remove('open');
 $('gallery').onclick = e => { if (e.target === $('gallery')) $('gallery').classList.remove('open'); };
 
+/* ---------- Turm-Übersicht ---------- */
+function renderStaende() {
+  const idx = staende.ladeIndex(), grid = $('stand-grid');
+  grid.innerHTML = '';
+  idx.staende.forEach(e => {
+    const info = staende.standInfo(e), hier = e.id === idx.aktiv;
+    const d = document.createElement('div');
+    d.className = 'standkarte' + (hier ? ' aktiv' : '');
+    d.dataset.id = e.id;
+    const bild = e.bild
+      ? `<img class="stand-bild" src="${e.bild}" alt="">`
+      : '<div class="stand-bild leer"></div>';
+    d.innerHTML = `${bild}
+      <input class="stand-name" maxlength="40" value="${String(e.name).replace(/"/g, '&quot;')}">
+      <div class="stand-info">${info.floors} Stockwerke · ${info.möbel} Möbel</div>
+      <div class="zeile">${hier ? '<span class="stand-hier">Hier bist du</span>'
+        : '<button class="stand-hin primary">Weiterbauen</button>'}
+        <button class="stand-weg danger">Löschen</button></div>`;
+    grid.appendChild(d);
+  });
+  const voll = idx.staende.length >= staende.MAX_STAENDE;
+  $('btn-stand-neu').disabled = voll;
+  $('stand-voll').classList.toggle('hidden', !voll);
+}
+function oeffneStaende() {
+  merkeStandBild();
+  renderStaende();
+  $('staende').classList.add('open');
+}
+$('btn-staende').onclick = () => { $('extras-menu').classList.remove('open'); oeffneStaende(); };
+$('btn-intro-staende').onclick = oeffneStaende;
+$('btn-standclose').onclick = () => $('staende').classList.remove('open');
+$('staende').onclick = e => { if (e.target === $('staende')) $('staende').classList.remove('open'); };
+
+/* Ein Wechsel lädt die Seite neu: die Szene wird beim Start einmalig aus state
+   aufgebaut, einen Abbau-Pfad gibt es nicht. Vorher noch schnell den
+   aktuellen Stand sichern — save() ist entprellt. */
+function wechsleZu(id) {
+  schreibeStand();
+  merkeStandBild();
+  if (!staende.wähleStand(id)) { toast('Dieser Turm ist nicht mehr da.'); renderStaende(); return; }
+  location.reload();
+}
+$('btn-stand-neu').onclick = () => {
+  const e = staende.neuerStand();
+  if (!e) { toast('Mehr als vier Türme passen nicht — lösche zuerst einen.'); renderStaende(); return; }
+  wechsleZu(e.id);
+};
+$('stand-grid').addEventListener('click', ev => {
+  const karte = ev.target.closest('.standkarte'); if (!karte) return;
+  if (ev.target.classList.contains('stand-hin')) wechsleZu(karte.dataset.id);
+});
+$('stand-grid').addEventListener('change', ev => {
+  const karte = ev.target.closest('.standkarte'); if (!karte) return;
+  if (ev.target.classList.contains('stand-name')) {
+    staende.benenneUm(karte.dataset.id, ev.target.value);
+    renderStaende();
+  }
+});
+$('stand-grid').addEventListener('keydown', ev => {
+  if (ev.key === 'Enter' && ev.target.classList.contains('stand-name')) ev.target.blur();
+});
+/* Löschen trifft genau einen Turm — und braucht wie beim alten Reset das
+   zweite Antippen. Danach ist auch die Galerie dieses Turms weg, was der
+   alte Reset vergessen hatte. */
+let wegArmed = { id: '', t: 0 };
+$('stand-grid').addEventListener('click', ev => {
+  const karte = ev.target.closest('.standkarte'); if (!karte) return;
+  if (!ev.target.classList.contains('stand-weg')) return;
+  const id = karte.dataset.id;
+  if (wegArmed.id === id && Date.now() - wegArmed.t < 4000) {
+    wegArmed = { id: '', t: 0 };
+    const bleibt = staende.loescheStand(id);
+    if (id === STAND.id) { location.reload(); return; }
+    renderStaende();
+    toast('Der Turm ist weg. Du baust an «' + bleibt.name + '» weiter.');
+    return;
+  }
+  wegArmed = { id, t: Date.now() };
+  ev.target.textContent = 'Wirklich löschen?';
+  setTimeout(() => {
+    if (wegArmed.id !== id) return;
+    wegArmed = { id: '', t: 0 };
+    renderStaende();
+  }, 4000);
+});
+
 $('btn-start').onclick = () => { initAudio(); $('intro').classList.add('hidden'); };
 /* Die Turmhöhe steckt in jedem Mass der Szene, die beim Laden des Moduls
    schon steht. Deshalb wird die Wahl geschrieben und die Seite neu geladen,
@@ -1586,7 +1684,7 @@ if (!hasSave) $('tower-pick').classList.remove('hidden');
 TOWER_CHOICES.forEach(n => { $(`pick-${n}`).onclick = () => {
   if (n === MAXF) { initAudio(); $('intro').classList.add('hidden'); return; }
   state.maxFloors = n;
-  try { localStorage.setItem('wipfelkratzer-v1', JSON.stringify(state)); } catch (e) {}
+  try { localStorage.setItem(STAND.standKey, JSON.stringify(state)); } catch (e) {}
   location.reload();
 }; });
 
@@ -1611,7 +1709,9 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
   ACTIONS, isOn,
-  photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename } };
+  photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename },
+  staende, stand: STAND, speichern: schreibeStand, speichernFotos: savePhotos, get fotos() { return photos; },
+  standBild, merkeStandBild, renderStaende };
 applyNight(state.night ? 1 : 0);
 applyFronts();
 makeThumbs();
