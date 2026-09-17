@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { MAT, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, TINTABLE, lookCanvas, lookTexture, makeFurniture, makeAnimal, makeWilli, makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge, makeGarden } from './models.js';
+import { MAT, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, TINTABLE,
+  BUILD_SHAPES, BUILD_WIDTHS, BUILD_MAX, BUILD_MAX_H, DESIGN_MAX, normalizeBuild,
+  makeCustomFurniture, lookCanvas, lookTexture, makeFurniture, makeAnimal, makeWilli,
+  makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge, makeGarden } from './models.js';
 import { zipStore } from './zip.js';
 
 /* ---------- Konstanten ---------- */
@@ -35,7 +38,7 @@ const flLabel = i => i === 0 ? 'E' : String(i);
 /* ---------- Zustand ---------- */
 /* tenantPos: von Hand gesetzte Tierplätze pro Stockwerk; fehlt der Eintrag,
    platziert tenantSpot automatisch (#14). */
-let state = { floors: 0, rooms: {}, nuts: 0, bridge: false, garden: false, night: false, cutaway: false, fulfilled: {}, wallpaper: {}, flooring: {}, tenantPos: {} };
+let state = { floors: 0, rooms: {}, nuts: 0, bridge: false, garden: false, night: false, cutaway: false, fulfilled: {}, wallpaper: {}, flooring: {}, tenantPos: {}, designs: [] };
 try { const s = localStorage.getItem('wipfelkratzer-v1'); if (s) state = Object.assign(state, JSON.parse(s)); } catch (e) {}
 let saveT = 0;
 const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { try {
@@ -395,6 +398,29 @@ function normalizeColor(en) {
   if (!en.color) return;
   if (!TINTABLE.has(en.id) || !FURN_COLORS.some(c => c.id === en.color)) { delete en.color; migrated = true; }
 }
+/* Eigenbauten prüfen, bevor sie gebaut werden. Ein Bauplan ist Fremdeingabe:
+   von Hand verändert, aus einer älteren Version, aus einer entfernten Form.
+   Ungültige Einträge verschwinden still, gekürzte werden ersetzt — und der
+   bereinigte Stand wird wie bei der Tapeten-Migration einmalig
+   zurückgeschrieben. */
+function sanitizeRoom(key) {
+  const arr = roomOf(key);
+  for (let i = arr.length - 1; i >= 0; i--) {
+    const en = arr[i]; if (en.id !== 'eigenbau') continue;
+    const b = normalizeBuild(en.build);
+    if (!b) { arr.splice(i, 1); migrated = true; continue; }
+    if (JSON.stringify(b) !== JSON.stringify(en.build)) { en.build = b; migrated = true; }
+  }
+}
+/* Gespeicherte Entwürfe durch dieselbe Prüfung schicken. */
+function sanitizeDesigns() {
+  if (!Array.isArray(state.designs)) { state.designs = []; return; }
+  const before = JSON.stringify(state.designs);
+  state.designs = state.designs
+    .map(d => { const b = normalizeBuild(d); return b ? { name: String(d.name || 'Eigenbau'), parts: b.parts } : null; })
+    .filter(Boolean).slice(0, DESIGN_MAX);
+  if (JSON.stringify(state.designs) !== before) migrated = true;
+}
 function applyLook(k) {
   if (k === 'roof') return; const g = floorGroups[k];
   const wp = wallpaperOf(k), fl = state.flooring[k];
@@ -513,7 +539,8 @@ function applyItemState(m, animate) {
 function placeItemMesh(k, entry) {
   normalizeColor(entry);
   if (entry.x === undefined) { const p = cellPos(k, entry.cell || 0); entry.x = p.x; entry.z = p.z; entry.rot = (entry.rot || 0) * Math.PI / 2; }
-  const m = makeFurniture(entry.id, entry.color);
+  /* Zwei Wege zu einem Möbel-Mesh: Katalog-id oder Bauplan (Schreinerei). */
+  const m = entry.id === 'eigenbau' ? makeCustomFurniture(entry.build) : makeFurniture(entry.id, entry.color);
   if (WALL_ITEMS.has(entry.id)) {
     /* entry.x ist die Position entlang der Wand (siehe wallPlacement); die feste Achse
        (Wandebene) wird aus entry.wall/k neu bestimmt, nicht mitgespeichert. */
@@ -824,13 +851,16 @@ function toggleAction() {
 }
 $('btn-action').onclick = toggleAction;
 
-function addItem(id) {
+function addItem(id, build) {
   if (!edit) return;
   const k = edit.k;
   const cell = freeCell(k);
   if (cell < 0 && !DECO.has(id) && !WALL_ITEMS.has(id)) { toast('Die Wohnung ist schon ganz voll!'); return; }
   const p = cellPos(k, Math.max(cell, 0));
   const entry = { id, cell: Math.max(cell, 0), x: p.x, z: p.z, rot: 0 };
+  /* Der Bauplan wird kopiert, nicht verwiesen: ein späteres Ändern oder
+     Löschen des Entwurfs lässt aufgestellte Möbel unberührt. */
+  if (id === 'eigenbau') entry.build = JSON.parse(JSON.stringify(normalizeBuild(build) || { parts: [] }));
   if (WALL_ITEMS.has(id)) {
     entry.wall = wallTarget === 'alle' ? 'back' : wallTarget;
     entry.y = id === 'fenster' ? 1.05 : 1.2;
@@ -1463,8 +1493,10 @@ $('gallery').onclick = e => { if (e.target === $('gallery')) $('gallery').classL
 $('btn-start').onclick = () => { initAudio(); $('intro').classList.add('hidden'); };
 
 /* ---------- Laden ---------- */
+sanitizeDesigns();
 Object.keys(state.rooms).forEach(k => {
   const key = k === 'roof' ? 'roof' : parseInt(k, 10);
+  sanitizeRoom(key);
   roomOf(key).forEach(e => {
     const m = placeItemMesh(key, e);
     if (key === 'roof') clampEntry('roof', m, e);

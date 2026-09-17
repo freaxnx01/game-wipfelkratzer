@@ -30,6 +30,52 @@ export const matOfColor = colorId => {
   return def ? MAT[def.mat] : null;
 };
 
+/* ---------- Schreinerei: der Bausatz ----------
+   Ein Eigenbau-Möbel ist ein senkrechter Stapel aus höchstens BUILD_MAX
+   Teilen; jedes sitzt auf dem darunter. Kein Versatz, keine Drehung —
+   dadurch kann nichts schweben und nichts sich durchdringen, und es
+   braucht keine einzige Kollisionsprüfung. Die Tiefe folgt aus der Breite
+   (dz), die Höhe gehört zur Form: so hat das Kind einen Grössenknopf
+   statt drei. Die Farben kommen aus FURN_COLORS (Issue #34) — es gibt
+   hier bewusst keine zweite Palette. */
+export const BUILD_SHAPES = [
+  { id: 'platte', name: 'Platte', h: 0.06, dz: 1.00 },
+  { id: 'klotz',  name: 'Klotz',  h: 0.34, dz: 1.00 },
+  { id: 'kiste',  name: 'Kiste',  h: 0.46, dz: 1.00, open: true },
+  { id: 'saeule', name: 'Säule',  h: 0.50, dz: 0.45, round: true },
+  { id: 'dach',   name: 'Dach',   h: 0.26, dz: 1.00, taper: true },
+];
+export const BUILD_WIDTHS = [
+  { id: 'schmal', name: 'Schmal', w: 0.34 },
+  { id: 'mittel', name: 'Mittel', w: 0.60 },
+  { id: 'breit',  name: 'Breit',  w: 0.86 },
+];
+export const BUILD_MAX = 5;      /* Teile pro Möbel */
+export const BUILD_MAX_H = 1.5;  /* Gesamthöhe; darüber passt es nicht unter die Decke (FLOOR_H = 2.0) */
+export const DESIGN_MAX = 6;     /* gespeicherte Entwürfe */
+
+/* Macht aus einem beliebigen Objekt einen gültigen Bauplan oder null. Ein
+   Spielstand ist Fremdeingabe: er kann von Hand verändert, aus einer
+   älteren Version oder aus einer späteren Tabelle stammen. Diese Funktion
+   ist die einzige Stelle, die einen Bauplan für gültig erklärt — jeder
+   Weg ins Rendern führt hier durch. */
+export function normalizeBuild(build) {
+  const src = build && Array.isArray(build.parts) ? build.parts : null;
+  if (!src) return null;
+  const parts = []; let h = 0;
+  for (const p of src) {
+    if (parts.length >= BUILD_MAX) break;
+    const sh = p && BUILD_SHAPES.find(s => s.id === p.shape);
+    const wd = p && BUILD_WIDTHS.find(w => w.id === p.width);
+    if (!sh || !wd) continue;                     /* unbekannte Form/Breite: Teil fällt weg */
+    if (h + sh.h > BUILD_MAX_H) break;            /* über der Decke: der Stapel endet hier */
+    const col = FURN_COLORS.find(c => c.id === p.color);
+    parts.push({ shape: sh.id, width: wd.id, color: col ? col.id : FURN_COLORS[0].id });
+    h += sh.h;
+  }
+  return parts.length ? { parts } : null;
+}
+
 function mesh(geo, mat, x = 0, y = 0, z = 0, g) {
   const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z);
   m.castShadow = true; m.receiveShadow = true; if (g) g.add(m); return m;
@@ -592,6 +638,32 @@ export function makeFurniture(id, colorId) {
   const body = TINTABLE.has(id) ? matOfColor(colorId) : null;
   const g = body ? FURN[id](body) : FURN[id]();
   g.userData.itemId = id; if (body) g.userData.color = colorId;
+  return g;
+}
+
+/* Baut ein Eigenbau-Möbel aus seinem Bauplan, von unten nach oben. Die
+   Materialien sind ausschliesslich bestehende MAT-Instanzen aus
+   FURN_COLORS — es wird keine erzeugt und keine mutiert. */
+export function makeCustomFurniture(build) {
+  const g = G(); let y = 0;
+  const plan = normalizeBuild(build) || { parts: [] };
+  plan.parts.forEach(p => {
+    const sh = BUILD_SHAPES.find(s => s.id === p.shape);
+    const wd = BUILD_WIDTHS.find(w => w.id === p.width);
+    const col = FURN_COLORS.find(c => c.id === p.color);
+    const mat = MAT[col.mat];
+    const w = wd.w, d = w * sh.dz;
+    if (sh.round) cyl(g, w / 2, w / 2, sh.h, mat, 0, y + sh.h / 2, 0, 16);
+    else if (sh.taper) mesh(new THREE.ConeGeometry(w * 0.72, sh.h, 4), mat, 0, y + sh.h / 2, 0, g).rotation.y = Math.PI / 4;
+    else if (sh.open) {
+      box(g, w, 0.05, d, mat, 0, y + 0.025);
+      [-1, 1].forEach(s => box(g, 0.05, sh.h - 0.05, d, mat, s * (w / 2 - 0.025), y + 0.025 + (sh.h - 0.05) / 2));
+      [-1, 1].forEach(s => box(g, w - 0.1, sh.h - 0.05, 0.05, mat, 0, y + 0.025 + (sh.h - 0.05) / 2, s * (d / 2 - 0.025)));
+    } else box(g, w, sh.h, d, mat, 0, y + sh.h / 2);
+    y += sh.h;
+  });
+  g.userData.itemId = 'eigenbau';
+  g.userData.build = plan;
   return g;
 }
 
