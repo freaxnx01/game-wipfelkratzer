@@ -643,26 +643,45 @@ function updateHUD() { $('nuts').textContent = state.nuts; $('floors').textConte
 
 /* ---------- Katalog ---------- */
 let thumbs = {}; const animalThumbs = {}; let williThumb = '', damThumb = '', mokiThumb = '';
+/* Ein einziger, dauerhafter Vorschau-Renderer. Er wird nicht verworfen
+   (früher r2.dispose()), weil die Schreinerei zur Laufzeit Bilder braucht —
+   bei jedem Tipp eines. Browser begrenzen die Zahl gleichzeitiger
+   WebGL-Kontexte hart, also genau einer für alle Vorschaubilder. */
+let thumbR = null, thumbS = null, thumbC = null;
+function snapshot(o, fx, fy, fz) {
+  if (!thumbR) {
+    thumbR = new THREE.WebGLRenderer({ alpha: true, antialias: true }); thumbR.setSize(160, 160);
+    thumbS = new THREE.Scene();
+    thumbS.add(new THREE.HemisphereLight(0xfff4da, 0xbfae90, 1.4));
+    const d2 = new THREE.DirectionalLight(0xffffff, 1.6); d2.position.set(2, 4, 3); thumbS.add(d2);
+    thumbC = new THREE.PerspectiveCamera(35, 1, 0.05, 20);
+  }
+  thumbS.add(o);
+  const bb = new THREE.Box3().setFromObject(o);
+  const size = bb.getSize(new THREE.Vector3()), ctr = bb.getCenter(new THREE.Vector3());
+  const md = Math.max(size.x, size.y, size.z) || 1;
+  thumbC.position.set(ctr.x + md * fx, ctr.y + md * fy, ctr.z + md * fz); thumbC.lookAt(ctr);
+  thumbR.render(thumbS, thumbC);
+  const url = thumbR.domElement.toDataURL(); thumbS.remove(o); return url;
+}
+/* Vorschaubild eines Bauplans, gecacht über den Bauplan selbst: in der
+   Werkstatt ändert sich pro Tipp genau ein Feld, und der Cache trägt die
+   vorherigen Zustände ohne Neurendern. */
+const designThumbs = new Map();
+function designThumb(build) {
+  const key = JSON.stringify(build.parts || []);
+  if (!designThumbs.has(key)) designThumbs.set(key, snapshot(makeCustomFurniture(build), 1.15, 0.85, 1.35));
+  return designThumbs.get(key);
+}
 function makeThumbs() {
-  const r2 = new THREE.WebGLRenderer({ alpha: true, antialias: true }); r2.setSize(160, 160);
-  const s2 = new THREE.Scene();
-  s2.add(new THREE.HemisphereLight(0xfff4da, 0xbfae90, 1.4));
-  const d2 = new THREE.DirectionalLight(0xffffff, 1.6); d2.position.set(2, 4, 3); s2.add(d2);
-  const c2 = new THREE.PerspectiveCamera(35, 1, 0.05, 20);
-  const snap = (o, fx, fy, fz) => { s2.add(o);
-    const bb = new THREE.Box3().setFromObject(o); const size = bb.getSize(new THREE.Vector3()), ctr = bb.getCenter(new THREE.Vector3());
-    const md = Math.max(size.x, size.y, size.z);
-    c2.position.set(ctr.x + md * fx, ctr.y + md * fy, ctr.z + md * fz); c2.lookAt(ctr);
-    r2.render(s2, c2); const url = r2.domElement.toDataURL(); s2.remove(o); return url; };
-  CATALOG.forEach(it => { thumbs[it.id] = snap(makeFurniture(it.id), 1.15, 0.85, 1.35); });
+  CATALOG.forEach(it => { thumbs[it.id] = snapshot(makeFurniture(it.id), 1.15, 0.85, 1.35); });
   TENANTS.forEach((t, i) => { const o = new THREE.Group();
     t.animals.forEach((sp, n) => { const a = makeAnimal(sp);
       a.position.x = (n - (t.animals.length - 1) / 2) * 0.52; a.rotation.y = (n - 0.5) * -0.5; o.add(a); });
-    animalThumbs[i] = snap(o, 0.4, 0.55, 1.5); });
-  { const wg = makeWilli(); williThumb = snap(wg, 0.5, 0.7, 1.4); }
-  { const dg = makeDam(); damThumb = snap(dg, 0.8, 0.8, 1.2); }
-  { const mg = makeAnimal('eichhoernchen'); mokiThumb = snap(mg, 0.4, 0.55, 1.5); }
-  r2.dispose();
+    animalThumbs[i] = snapshot(o, 0.4, 0.55, 1.5); });
+  { const wg = makeWilli(); williThumb = snapshot(wg, 0.5, 0.7, 1.4); }
+  { const dg = makeDam(); damThumb = snapshot(dg, 0.8, 0.8, 1.2); }
+  { const mg = makeAnimal('eichhoernchen'); mokiThumb = snapshot(mg, 0.4, 0.55, 1.5); }
 }
 function renderCatalog() {
   const roof = edit && edit.k === 'roof';
@@ -696,6 +715,18 @@ function renderCatalog() {
       d.onclick = () => setLook(kind, l.id); wrap.appendChild(d); });
     return;
   }
+  if (catTab === 'eigenbau') {
+    const neu = document.createElement('div'); neu.className = 'item look';
+    neu.innerHTML = `<i class="none"></i><span>Neu bauen</span>`;
+    neu.onclick = openWorkshop; wrap.appendChild(neu);
+    state.designs.forEach((d, i) => {
+      const el = document.createElement('div'); el.className = 'item design';
+      el.innerHTML = `<img src="${designThumb(d)}" alt=""><span>${d.name}</span>`
+        + `<button class="del" aria-label="${d.name} löschen">×</button>`;
+      el.onclick = e => { if (e.target.closest('button.del')) deleteDesign(i); else addItem('eigenbau', d); };
+      wrap.appendChild(el); });
+    return;
+  }
   if (catTab === 'wand') {
     const pick = document.createElement('div'); pick.id = 'wallpick';
     const hint = document.createElement('p'); hint.className = 'hint';
@@ -717,6 +748,87 @@ function renderCatalog() {
     d.onclick = () => addItem(it.id); wrap.appendChild(d); });
 }
 let catTab = 'mobel';
+/* Löschen braucht zwei Tipps. Gelöscht wird nur der Entwurf; bereits
+   aufgestellte Möbel tragen ihren eigenen Bauplan und bleiben stehen. */
+let delArmed = -1, delArmedAt = 0;
+function deleteDesign(i) {
+  if (delArmed === i && Date.now() - delArmedAt < 4000) {
+    state.designs.splice(i, 1); delArmed = -1; sfx.knock(); save(); renderCatalog(); return; }
+  delArmed = i; delArmedAt = Date.now();
+  toast(`«${state.designs[i].name}» wirklich löschen? Tippe nochmal auf das ×. Schon aufgestellte Möbel bleiben stehen.`);
+}
+
+/* ---------- Werkstatt ----------
+   Der Entwurf lebt hier als lokaler Bauplan; erst «Fertig» schreibt ihn in
+   state.designs. Das aktive Teil ist der Index im Stapel, auf den die drei
+   Knopfreihen wirken. */
+let wsBuild = null, wsActive = 0;
+function openWorkshop() {
+  if (state.designs.length >= DESIGN_MAX) {
+    toast(`Die Werkstatt ist voll — es passen ${DESIGN_MAX} Entwürfe hinein. Lösche zuerst einen (× auf der Kachel).`);
+    return; }
+  wsBuild = { parts: [{ shape: 'klotz', width: 'mittel', color: FURN_COLORS[0].id }] };
+  wsActive = 0;
+  $('workshop').classList.add('open');
+  renderWorkshop();
+}
+function closeWorkshop() { $('workshop').classList.remove('open'); wsBuild = null; }
+/* Höhe des Stapels — entscheidet, ob noch ein Teil dazu darf. */
+const wsHeight = b => b.parts.reduce((h, p) => h + BUILD_SHAPES.find(s => s.id === p.shape).h, 0);
+function renderWorkshop() {
+  const part = wsBuild.parts[wsActive];
+  $('ws-preview').src = designThumb(wsBuild);
+  const stack = $('ws-stack'); stack.innerHTML = '';
+  wsBuild.parts.forEach((p, i) => {
+    const sh = BUILD_SHAPES.find(s => s.id === p.shape), wd = BUILD_WIDTHS.find(w => w.id === p.width);
+    const col = FURN_COLORS.find(c => c.id === p.color);
+    const b = document.createElement('button');
+    b.textContent = `${i + 1}. ${sh.name} · ${wd.name} · ${col.name}`;
+    if (i === wsActive) b.className = 'on';
+    b.onclick = () => { wsActive = i; renderWorkshop(); };
+    stack.appendChild(b); });
+  const row = (id, list, cur, pick, dot) => {
+    const el = $(id); el.innerHTML = '';
+    list.forEach(o => { const b = document.createElement('button');
+      if (dot) { b.className = 'ws-dot'; b.style.background = '#' + MAT[o.mat].color.getHexString();
+        b.setAttribute('aria-label', o.name); b.title = o.name; }
+      else b.textContent = o.name;
+      if (o.id === cur) b.className = (b.className ? b.className + ' ' : '') + 'on';
+      b.onclick = () => { pick(o.id); renderWorkshop(); };
+      el.appendChild(b); }); };
+  row('ws-shape', BUILD_SHAPES, part.shape, id => { part.shape = id; }, false);
+  row('ws-width', BUILD_WIDTHS, part.width, id => { part.width = id; }, false);
+  row('ws-color', FURN_COLORS, part.color, id => { part.color = id; }, true);
+  const smallest = Math.min(...BUILD_SHAPES.map(s => s.h));
+  $('ws-add').disabled = wsBuild.parts.length >= BUILD_MAX || wsHeight(wsBuild) + smallest > BUILD_MAX_H;
+  $('ws-del').disabled = wsBuild.parts.length <= 1;
+}
+$('ws-add').onclick = () => {
+  const p = wsBuild.parts[wsActive];
+  /* Ein neues Teil ist eine Kopie des aktiven — passt es nicht mehr unter den
+     Höhendeckel, wird die flachste Form genommen. */
+  const sh = BUILD_SHAPES.find(s => s.id === p.shape);
+  const fits = wsHeight(wsBuild) + sh.h <= BUILD_MAX_H;
+  const flat = BUILD_SHAPES.reduce((a, s) => s.h < a.h ? s : a);
+  wsBuild.parts.push({ shape: fits ? p.shape : flat.id, width: p.width, color: p.color });
+  wsActive = wsBuild.parts.length - 1; sfx.pop(); renderWorkshop();
+};
+$('ws-del').onclick = () => {
+  if (wsBuild.parts.length <= 1) return;
+  wsBuild.parts.splice(wsActive, 1);
+  wsActive = Math.min(wsActive, wsBuild.parts.length - 1); sfx.knock(); renderWorkshop();
+};
+$('ws-cancel').onclick = closeWorkshop;
+$('ws-ok').onclick = () => {
+  const b = normalizeBuild(wsBuild);
+  if (!b) { closeWorkshop(); return; }
+  /* Der Name zählt hoch und füllt Lücken, die das Löschen hinterlässt. */
+  let n = 1; const taken = new Set(state.designs.map(d => d.name));
+  while (taken.has(`Eigenbau ${n}`)) n++;
+  state.designs.push({ name: `Eigenbau ${n}`, parts: b.parts });
+  closeWorkshop(); sfx.chime(); save(); renderCatalog();
+};
+$('workshop').onclick = e => { if (e.target === $('workshop')) closeWorkshop(); };
 
 /* ---------- Einrichten ---------- */
 let edit = null, selected = null, selHelper = null;

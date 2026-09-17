@@ -594,7 +594,7 @@ export const CATALOG = [
   { id: 'terrassenhaus', name: 'Häuschen', cat: 'dach' },
   { id: 'bar', name: 'Bar', cat: 'dach' },
 ];
-export const CATS = [['mobel', 'Möbel'], ['gemut', 'Gemütlich'], ['deko', 'Deko'], ['wand', 'Wand'], ['spass', 'Spass'], ['farbe', 'Tapete'], ['boden', 'Boden'], ['dach', 'Dach']];
+export const CATS = [['mobel', 'Möbel'], ['eigenbau', 'Schreinerei'], ['gemut', 'Gemütlich'], ['deko', 'Deko'], ['wand', 'Wand'], ['spass', 'Spass'], ['farbe', 'Tapete'], ['boden', 'Boden'], ['dach', 'Dach']];
 export const WALL_ITEMS = new Set(['poster_wald', 'poster_mond', 'poster_willi', 'uhr', 'spiegel', 'fenster', 'dartscheibe']);
 
 /* ---------- Tapeten & Böden ---------- */
