@@ -14,6 +14,22 @@ All notable changes to this project are documented here, following
   zeigt sofort, wie das Möbel aussieht. Fertige Entwürfe landen im
   Katalog unter «Schreinerei» und lassen sich beliebig oft aufstellen —
   gelöschte Entwürfe lassen bereits aufgestellte Möbel unberührt (#43)
+- Es lassen sich jetzt bis zu vier Türme nebeneinander bauen. Unter «Meine
+  Türme» — im Extras-Menü und gleich im Intro — steht jeder Turm mit
+  Vorschaubild, eigenem Namen und seiner Stockwerkzahl; ein Tipp wechselt
+  hinüber. Jeder Turm hat seine eigene Fotogalerie. Der bisherige Spielstand
+  wird beim ersten Start still zum ersten Turm, ohne dass etwas verloren geht.
+  «Neu anfangen» ist dafür weggefallen: gelöscht wird jetzt ein einzelner Turm
+  über seine Karte — samt seinen Fotos, die der alte Knopf stehen liess (#53)
+- Die Turmhöhe ist jetzt wählbar: Wer ein neues Spiel beginnt, entscheidet
+  sich am Startbildschirm für einen kleinen Turm mit 10, einen hohen mit 20
+  oder einen Riesenturm mit 50 Stockwerken. Der Turm verjüngt sich dabei
+  immer bis zum selben Endmass, damit auch die oberste Wohnung noch
+  einrichtbar ist; oberhalb der zehnten Etage bekommen die Bewohner ihre
+  Namen, Tiere und Wünsche aus Bausteinen, immer dieselben pro Stockwerk.
+  Kamera und Nebel wachsen mit, und Stockwerke entstehen erst, wenn sie
+  gebaut werden — der Zehner-Turm sieht aus wie bisher und lädt aus jedem
+  bestehenden Spielstand unverändert (#47)
 
 ## [0.6.0] - 2026-09-17
 

@@ -34,6 +34,7 @@
 - [x] «Wipfkea»-Möbelserie in Braun und Pink: Regal, Tisch, Stuhl, Sofa (#42)
 - [x] Fenster, Badewanne und Lampe sind schaltbar — mit Geräusch, gespeichert, und bei Nacht sieht man das Licht von aussen (#41)
 - [x] Schreinerei: eigene Möbel aus Bauteilen stapeln und im Katalog speichern (#43)
+- [x] Mehrere Spielstände nebeneinander — Übersicht «Meine Türme», je eigene Galerie (#53)
 
 ## Gefunden beim Aufräumen (noch offen)
 
