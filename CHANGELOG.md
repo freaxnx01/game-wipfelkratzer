@@ -6,6 +6,15 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added
+
+- Else Elster trug ihren Eimer bisher nur im Kreis spazieren. Sie holt damit
+  jetzt Wasser: sobald ein Pool auf der Dachterrasse steht, fliegt sie zum
+  Bach hinunter, schöpft, bringt den Eimer zum Dach und kippt ihn aus. Ein
+  neu aufgestellter Pool startet deshalb leer und füllt sich in drei sichtbaren
+  Schritten; erst im vollen Becken schwimmen Piet und Jan. Pools aus älteren
+  Spielständen bleiben voll (#45)
+
 ## [0.7.0] - 2026-09-17
 
 ### Added
