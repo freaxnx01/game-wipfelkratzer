@@ -6,6 +6,22 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added
+
+- Der Spielplatz war ein festes Ensemble: Schaukel, Rutsche, Sandkasten,
+  Hochbeet und Blumen hingen an einer Gruppe und liessen sich weder auswählen
+  noch bewegen. Jedes Teil ist jetzt ein eigenes Objekt, das sich — genau wie
+  die Möbel drinnen — antippen, verschieben, drehen, wegräumen und aus dem
+  Katalog neu hinzufügen lässt. Draussen gibt es dafür keine Wände, sondern
+  eine Spielfläche auf der baumfreien Lichtung; sie hält die Objekte vom
+  Bach, von den Bäumen und vom Turmsockel fern und wird beim Einrichten als
+  Holzkante sichtbar. Ein Tipp auf den Spielplatz öffnet den
+  Einrichten-Modus, der Knopf «Garten & Spielplatz» ebenso — auch beim
+  allerersten Bauen, direkt nach der Aufbau-Animation. Alte Spielstände, die
+  nur wussten, *ob* der Spielplatz gebaut ist, werden beim ersten Laden in
+  einzelne Objekte übersetzt — dabei rücken die Blumen aus dem Wasser ans
+  Ufer (#38)
+
 ## [0.6.0] - 2026-09-17
 
 ### Added

@@ -11,6 +11,14 @@ export const MAT = {
   terra: L(0xb56a45), green2: L(0x8fb96a), pink: L(0xe6a0b8),
 };
 
+/* Farben, die bisher inline in makeGarden() erzeugt wurden. Jetzt einmal pro
+   Modul statt einmal pro Objekt — sonst legt jedes zusätzliche Hochbeet ein
+   weiteres Material an. */
+export const GMAT = {
+  slide: L(0x7fb98a), sand: L(0xead9a8), soil: L(0x8a5f3c),
+  fl: [L(0xe6604d), L(0xe6a0b8), L(0xf0c04d), L(0xffffff), L(0xb27fd4)],
+};
+
 /* Palette für einfärbbare Möbel. Jeder Eintrag verweist auf eine bestehende
    MAT-Instanz — es wird nie eine neue erzeugt und nie eine mutiert, sonst
    färbt sich der halbe Turm mit. */
@@ -512,6 +520,38 @@ const FURN = {
       cyl(g, 0.20, 0.20, 0.04, MAT.woodD, x, 0.02, 0.34, 14);
       const f = mesh(new THREE.TorusGeometry(0.12, 0.018, 8, 14), MAT.grey, x, 0.22, 0.34, g); f.rotation.x = Math.PI / 2; });
     return g; },
+  /* Spielplatz — vormals Teile des Ensembles makeGarden(), jetzt eigenständige
+     Objekte mit Ursprung in ihrer eigenen Mitte am Boden. */
+  schaukel() { const g = G();
+    [-0.6, 0.6].forEach(x => { const l = cyl(g, 0.05, 0.06, 1.6, MAT.wood, x, 0.75, 0); l.rotation.z = x > 0 ? -0.15 : 0.15; });
+    box(g, 1.5, 0.07, 0.07, MAT.woodD, 0, 1.5, 0);
+    [-0.15, 0.15].forEach(x => cyl(g, 0.012, 0.012, 1.05, MAT.woodL, x, 0.95, 0));
+    box(g, 0.44, 0.05, 0.2, MAT.woodL, 0, 0.42, 0);
+    return g; },
+  rutsche() { const g = G();
+    const ramp = box(g, 0.5, 0.07, 2, GMAT.slide, 0, 0.55, 0); ramp.rotation.x = 0.55;
+    [-0.22, 0.22].forEach(x => { box(g, 0.05, 0.12, 2, MAT.leafD, x, 0.6, 0).rotation.x = 0.55; });
+    [-0.18, 0.18].forEach(x => cyl(g, 0.03, 0.03, 1.1, MAT.wood, x, 0.55, -1));
+    for (let i = 0; i < 3; i++) box(g, 0.34, 0.04, 0.04, MAT.woodL, 0, 0.25 + i * 0.3, -1);
+    return g; },
+  sandkasten() { const g = G();
+    [-0.65, 0.65].forEach(z => box(g, 1.5, 0.14, 0.12, MAT.wood, 0, 0.07, z));
+    [-0.7, 0.7].forEach(x => box(g, 0.12, 0.14, 1.4, MAT.wood, x, 0.07, 0));
+    box(g, 1.3, 0.1, 1.2, GMAT.sand, 0, 0.06, 0);
+    sph(g, 0.09, MAT.red, 0.3, 0.14, 0.2); cyl(g, 0.05, 0.07, 0.1, MAT.blue, -0.25, 0.15, -0.1);
+    return g; },
+  hochbeet() { const g = G();
+    [-0.5, 0.5].forEach(z => { box(g, 2, 0.1, 0.7, GMAT.soil, 0, 0.05, z);
+      for (let i = 0; i < 5; i++) sph(g, 0.09, MAT.leafD, -0.8 + i * 0.4, 0.14, z, 1, 0.8, 1); });
+    return g; },
+  /* Ein Büschel aus drei Blumen — die alte Reihe aus acht Einzelblumen war
+     5.6 breit und damit breiter als die halbe Spielfläche. */
+  blumen() { const g = G();
+    [[-0.3, -0.1, 0], [0, 0.15, 2], [0.3, -0.05, 4]].forEach(([x, z, ci]) => {
+      cyl(g, 0.012, 0.012, 0.3, MAT.leafD, x, 0.15, z);
+      sph(g, 0.07, GMAT.fl[ci], x, 0.32, z, 1, 0.6, 1);
+      sph(g, 0.03, MAT.gold, x, 0.36, z); });
+    return g; },
 };
 
 export const CATALOG = [
@@ -547,9 +587,14 @@ export const CATALOG = [
   { id: 'sonnenschirm', name: 'Sonnenschirm', cat: 'dach' }, { id: 'lampion', name: 'Lampions', cat: 'dach' },
   { id: 'terrassenhaus', name: 'Häuschen', cat: 'dach' },
   { id: 'bar', name: 'Bar', cat: 'dach' },
+  { id: 'schaukel', name: 'Schaukel', cat: 'garten' }, { id: 'rutsche', name: 'Rutsche', cat: 'garten' },
+  { id: 'sandkasten', name: 'Sandkasten', cat: 'garten' }, { id: 'hochbeet', name: 'Hochbeet', cat: 'garten' },
+  { id: 'blumen', name: 'Blumen', cat: 'garten' },
 ];
-export const CATS = [['mobel', 'Möbel'], ['gemut', 'Gemütlich'], ['deko', 'Deko'], ['wand', 'Wand'], ['spass', 'Spass'], ['farbe', 'Tapete'], ['boden', 'Boden'], ['dach', 'Dach']];
+export const CATS = [['mobel', 'Möbel'], ['gemut', 'Gemütlich'], ['deko', 'Deko'], ['wand', 'Wand'], ['spass', 'Spass'], ['farbe', 'Tapete'], ['boden', 'Boden'], ['dach', 'Dach'], ['garten', 'Spielplatz']];
 export const WALL_ITEMS = new Set(['poster_wald', 'poster_mond', 'poster_willi', 'uhr', 'spiegel', 'fenster', 'dartscheibe']);
+/* Alles, was draussen auf dem Spielplatz steht — nie drinnen, nie auf dem Dach. */
+export const GARDEN_ITEMS = new Set(['schaukel', 'rutsche', 'sandkasten', 'hochbeet', 'blumen']);
 
 /* ---------- Tapeten & Böden ---------- */
 export const WALLS = [
@@ -742,32 +787,5 @@ export function makeBridge(len = 5) {
     const x0 = (t0 - 0.5) * len, y0 = Math.sin(t0 * Math.PI) * 0.8 + 0.5, x1 = (t1 - 0.5) * len, y1 = Math.sin(t1 * Math.PI) * 0.8 + 0.5;
     const r = box(g, Math.hypot(x1 - x0, y1 - y0) + 0.05, 0.05, 0.05, MAT.wood, (x0 + x1) / 2, (y0 + y1) / 2, z);
     r.rotation.z = Math.atan2(y1 - y0, x1 - x0); } });
-  return g;
-}
-
-export function makeGarden() {
-  const g = G();
-  const swing = G(); g.add(swing); swing.position.set(-2.2, 0, 0.5);
-  [-0.6, 0.6].forEach(x => { const l = cyl(swing, 0.05, 0.06, 1.6, MAT.wood, x, 0.75, 0); l.rotation.z = x > 0 ? -0.15 : 0.15; });
-  box(swing, 1.5, 0.07, 0.07, MAT.woodD, 0, 1.5, 0);
-  [-0.15, 0.15].forEach(x => cyl(swing, 0.012, 0.012, 1.05, MAT.woodL, x, 0.95, 0));
-  box(swing, 0.44, 0.05, 0.2, MAT.woodL, 0, 0.42, 0);
-  const slide = G(); g.add(slide); slide.position.set(0.2, 0, 0.3); slide.rotation.y = -0.5;
-  const ramp = box(slide, 0.5, 0.07, 2, L(0x7fb98a), 0, 0.55, 0); ramp.rotation.x = 0.55;
-  [-0.22, 0.22].forEach(x => { box(slide, 0.05, 0.12, 2, MAT.leafD, x, 0.6, 0).rotation.x = 0.55; });
-  [-0.18, 0.18].forEach(x => cyl(slide, 0.03, 0.03, 1.1, MAT.wood, x, 0.55, -1));
-  for (let i = 0; i < 3; i++) box(slide, 0.34, 0.04, 0.04, MAT.woodL, 0, 0.25 + i * 0.3, -1);
-  const sand = G(); g.add(sand); sand.position.set(2.2, 0, 0.6);
-  [-0.65, 0.65].forEach(z => box(sand, 1.5, 0.14, 0.12, MAT.wood, 0, 0.07, z));
-  [-0.7, 0.7].forEach(x => box(sand, 0.12, 0.14, 1.4, MAT.wood, x, 0.07, 0));
-  box(sand, 1.3, 0.1, 1.2, L(0xead9a8), 0, 0.06, 0);
-  sph(sand, 0.09, MAT.red, 0.3, 0.14, 0.2); cyl(sand, 0.05, 0.07, 0.1, MAT.blue, -0.25, 0.15, -0.1);
-  const beet = G(); g.add(beet); beet.position.set(0.4, 0, 2.1); beet.rotation.y = 0.15;
-  [-0.5, 0.5].forEach(z => { box(beet, 2, 0.1, 0.7, L(0x8a5f3c), 0, 0.05, z);
-    for (let i = 0; i < 5; i++) sph(beet, 0.09, MAT.leafD, -0.8 + i * 0.4, 0.14, z, 1, 0.8, 1); });
-  const fl = [0xe6604d, 0xe6a0b8, 0xf0c04d, 0xffffff, 0xb27fd4];
-  for (let i = 0; i < 8; i++) { const x = -2.8 + i * 0.8, z = 1.9 + Math.sin(i * 2.7) * 0.5;
-    cyl(g, 0.012, 0.012, 0.3, MAT.leafD, x, 0.15, z);
-    sph(g, 0.07, L(fl[i % 5]), x, 0.32, z, 1, 0.6, 1); sph(g, 0.03, MAT.gold, x, 0.36, z); }
   return g;
 }
