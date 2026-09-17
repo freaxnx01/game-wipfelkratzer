@@ -8,6 +8,12 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- Der Wald kennt jetzt Jahreszeiten. Ein neuer Knopf in der Werkzeugleiste
+  schaltet zwischen Frühling, Sommer, Herbst und Winter weiter; Baumkronen,
+  Wiese, Bach und Himmelston blenden dabei sanft über, so wie es der Wechsel
+  zwischen Tag und Nacht schon tut. Jeder Baum behält seinen eigenen Farbton,
+  der Wald wird also nie einfarbig. Die gewählte Jahreszeit bleibt gespeichert
+  und lässt sich mit Tag und Nacht frei kombinieren (#50)
 - Eine fertig eingerichtete Wohnung lässt sich jetzt auf ein anderes
   Stockwerk kopieren: In der Einrichtungsleiste merkt «Raum kopieren» die
   Wohnung samt Möbeln, Wandobjekten, Deko, Tapete und Bodenbelag, «Raum
