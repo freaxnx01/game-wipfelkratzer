@@ -6,6 +6,15 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added
+
+- Der Bach war bisher blosse Kulisse. Ein Tipp auf das Wasser fragt jetzt
+  nach, ob es zu &laquo;Splashdown!&raquo; gehen soll — dem
+  Wasserrutschen-Rennen nebenan. Vor dem Wechsel wird der Wipfelkratzer
+  sofort gespeichert statt wie bisher erst nach einer kurzen Verzögerung,
+  damit auch die allerletzte Änderung erhalten bleibt; nach der Rückkehr
+  steht der Turm unverändert da (#46)
+
 ## [0.7.0] - 2026-09-17
 
 ### Added

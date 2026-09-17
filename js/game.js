@@ -137,6 +137,10 @@ const schreibeStand = () => { try {
   localStorage.setItem(STAND.standKey, JSON.stringify({ ...state, wallpaper }));
 } catch (e) {} };
 const save = () => { clearTimeout(saveT); saveT = setTimeout(schreibeStand, 300); };
+/* Netz für Wege aus der Seite, die keine eigene Navigation sind — Zurück-Taste,
+   Tab schliessen, Wechsel in den bfcache. pagehide statt beforeunload: Letzteres
+   ist auf mobilen Browsern unzuverlässig und bfcache-feindlich (#46). */
+addEventListener('pagehide', schreibeStand);
 const roomOf = k => (state.rooms[k] || (state.rooms[k] = []));
 const tenantIn = i => i <= state.floors && roomOf(i).length >= 3;
 
@@ -194,7 +198,11 @@ function ribbon(width, y, mat) {
   const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; scene.add(m); return m;
 }
 ribbon(5.6, 0.02, new THREE.MeshLambertMaterial({ color: 0xc9b083 }));
-ribbon(3.6, 0.045, MAT.water);
+/* Das breite Wasserband ist die Trefferfläche des Bachs (#46) — nicht das
+   Sandufer darunter und nicht der helle Streifen darüber, der zwar höher
+   liegt, aber nicht in der Pickliste steht und deshalb nichts abschirmt. */
+const river = ribbon(3.6, 0.045, MAT.water);
+river.userData.type = 'bach';
 ribbon(1.5, 0.06, new THREE.MeshLambertMaterial({ color: 0x7fc4dd }));
 const dam = makeDam(); dam.position.set(-7, 0, riverZ(-7) - 1.2); dam.rotation.y = 0.6; dam.userData.type = 'dam'; scene.add(dam);
 for (let i = 0; i < 60; i++) {
@@ -1477,6 +1485,24 @@ $('animals').onclick = e => { if (e.target === $('animals')) $('animals').classL
 $('btn-resclose').onclick = () => $('residents').classList.remove('open');
 $('residents').onclick = e => { if (e.target === $('residents')) $('residents').classList.remove('open'); };
 
+/* ---------- Bach -> Splashdown (#46) ----------
+   Splashdown ist ein eigenes Spiel unter derselben Domain, in einem anderen
+   Pfad. Der Rückweg wird als Query-Parameter mitgegeben; Splashdown darf ihn
+   heute noch ignorieren — dann führt der Rückweg über die Zurück-Taste und
+   den «More Games…»-Link (siehe Spec, Abschnitt «Abhängigkeit»). */
+const SPLASHDOWN_URL = 'https://github.freaxnx01.ch/game-splashdown/';
+function askSplashdown() { $('splash-ask').classList.add('open'); sfx.pop(); }
+function gotoSplashdown() {
+  schreibeStand();   /* NICHT save() — das ist um 300 ms entprellt und stirbt mit dem Dokument */
+  sfx.splash();
+  const back = new URL('.', location.href).href;
+  location.href = SPLASHDOWN_URL + '?zurueck=' + encodeURIComponent(back)
+    + '&zurueck-name=' + encodeURIComponent('Wipfelkratzer');
+}
+$('btn-splash-go').onclick = gotoSplashdown;
+$('btn-splash-stay').onclick = () => { $('splash-ask').classList.remove('open'); sfx.pop(); };
+$('splash-ask').onclick = e => { if (e.target === $('splash-ask')) $('splash-ask').classList.remove('open'); };
+
 /* Party */
 let party = false; const dancers = [];
 $('btn-party').onclick = () => { $('extras-menu').classList.remove('open'); party ? endParty() : startParty(); };
@@ -1678,7 +1704,7 @@ renderer.domElement.addEventListener('pointerup', e => {
     if (th.length) { let o = th[0].object; while (o && !(o.userData && o.userData.type === 'tenant')) o = o.parent;
       if (o) { tenantTalk(o.userData.floor); return; } }
   }
-  const hits = ray.intersectObjects([...hitboxes, sign, willi, dam, moki], true);
+  const hits = ray.intersectObjects([...hitboxes, sign, willi, dam, moki, river], true);
   for (const h of hits) {
     let o = h.object; while (o && !(o.userData && o.userData.type)) o = o.parent;
     if (!o) continue; const u = o.userData;
@@ -1686,6 +1712,7 @@ renderer.domElement.addEventListener('pointerup', e => {
     if (u.type === 'willi') { williTalk(); return; }
     if (u.type === 'dam') { damTalk(); return; }
     if (u.type === 'moki') { mokiTalk(); return; }
+    if (u.type === 'bach') { askSplashdown(); return; }
     if (u.type === 'roof') { enterEdit('roof'); return; }
     if (u.type === 'garten') { if (state.garden) { enterEdit('garten'); return; } continue; }
     if (u.type === 'floor') { if (u.floor <= state.floors) { enterEdit(u.floor); return; } continue; }
@@ -2056,7 +2083,7 @@ for (let i = 0; i <= MAXF; i++) if (floorGroups[i]) applyLook(i);
 if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
 window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, gartenG, gardenEdge, scene, camera, controls, WALL_KEYS, FURN_COLORS, TINTABLE,
-  GARDEN: { pos: GARDEN_POS, w: GARDEN_W, d: GARDEN_D }, riverZ, placeItemMesh, clampEntry, removeItem,
+  GARDEN: { pos: GARDEN_POS, w: GARDEN_W, d: GARDEN_D }, riverZ, river, placeItemMesh, clampEntry, removeItem,
   MAXF, tenantOf, topY, floorGroup, catalogIds: CATALOG.map(c => c.id),
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
@@ -2064,7 +2091,17 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove,
   photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename },
   staende, stand: STAND, speichern: schreibeStand, speichernFotos: savePhotos, get fotos() { return photos; },
-  standBild, merkeStandBild, renderStaende };
+  standBild, merkeStandBild, renderStaende,
+  /* Debug-Trefferprobe für Playwright-Checks (#46): denselben Strahl und dieselbe
+     Objektliste wie der pointerup-Handler nehmen, ohne eine Aktion auszulösen. */
+  pickAt(nx, ny) {
+    ray.setFromCamera(new THREE.Vector2(nx, ny), camera);
+    const hs = ray.intersectObjects([...hitboxes, sign, willi, dam, moki, river], true);
+    for (const h of hs) { let o = h.object; while (o && !(o.userData && o.userData.type)) o = o.parent;
+      if (o) return o.userData.type; }
+    return null;
+  },
+  askSplashdown, SPLASHDOWN_URL };
 applyNight(state.night ? 1 : 0);
 applyFronts();
 makeThumbs();
