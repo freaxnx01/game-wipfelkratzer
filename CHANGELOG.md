@@ -15,6 +15,15 @@ All notable changes to this project are documented here, following
   wird beim ersten Start still zum ersten Turm, ohne dass etwas verloren geht.
   «Neu anfangen» ist dafür weggefallen: gelöscht wird jetzt ein einzelner Turm
   über seine Karte — samt seinen Fotos, die der alte Knopf stehen liess (#53)
+- Die Turmhöhe ist jetzt wählbar: Wer ein neues Spiel beginnt, entscheidet
+  sich am Startbildschirm für einen kleinen Turm mit 10, einen hohen mit 20
+  oder einen Riesenturm mit 50 Stockwerken. Der Turm verjüngt sich dabei
+  immer bis zum selben Endmass, damit auch die oberste Wohnung noch
+  einrichtbar ist; oberhalb der zehnten Etage bekommen die Bewohner ihre
+  Namen, Tiere und Wünsche aus Bausteinen, immer dieselben pro Stockwerk.
+  Kamera und Nebel wachsen mit, und Stockwerke entstehen erst, wenn sie
+  gebaut werden — der Zehner-Turm sieht aus wie bisher und lädt aus jedem
+  bestehenden Spielstand unverändert (#47)
 
 ## [0.6.0] - 2026-09-17
 
