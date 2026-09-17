@@ -8,6 +8,14 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- Eine fertig eingerichtete Wohnung lässt sich jetzt auf ein anderes
+  Stockwerk kopieren: In der Einrichtungsleiste merkt «Raum kopieren» die
+  Wohnung samt Möbeln, Wandobjekten, Deko, Tapete und Bodenbelag, «Raum
+  einfügen» stellt sie im nächsten Stockwerk wieder auf und rückt dabei
+  alles auf dessen Masse zurecht. Steht am Ziel schon etwas, fragt das
+  Spiel vorher, ob dazugestellt oder alles ersetzt werden soll — nichts
+  geht unbemerkt verloren. Die Bewohner kommen nicht mit; es zieht die
+  Familie ein, die auf das Zielstockwerk gehört (#48)
 - Der Bach war bisher blosse Kulisse. Ein Tipp auf das Wasser fragt jetzt
   nach, ob es zu &laquo;Splashdown!&raquo; gehen soll — dem
   Wasserrutschen-Rennen nebenan. Vor dem Wechsel wird der Wipfelkratzer

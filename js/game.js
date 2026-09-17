@@ -1120,6 +1120,7 @@ function enterEdit(k) {
   $('editbar').classList.add('on');
   wallTarget = 'alle';
   $('catalog').classList.add('open'); renderCatalog(); highlightWalls();
+  updateRoomClipButtons();
   updateHUD(); sfx.whoosh();
 }
 function exitEdit() {
@@ -1133,6 +1134,7 @@ function exitEdit() {
   edit = null;
   wallTarget = 'alle'; highlightWalls();
   applyFronts();
+  updateRoomClipButtons();
   $('editbar').classList.remove('on');
   $('catalog').classList.remove('open');
   updateHUD();
@@ -1151,6 +1153,101 @@ function select(pick) { deselect(); selected = pick;
   $('btn-del').classList.toggle('hidden', !!pick.tenant);
   updateActionBtn();
   $('selbar').classList.add('on'); }
+
+/* ---------- Raum kopieren ----------
+   Die Zwischenablage hält eine tiefe Kopie der Quellwohnung: Möbelliste,
+   Tapete (vier Wände) und Bodenbelag. Sie lebt nur in dieser Sitzung und
+   wird nicht gespeichert — ein über Tage gemerkter Raum, dessen Quelle
+   längst umgeräumt ist, wäre mehr Überraschung als Hilfe. */
+let clip = null;
+const deepCopy = v => JSON.parse(JSON.stringify(v));
+function updateRoomClipButtons() {
+  const normal = !!edit && edit.k !== 'roof' && edit.k !== 'garten';
+  $('btn-roomcopy').classList.toggle('hidden', !normal);
+  $('btn-roompaste').classList.toggle('hidden', !(normal && clip && clip.from !== edit.k));
+}
+function copyRoom() {
+  if (!edit || edit.k === 'roof' || edit.k === 'garten') return;
+  const k = edit.k;
+  clip = { from: k, items: deepCopy(roomOf(k)),
+    wallpaper: deepCopy(wallpaperOf(k)), flooring: state.flooring[k] || null };
+  updateRoomClipButtons(); sfx.pop();
+  toast(`Wohnung ${flLabel(k)} gemerkt — geh auf ein anderes Stockwerk und tippe auf «Raum einfügen».`);
+}
+$('btn-roomcopy').onclick = copyRoom;
+
+/* Eingefügt wird in zwei Durchgängen: erst die Möbel, dann die Deko. Nur so
+   sieht surfaceYAt beim Ablegen der Vase den Tisch, auf dem sie stand.
+   clampEntry rechnet jeden Eintrag auf die Masse der ZIELetage um — obere
+   Stockwerke sind schmaler als untere (siehe W/D). */
+function pasteEntries(k, items) {
+  const maxCell = colsOf(k) * 2 - 1;
+  const order = [...items.filter(e => !DECO.has(e.id)), ...items.filter(e => DECO.has(e.id))];
+  const placed = [];
+  order.forEach(src => {
+    const en = deepCopy(src);
+    en.cell = Math.max(0, Math.min(maxCell, en.cell || 0));
+    if (DECO.has(en.id)) en.y = surfaceYAt(k, en.x, en.z);
+    else if (!WALL_ITEMS.has(en.id)) en.y = baseY(k);
+    roomOf(k).push(en);
+    const m = placeItemMesh(k, en);
+    clampEntry(k, m, en);
+    placed.push(en.id);
+  });
+  return placed;
+}
+/* Leeren mit derselben Mechanik wie removeItem: Liste, Szenengraph und
+   itemMeshes müssen zusammen aufgeräumt werden, sonst bleiben Möbel
+   sichtbar stehen, die es im Spielstand nicht mehr gibt. */
+function clearRoom(k) {
+  itemMeshes[k].slice().forEach(m => parentOf(k).remove(m));
+  itemMeshes[k].length = 0;
+  roomOf(k).length = 0;
+}
+function doPaste(k, replace) {
+  if (replace) clearRoom(k);
+  const ids = pasteEntries(k, clip.items);
+  /* Tapete liegt pro Wand, der Bodenbelag als einzelne Id — beides getrennt
+     von der Möbelliste. Wer «den Raum» kopiert, meint sie mit. */
+  state.wallpaper[k] = deepCopy(clip.wallpaper);
+  if (clip.flooring) state.flooring[k] = clip.flooring;
+  else delete state.flooring[k];
+  applyLook(k);
+  /* Bewohner werden nicht mitkopiert — die Tiere hängen an tenantGroups[i]
+     und gehören zur Wohnung, nicht zur Einrichtung. Was die Kopie auslöst,
+     ist der Einzug der Familie, die auf DIESE Etage gehört, und die
+     Erfüllung ihres Wunsches, falls er mitgekommen ist. Auf Etage k kann
+     immer nur der Wunsch von tenantOf(k) selbst erfüllt werden (checkWishes
+     prüft wishKey gegen where===k, und where ist nur für die eigene Etage k
+     gleich k). Dieser eine Treffer muss VOR checkTenant geprüft werden:
+     pasteEntries hat alle Einträge schon in roomOf(k) — ruft man stattdessen
+     erst mit einer nicht passenden id auf, sieht deren renderWishes() den
+     Wunschgegenstand schon im Raum liegen und markiert ihn über wishOpen
+     still als erfüllt, ohne die drei Haselnüsse zu zahlen. */
+  const t = tenantOf(k);
+  if (!t.roofWish) { const wishId = ids.find(id => wishKey(id) === t.wish); if (wishId) checkWishes(wishId, k); }
+  checkTenant(k);
+  renderWishes(); renderResidents();
+  deselect(); sfx.pop(); save(); updateHUD();
+  toast(`Die Wohnung von Stockwerk ${flLabel(clip.from)} ist eingezogen!`);
+}
+let pasteTarget = null;
+function pasteRoom() {
+  if (!edit || edit.k === 'roof' || edit.k === 'garten' || !clip || clip.from === edit.k) return;
+  const k = edit.k;
+  if (!roomOf(k).length) { doPaste(k, false); return; }
+  pasteTarget = k;
+  $('pasteask-text').textContent =
+    `In Stockwerk ${flLabel(k)} stehen schon ${roomOf(k).length} Sachen. Soll die kopierte Wohnung dazukommen oder alles ersetzen?`;
+  $('pasteask').classList.add('open');
+}
+$('btn-roompaste').onclick = pasteRoom;
+function closePasteAsk() { $('pasteask').classList.remove('open'); pasteTarget = null; }
+$('paste-cancel').onclick = closePasteAsk;
+$('pasteask').onclick = e => { if (e.target === $('pasteask')) closePasteAsk(); };
+$('paste-add').onclick = () => { const k = pasteTarget; closePasteAsk(); if (k !== null) doPaste(k, false); };
+$('paste-replace').onclick = () => { const k = pasteTarget; closePasteAsk(); if (k !== null) doPaste(k, true); };
+
 /* Die Reihe zeigt «Standard» plus die Palette; die Punkte tragen den Farbwert
    der MAT-Instanz, damit kein zweiter Ort eine Farbe festlegt. */
 function renderColorPick() {
@@ -2096,7 +2193,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
-  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove,
+  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, roomOf, get clip() { return clip; },
   poolEntries: () => roomOf('roof').filter(e => e.id === 'pool'),
   get magpiePhase() { return magPhase; }, MAGPIE_DUR, magpie,
   photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename },
