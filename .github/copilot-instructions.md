@@ -1,4 +1,4 @@
-[//]: # (Source of truth: .ai/base-instructions.md + .ai/stacks/browser-game.md — update those, then regenerate this file by re-running /sync-ai-instructions)
+[//]: # (Source of truth: .ai/base-instructions.md + .ai/stacks/browser-game.md — update those, then regenerate by re-running /sync-ai-instructions)
 
 # GitHub Copilot Instructions
 
@@ -481,13 +481,11 @@ Release flow:
 
 ```bash
 # 1. bump version.js to the new X.Y.Z
-# 2. commit
+# 2. CHANGELOG: rename [Unreleased] to [X.Y.Z] - YYYY-MM-DD by hand (see Changelog)
+# 3. commit
 git commit -am "chore(release): v1.2.0"
-# 3. tag on main (authoritative)
+# 4. tag on main (authoritative)
 git tag v1.2.0
-# 4. regenerate changelog from Conventional Commits
-git cliff --tag v1.2.0 -o CHANGELOG.md
-git commit -am "docs(changelog): v1.2.0"
 git push --follow-tags
 ```
 
@@ -498,10 +496,25 @@ tag, JSON file, and a second const). The tag is truth; `version.js` mirrors it.
 
 ## Changelog
 
-Adopt base as-is: `CHANGELOG.md` (Keep a Changelog) with an `[Unreleased]`
-section, `cliff.toml` using the Conventional Commits preset, and optionally
-`orhun/git-cliff-action` to populate GitHub Release notes. Nothing
-stack-specific beyond what base already defines.
+`CHANGELOG.md` follows Keep a Changelog with an `[Unreleased]` section, as base
+defines. **The entries are written by hand, and they are the deliverable** — a
+game's changelog is read by the person playing it, so an entry says what changed
+*in the game* („Die Turmhöhe ist jetzt wählbar…"), not what changed in the repo.
+Each PR appends its entry under `[Unreleased]` in that voice.
+
+**Never regenerate the file with `git cliff -o CHANGELOG.md`.** It rewrites the
+whole file from commit subjects and deletes the player-facing prose of every
+earlier release — confirmed the hard way while cutting `game-wipfelkratzer`
+v0.6.0 (2026-09-17). Cutting a release is therefore an edit, not a command:
+rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and open a fresh empty
+`[Unreleased]` above it.
+
+`cliff.toml` stays in the repo and `git-cliff` stays useful for *reading* the
+Conventional Commits since the last tag (`git cliff --unreleased` to stdout) —
+as a source to write from, never as a generator that overwrites the file.
+`orhun/git-cliff-action` in CI is likewise fine for GitHub **Release notes**,
+which are separate from `CHANGELOG.md`; the release body can also just be the
+hand-written section for that version.
 
 ---
 
@@ -622,7 +635,14 @@ nothing about any individual game's strings.
   // note below.
   document.addEventListener("click", function (e) {
     var btn = e.target.closest && e.target.closest("#gg-lang-toggle");
-    if (btn) window.ggSetLang(window.GG_LANG === "en" ? "de" : "en");
+    if (!btn) return;
+    window.ggSetLang(window.GG_LANG === "en" ? "de" : "en");
+    // Games with keyboard-driven controls (e.g. Enter/Space to confirm) can
+    // otherwise re-trigger this button via the browser's native
+    // button-activation-on-keypress behavior if it retains focus after the
+    // mouse click — confirmed with game-nibbles, where a post-toggle Enter
+    // press (a real gameplay key) silently flipped the language back.
+    if (typeof btn.blur === "function") btn.blur();
   });
 
   function injectToggle() {
@@ -673,6 +693,15 @@ Load it in `index.html`, right where `version.js` loads:
 
 For a plain-HTML game, `injectToggle()` appends the button into the existing
 `#game-nav` footer itself — no new UI surface to design per game.
+
+**Adding keyboard controls to a game that already has `i18n.js`? Re-copy the
+file.** Copies taken before the `btn.blur()` fix leave the toggle focused after
+a click, so a gameplay key that isn't `preventDefault()`'d — `Enter`, `Space` —
+re-triggers it via the browser's native button-activation-on-keypress and
+silently flips the language back. Harmless while a game is mouse-only, which is
+why an older copy can sit unnoticed for months; it becomes a live bug the moment
+keys are wired up. The symptom looks like a broken language toggle, not a
+keyboard problem, and it took a Playwright session to pin down the first time.
 
 ### Framework-managed `#game-nav` (dc-tool / DCLogic games)
 
@@ -767,8 +796,9 @@ python3 -m http.server 8000        # then open http://localhost:8000/
 npx prettier --write .
 npx eslint .
 
-# Release (see Versioning)
-git tag v1.2.0 && git cliff --tag v1.2.0 -o CHANGELOG.md
+# Release (see Versioning) — the CHANGELOG is cut by hand, never generated
+git tag v1.2.0
+git cliff --unreleased          # read-only: commits since the last tag
 
 # Regenerate hub screenshot (run in the freaxnx01.github.io repo)
 python3 scripts/capture_screenshots.py
