@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { MAT, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, TINTABLE,
+import { MAT, SEASONS, LEAVES, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, TINTABLE,
   BUILD_SHAPES, BUILD_WIDTHS, BUILD_MAX, BUILD_MAX_H, DESIGN_MAX, normalizeBuild,
   makeCustomFurniture, lookCanvas, lookTexture, makeFurniture, makeAnimal, makeWilli,
   makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge } from './models.js';
@@ -99,7 +99,7 @@ function tenantOf(i) {
 /* ---------- Zustand ---------- */
 /* tenantPos: von Hand gesetzte Tierplätze pro Stockwerk; fehlt der Eintrag,
    platziert tenantSpot automatisch (#14). */
-let state = { floors: 0, rooms: {}, nuts: 0, bridge: false, garden: false, night: false, cutaway: false, fulfilled: {}, wallpaper: {}, flooring: {}, tenantPos: {}, maxFloors: 10, designs: [] };
+let state = { floors: 0, rooms: {}, nuts: 0, bridge: false, garden: false, night: false, season: 'sommer', cutaway: false, fulfilled: {}, wallpaper: {}, flooring: {}, tenantPos: {}, maxFloors: 10, designs: [] };
 /* Welcher Turm gerade gespielt wird, entscheidet die Slot-Ebene. Ein Wechsel
    lädt die Seite neu, deshalb genügt es, den Eintrag einmal beim Start zu holen. */
 const STAND = staende.aktiverStand();
@@ -193,9 +193,15 @@ function ribbon(width, y, mat) {
   geo.setIndex(idx); geo.computeVertexNormals();
   const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; scene.add(m); return m;
 }
-ribbon(5.6, 0.02, new THREE.MeshLambertMaterial({ color: 0xc9b083 }));
-ribbon(3.6, 0.045, MAT.water);
-ribbon(1.5, 0.06, new THREE.MeshLambertMaterial({ color: 0x7fc4dd }));
+/* Eigene Instanzen statt MAT.water: der Bach friert im Winter zu, das
+   Badewasser, die Teekanne und der Dachpool aber nicht (#50). Die Startfarben
+   sind identisch mit heute. */
+const riverSandMat = new THREE.MeshLambertMaterial({ color: 0xc9b083 });
+const riverWaterMat = new THREE.MeshLambertMaterial({ color: 0x5aa7c7 });
+const riverFoamMat = new THREE.MeshLambertMaterial({ color: 0x7fc4dd });
+ribbon(5.6, 0.02, riverSandMat);
+ribbon(3.6, 0.045, riverWaterMat);
+ribbon(1.5, 0.06, riverFoamMat);
 const dam = makeDam(); dam.position.set(-7, 0, riverZ(-7) - 1.2); dam.rotation.y = 0.6; dam.userData.type = 'dam'; scene.add(dam);
 for (let i = 0; i < 60; i++) {
   const a = rnd(i) * Math.PI * 2, r = 17 + rnd(i + 40) * 26;
@@ -1530,6 +1536,50 @@ function setNight(on) {
   tween(1.2, q => applyNight(from + (to - from) * q));
 }
 $('btn-night').onclick = () => { if (party && state.night) { toast('Bei der Party bleibt es Nacht!'); return; } setNight(!state.night); };
+
+/* Jahreszeit (#50). Gemischt wird zwischen zwei Tabelleneinträgen, genau wie
+   applyNight zwischen Tag und Nacht mischt. Die Arbeitsteilung ist dabei die
+   Regel, die nicht gebrochen werden darf: die Jahreszeit schreibt nur die
+   Tag-Endpunkte SKY.d und GRND.d, das Mischen auf Himmel, Nebel und
+   Hemisphärenlicht bleibt bei applyNight. Sonst überschreiben sich die beiden
+   Überblendungen gegenseitig, sobald sie gleichzeitig laufen. */
+const SEASON_TEXT = {
+  fruehling: 'Jetzt ist Frühling — alles wird frisch und hellgrün.',
+  sommer: 'Jetzt ist Sommer — der Wald steht sattgrün.',
+  herbst: 'Jetzt ist Herbst — die Blätter werden bunt.',
+  winter: 'Jetzt ist Winter — Schnee liegt auf dem Wald.',
+};
+const seasonIndex = id => { const i = SEASONS.findIndex(s => s.id === id); return i < 0 ? SEASONS.findIndex(s => s.id === 'sommer') : i; };
+let seasonFrom = seasonIndex(state.season), seasonTo = seasonFrom, seasonK = 1;
+const cA = new THREE.Color(), cB = new THREE.Color();
+const lerpHex = (out, a, b, q) => out.lerpColors(cA.setHex(a), cB.setHex(b), q);
+function applySeason(q) {
+  seasonK = q;
+  const a = SEASONS[seasonFrom], b = SEASONS[seasonTo];
+  lerpHex(SKY.d, a.sky, b.sky, q);
+  lerpHex(GRND.d, a.hemiGround, b.hemiGround, q);
+  lerpHex(ground.material.color, a.ground, b.ground, q);
+  lerpHex(riverSandMat.color, a.sand, b.sand, q);
+  lerpHex(riverWaterMat.color, a.water, b.water, q);
+  lerpHex(riverFoamMat.color, a.foam, b.foam, q);
+  const dh = a.leaf.dh + (b.leaf.dh - a.leaf.dh) * q;
+  const ks = a.leaf.ks + (b.leaf.ks - a.leaf.ks) * q;
+  const dl = a.leaf.dl + (b.leaf.dl - a.leaf.dl) * q;
+  LEAVES.forEach(e => e.mat.color.setHSL(e.h + dh, Math.min(1, e.s * ks), Math.min(1, e.l + dl)));
+  applyNight(nightK);
+  $('btn-season').textContent = (q < 0.5 ? a : b).name;
+}
+function setSeason(idx) {
+  seasonFrom = seasonTo; seasonTo = idx;
+  const from = seasonK;     /* laufende Überblendung sauber abholen */
+  state.season = SEASONS[idx].id; save();
+  tween(1.4, q => applySeason(from + (1 - from) * q));
+  toast(SEASON_TEXT[SEASONS[idx].id]);
+  sfx.whoosh();
+}
+/* Bewusst ohne Sperre während der Dachparty — anders als bei Tag/Nacht gibt es
+   keinen Grund, die Jahreszeit festzuhalten. */
+$('btn-season').onclick = () => setSeason((seasonTo + 1) % SEASONS.length);
 $('btn-cutaway').onclick = () => { state.cutaway = !state.cutaway; applyFronts(); sfx.whoosh(); save();
   if (state.cutaway) toast('Blick in alle Wohnungen — wie im Buch!'); };
 
@@ -2037,8 +2087,17 @@ function migrateGarden() {
   migrated = true;
 }
 
+/* Jahreszeit. Alte Stände haben hier nichts — das ist gültig und heisst Sommer.
+   Ein unbekannter Wert wird still auf Sommer zurückgesetzt und der bereinigte
+   Stand einmalig zurückgeschrieben (Vorbild: Tapeten-Migration). */
+function migrateSeason() {
+  if (SEASONS.some(s => s.id === state.season)) return;
+  state.season = 'sommer'; migrated = true;
+}
+
 /* ---------- Laden ---------- */
 migrateGarden();
+migrateSeason();
 sanitizeDesigns();
 /* Gebaute Etagen zuerst anlegen — placeItemMesh/spawnTenant greifen direkt
    auf floorGroups[i] zu und dürfen die Gruppe nicht selbst nachziehen (#47). */
@@ -2057,6 +2116,9 @@ if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
 window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, gartenG, gardenEdge, scene, camera, controls, WALL_KEYS, FURN_COLORS, TINTABLE,
   GARDEN: { pos: GARDEN_POS, w: GARDEN_W, d: GARDEN_D }, riverZ, placeItemMesh, clampEntry, removeItem,
+  MAT, SEASONS, LEAVES, setSeason, setNight, ground,
+  riverMats: { sand: riverSandMat, water: riverWaterMat, foam: riverFoamMat },
+  leafColors: () => LEAVES.map(e => e.mat.color.getHexString()),
   MAXF, tenantOf, topY, floorGroup, catalogIds: CATALOG.map(c => c.id),
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
@@ -2065,7 +2127,9 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename },
   staende, stand: STAND, speichern: schreibeStand, speichernFotos: savePhotos, get fotos() { return photos; },
   standBild, merkeStandBild, renderStaende };
-applyNight(state.night ? 1 : 0);
+/* Setzt die Jahreszeit ohne Überblendung (seasonFrom === seasonTo) und ruft am
+   Ende applyNight(nightK) — das ersetzt den früheren Erstaufruf von applyNight. */
+applySeason(1);
 applyFronts();
 makeThumbs();
 renderWishes(); renderResidents(); updateHUD();
