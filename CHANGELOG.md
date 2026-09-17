@@ -6,6 +6,15 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added
+
+- Der Wald kennt jetzt Jahreszeiten. Ein neuer Knopf in der Werkzeugleiste
+  schaltet zwischen Frühling, Sommer, Herbst und Winter weiter; Baumkronen,
+  Wiese, Bach und Himmelston blenden dabei sanft über, so wie es der Wechsel
+  zwischen Tag und Nacht schon tut. Jeder Baum behält seinen eigenen Farbton,
+  der Wald wird also nie einfarbig. Die gewählte Jahreszeit bleibt gespeichert
+  und lässt sich mit Tag und Nacht frei kombinieren (#50)
+
 ## [0.7.0] - 2026-09-17
 
 ### Added

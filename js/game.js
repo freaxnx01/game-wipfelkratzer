@@ -2119,6 +2119,9 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   MAT, SEASONS, LEAVES, setSeason, setNight, ground,
   riverMats: { sand: riverSandMat, water: riverWaterMat, foam: riverFoamMat },
   leafColors: () => LEAVES.map(e => e.mat.color.getHexString()),
+  /* Laufende Überblendungen. Ein Test kann so abwarten, bis ein Wechsel fertig
+     ist, statt auf eine Bildrate zu wetten. */
+  tweenCount: () => tweens.length,
   MAXF, tenantOf, topY, floorGroup, catalogIds: CATALOG.map(c => c.id),
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
