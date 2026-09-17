@@ -1701,6 +1701,82 @@ renderer.domElement.addEventListener('pointerup', e => {
   }
 });
 
+/* ---------- Objekt ziehen (#64) ---------- */
+/* Nur das bereits ausgewählte Objekt lässt sich ziehen, und nur wenn der
+   Zug auf ihm beginnt — sonst bliebe in einer vollen Wohnung keine
+   Fläche mehr übrig, um die Kamera zu drehen. Gilt für Maus und Finger. */
+let ziehen = null;
+const zugEbene = new THREE.Plane();
+const zugVersatz = new THREE.Vector3();
+const zugPunkt = new THREE.Vector3();
+
+function zeigerStrahl(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ptr.set(((e.clientX - r.left) / r.width) * 2 - 1,
+          -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ptr, camera);
+}
+
+/* Liegt der Zeiger auf dem ausgewählten Objekt? Liefert den Weltpunkt
+   des Treffers oder null. */
+function trifftAuswahl(e) {
+  if (!edit || !selected) return null;
+  zeigerStrahl(e);
+  const hits = ray.intersectObject(selected.mesh, true);
+  return hits.length ? hits[0].point.clone() : null;
+}
+
+/* Reihenfolge-Falle: OrbitControls hängt seinen eigenen pointerdown schon beim
+   Aufbau der Szene an renderer.domElement, also vor diesem hier — es hat den
+   Zug bereits begonnen, wenn controls.enabled = false gesetzt wird. Genau
+   deshalb ist `enabled` das Mittel und nicht stopPropagation():
+   OrbitControls.onPointerMove prüft `enabled` bei jeder Bewegung und steigt
+   aus, die Kamera bewegt sich also keinen Pixel. */
+renderer.domElement.addEventListener('pointerdown', e => {
+  const treffer = trifftAuswahl(e);
+  if (!treffer) return;
+  const en = selected.entry;
+  if (WALL_ITEMS.has(en.id)) return;        /* Wandobjekte: Task 3 */
+  ziehen = { id: e.pointerId, blockiert: false };
+  selected.mesh.getWorldPosition(zugPunkt);
+  zugVersatz.copy(treffer).sub(zugPunkt);
+  zugEbene.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), treffer);
+  controls.enabled = false;
+  renderer.domElement.setPointerCapture(e.pointerId);
+});
+
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!ziehen || e.pointerId !== ziehen.id || !selected) return;
+  zeigerStrahl(e);
+  if (!ray.ray.intersectPlane(zugEbene, zugPunkt)) return;
+  const en = selected.entry;
+  /* en.x/en.y/en.z sind lokal zur Elterngruppe — gartenG trägt GARDEN_POS,
+     die Stockwerksgruppen ihre Höhe. */
+  const eltern = parentOf(selected.k);
+  zugPunkt.sub(zugVersatz);
+  const lokal = eltern.worldToLocal(zugPunkt.clone());
+  if (!applyMove(selected, () => { en.x = lokal.x; en.z = lokal.z;
+    clampEntry(selected.k, selected.mesh, en); })) {
+    if (!ziehen.blockiert) { ziehen.blockiert = true; meldeBlockade(); }
+    return; }
+  ziehen.blockiert = false;
+  /* Bei einem Tier gehört position.y allein der Wackel-Animation (#39). */
+  if (selected.tenant) { setTenantPos(selected.tenant.floor, selected.tenant.idx, en); }
+  else { en.y = DECO.has(en.id) ? surfaceYAt(selected.k, en.x, en.z, selected.mesh) : baseY(selected.k);
+         selected.mesh.position.y = en.y; }
+  selHelper.update();
+});
+
+function zugEnde(e) {
+  if (!ziehen || (e && e.pointerId !== ziehen.id)) return;
+  if (e) { try { renderer.domElement.releasePointerCapture(e.pointerId); } catch (err) {} }
+  ziehen = null;
+  controls.enabled = true;
+  save();
+}
+renderer.domElement.addEventListener('pointerup', zugEnde);
+renderer.domElement.addEventListener('pointercancel', zugEnde);
+
 $('btn-build').onclick = buildFloor;
 $('btn-done').onclick = exitEdit;
 $('btn-catalog').onclick = () => {
@@ -2071,6 +2147,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
   ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade,
+  ziehtGerade: () => !!ziehen, zugBlockiert: () => !!(ziehen && ziehen.blockiert),
   photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename },
   staende, stand: STAND, speichern: schreibeStand, speichernFotos: savePhotos, get fotos() { return photos; },
   standBild, merkeStandBild, renderStaende };
