@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MAT, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, TINTABLE,
   BUILD_SHAPES, BUILD_WIDTHS, BUILD_MAX, BUILD_MAX_H, DESIGN_MAX, normalizeBuild,
   makeCustomFurniture, lookCanvas, lookTexture, makeFurniture, makeAnimal, makeWilli,
-  makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge, makeGarden } from './models.js';
+  makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge } from './models.js';
 import { zipStore } from './zip.js';
 import * as staende from './staende.js';
 
@@ -221,7 +221,6 @@ const MOKI_WP = [new THREE.Vector3(6, 0, 6), new THREE.Vector3(-6.5, 0, 6.5), ne
 let mokiI = 0, mokiWait = 1.5;
 const magpie = new THREE.Group(); const magInner = makeMagpie(); magInner.rotation.y = -Math.PI / 2; magpie.add(magInner); scene.add(magpie);
 const bridge = makeBridge(5.6); bridge.position.set(8.7, 0.08, riverZ(8.7)); bridge.rotation.y = Math.PI / 2; bridge.visible = state.bridge; scene.add(bridge);
-const garden = makeGarden(); garden.position.set(-8, 0, 2); garden.rotation.y = 0.5; garden.visible = state.garden; scene.add(garden);
 
 /* Plattform + Stämme */
 { const g = new THREE.Group(); scene.add(g);
@@ -408,6 +407,30 @@ function floorGroup(i) { return floorGroups[i] || makeFloor(i); }
 makeFloor(0);
 itemMeshes.roof = [];
 
+/* Spielplatz. Die Gruppe steht bewusst unrotiert: die Spielfläche ist dadurch
+   achsenparallel und direkt mit riverZ(), der baumfreien Lichtung (Radius 5.5
+   um (-8, 2), siehe Baumschleifen oben) und dem Turmsockel vergleichbar. Die
+   alte Gruppendrehung von 0.5 steckt jetzt in den Startwerten der Objekte
+   (GARDEN_DEFAULT, weiter unten). */
+const GARDEN_POS = new THREE.Vector3(-8, 0, 2);
+const GARDEN_W = 5.4, GARDEN_D = 5.0;
+const gartenG = new THREE.Group();
+gartenG.position.copy(GARDEN_POS); gartenG.visible = state.garden;
+gartenG.userData.type = 'garten'; scene.add(gartenG);
+/* Unsichtbarer Antipp-Körper über der ganzen Fläche — dasselbe Muster wie die
+   Etagen- und Dach-Hitboxen. */
+{ const gh = new THREE.Mesh(new THREE.BoxGeometry(GARDEN_W, 1.6, GARDEN_D),
+    new THREE.MeshBasicMaterial({ visible: false }));
+  gh.position.y = 0.8; gh.userData = { type: 'garten' }; gartenG.add(gh); hitboxes.push(gh); }
+/* Holzkante, die beim Einrichten zeigt, wie weit der Spielplatz reicht. */
+const gardenEdge = new THREE.Group(); gardenEdge.visible = false; gartenG.add(gardenEdge);
+[[GARDEN_W, 0.06, 0, GARDEN_D / 2], [GARDEN_W, 0.06, 0, -GARDEN_D / 2],
+ [0.06, GARDEN_D, GARDEN_W / 2, 0], [0.06, GARDEN_D, -GARDEN_W / 2, 0]]
+  .forEach(([bw, bd, px, pz]) => {
+    const e = mesh(new THREE.BoxGeometry(bw, 0.06, bd), MAT.woodL, px, 0.03, pz, gardenEdge);
+    e.castShadow = false; });
+itemMeshes.garten = [];
+
 /* Dachterrasse */
 const roofG = new THREE.Group(); towerG.add(roofG);
 { mesh(new THREE.BoxGeometry(ROOF_W, ROOF_DECK_T, ROOF_D), MAT.woodL, 0, ROOF_DECK_T / 2, 0, roofG);
@@ -463,13 +486,15 @@ function updateRoof() { roofG.visible = true; roofG.position.y = topY() + 0.02;
 updateRoof();
 
 /* ---------- Zellen & Möbel ---------- */
-const dims = k => k === 'roof' ? { w: ROOF_W - 0.7, d: ROOF_D - 0.9 } : { w: W(k) - 0.7, d: D(k) - 1.0 };
+const dims = k => k === 'roof' ? { w: ROOF_W - 0.7, d: ROOF_D - 0.9 }
+  : k === 'garten' ? { w: GARDEN_W - 0.7, d: GARDEN_D - 0.9 }
+  : { w: W(k) - 0.7, d: D(k) - 1.0 };
 const colsOf = k => Math.max(3, Math.floor(dims(k).w / 0.95));
 function cellPos(k, cell) { const { w, d } = dims(k); const cols = colsOf(k);
   const col = cell % cols, row = Math.floor(cell / cols);
   return { x: -w / 2 + (col + 0.5) * (w / cols), z: -d / 2 + (row + 0.5) * (d / 2) }; }
-function parentOf(k) { return k === 'roof' ? roofG : floorGroup(k); }
-function baseY(k) { return k === 'roof' ? ROOF_DECK_T : 0.155; }
+function parentOf(k) { return k === 'roof' ? roofG : k === 'garten' ? gartenG : floorGroup(k); }
+function baseY(k) { return k === 'roof' ? ROOF_DECK_T : k === 'garten' ? 0 : 0.155; }
 
 const DECO = new Set(['vase', 'teekanne', 'kerze', 'buecher', 'nussschale', 'blockfloete']);
 /* Wandplatzierung für alle vier Wände, symmetrisch zur bisherigen Rückwand-Formel
@@ -572,6 +597,32 @@ function clampEntry(k, m, en) {
     en.rot = pl.rot;
     const pos = { x: 0, z: 0 }; pos[pl.fixedAxis] = pl.fixed; pos[pl.freeAxis] = en.x; en.z = pos.z;
     m.position.set(pos.x, en.y, pos.z); m.rotation.y = pl.rot; return; }
+  if (k === 'garten') {
+    /* Draussen gibt es keine Wände. Begrenzt wird die Lichtung selbst: das
+       Rechteck ist so gewählt, dass es ausserhalb des Wassers (riverZ minus
+       Wasserhalbbreite), innerhalb der baumfreien Lichtung (Radius 5.5 um
+       (-8, 2)) und neben dem Turmsockel liegt (siehe GARDEN_W/GARDEN_D oben).
+       Die Box3 einiger Objekte (z.B. der Rutsche) liegt nicht symmetrisch um
+       ihren Ursprung — deshalb wird mit dem Abstand von der Position zu den
+       Kanten gerechnet statt mit einer halben Breite/Tiefe. gartenG ist nie
+       gedreht, darum ist der Weltversatz zu GARDEN_POS gleich dem lokalen.
+       Vor dem ersten Rendern (z.B. beim Laden) ist gartenG.matrixWorld noch
+       nicht mit GARDEN_POS verrechnet — Box3.setFromObject aktualisiert nur
+       die Matrix von m selbst, nicht die seiner Vorfahren. */
+    m.updateWorldMatrix(true, false);
+    const bbG = new THREE.Box3().setFromObject(m);
+    const offMinX = bbG.min.x - GARDEN_POS.x - en.x, offMaxX = bbG.max.x - GARDEN_POS.x - en.x;
+    const offMinZ = bbG.min.z - GARDEN_POS.z - en.z, offMaxZ = bbG.max.z - GARDEN_POS.z - en.z;
+    const loX = Math.min(-GARDEN_W / 2 - offMinX, GARDEN_W / 2 - offMaxX);
+    const hiX = Math.max(-GARDEN_W / 2 - offMinX, GARDEN_W / 2 - offMaxX);
+    const loZ = Math.min(-GARDEN_D / 2 - offMinZ, GARDEN_D / 2 - offMaxZ);
+    const hiZ = Math.max(-GARDEN_D / 2 - offMinZ, GARDEN_D / 2 - offMaxZ);
+    en.x = Math.max(loX, Math.min(hiX, en.x));
+    en.z = Math.max(loZ, Math.min(hiZ, en.z));
+    en.y = 0;
+    m.position.set(en.x, 0, en.z);
+    return;
+  }
   const limX = k === 'roof' ? ROOF_W / 2 - 0.1 : W(k) / 2 - 0.13;
   const limZ = k === 'roof' ? ROOF_D / 2 - 0.1 : D(k) / 2 - 0.13;
   const bb = new THREE.Box3().setFromObject(m);
@@ -845,8 +896,9 @@ function makeThumbs() {
 }
 function renderCatalog() {
   const roof = edit && edit.k === 'roof';
+  const garten = edit && edit.k === 'garten';
   const tabs = $('catalog-tabs'); tabs.innerHTML = '';
-  const avail = CATS.filter(([id]) => roof ? id === 'dach' : id !== 'dach');
+  const avail = CATS.filter(([id]) => garten ? id === 'garten' : roof ? id === 'dach' : (id !== 'dach' && id !== 'garten'));
   if (!avail.some(([id]) => id === catTab)) catTab = avail[0][0];
   avail.forEach(([id, label]) => { const b = document.createElement('button');
     b.textContent = label; b.className = id === catTab ? 'on' : '';
@@ -1011,6 +1063,14 @@ function fitDistance(halfWidth, halfHeight) {
   return Math.max(distH, distV);
 }
 function editCamFor(k) {
+  if (k === 'garten') {
+    /* Blick von Süden über die Fläche, Abstand aus dem tatsächlichen Blickfeld —
+       dieselbe Rechnung wie drinnen (fitDistance), damit im Hochformat nichts
+       aus dem Bild fällt. */
+    const dist = GARDEN_D / 2 + fitDistance(GARDEN_W / 2 + 0.6, 1.8) + 1.0;
+    return { eye: new THREE.Vector3(GARDEN_POS.x, 4.2, GARDEN_POS.z + dist),
+             tgt: new THREE.Vector3(GARDEN_POS.x, 0.6, GARDEN_POS.z) };
+  }
   if (k === 'roof') {
     const y = topY() + 0.9;
     const dist = ROOF_D / 2 + fitDistance(dims('roof').w / 2 + 0.4, 1.4) + 1.0;
@@ -1025,7 +1085,11 @@ function enterEdit(k) {
   edit = { k };
   camSave = { p: camera.position.clone(), t: controls.target.clone() };
   const { eye, tgt } = editCamFor(k);
-  if (k === 'roof') {
+  if (k === 'garten') {
+    moveCam(eye, tgt);
+    gardenEdge.visible = true;
+    $('edit-title').textContent = 'Spielplatz einrichten';
+  } else if (k === 'roof') {
     moveCam(eye, tgt);
     $('edit-title').textContent = 'Dachterrasse einrichten';
   } else {
@@ -1044,7 +1108,8 @@ function enterEdit(k) {
 }
 function exitEdit() {
   if (!edit) return;
-  if (edit.k !== 'roof') { for (let j = 1; j <= MAXF; j++) if (floorGroups[j]) floorGroups[j].visible = j <= state.floors; }
+  gardenEdge.visible = false;
+  if (edit.k !== 'roof' && edit.k !== 'garten') { for (let j = 1; j <= MAXF; j++) if (floorGroups[j]) floorGroups[j].visible = j <= state.floors; }
   for (let j = 0; j <= MAXF; j++) if (floorGroups[j]) floorGroups[j].userData.ceil.visible = true;
   updateRoof();
   deselect();
@@ -1306,7 +1371,7 @@ function spawnTenant(i, silent) {
     g.scale.setScalar(0.01); tween(0.5, q => g.scale.setScalar(0.01 + 0.99 * q)); }
   renderWishes(); renderResidents(); updateHUD();
 }
-function checkTenant(k) { if (k !== 'roof' && tenantIn(k) && !tenantGroups[k]) spawnTenant(k); }
+function checkTenant(k) { if (typeof k === 'number' && tenantIn(k) && !tenantGroups[k]) spawnTenant(k); }
 /* Ein Serienmöbel zählt bei Wünschen wie sein klassisches Gegenstück:
    'wk_sofa' erfüllt den Sofa-Wunsch. Die Wipfkea-ids sind genau dafür als
    'wk_' + klassische id gebaut (siehe Spec «Wipfkea»). Wer ein Serienstück
@@ -1386,10 +1451,14 @@ $('btn-bridge').onclick = () => { $('extras-menu').classList.remove('open');
   tween(0.6, q => bridge.scale.setScalar(0.01 + 0.99 * q));
   sfx.knock(); toast('Willi baut eine Brücke über den Fluss!'); save(); };
 $('btn-garden').onclick = () => { $('extras-menu').classList.remove('open');
-  if (state.garden) { toast('Garten und Spielplatz sind schon da!'); return; }
-  state.garden = true; garden.visible = true; garden.scale.setScalar(0.01);
-  tween(0.6, q => garden.scale.setScalar(0.01 + 0.99 * q));
-  sfx.pop(); toast('Spielplatz, Beete und Blumen — fertig!'); save(); };
+  if (state.garden) { enterEdit('garten'); return; }
+  state.garden = true;
+  state.rooms.garten = GARDEN_DEFAULT.map(e => ({ ...e }));
+  roomOf('garten').forEach(e => { const m = placeItemMesh('garten', e); clampEntry('garten', m, e); });
+  gartenG.visible = true; gartenG.scale.setScalar(0.01);
+  tween(0.6, q => gartenG.scale.setScalar(0.01 + 0.99 * q));
+  sfx.pop(); toast('Spielplatz, Beete und Blumen — fertig!'); save();
+  enterEdit('garten'); };
 $('btn-sign').onclick = () => { $('extras-menu').classList.remove('open'); renderResidents(); $('residents').classList.add('open'); };
 function renderAnimals() {
   const grid = $('animal-grid'); grid.innerHTML = '';
@@ -1558,6 +1627,7 @@ const TIPS = [
 let tipI = 0;
 $('btn-tip').onclick = () => { if (!edit) return;
   const k = edit.k;
+  if (k === 'garten') { toast('Tippe ein Spielplatz-Objekt an, dann kannst du es verschieben, drehen oder wegräumen.'); return; }
   if (k === 'roof') { toast(state.floors === MAXF && wishOpen(MAXF) ? 'Die Frösche warten auf einen Pool!' : 'Lampions, Sonnenschirm und Liegestuhl machen die Dachterrasse fein.'); return; }
   if (!tenantIn(k)) { toast(`Noch ${Math.max(0, 3 - roomOf(k).length)} Sachen einrichten, dann zieht ${tenantOf(k).name} ein!`); return; }
   if (wishOpen(k)) { toast(tenantOf(k).wtext); return; }
@@ -1568,7 +1638,7 @@ const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 /* Wand im 3D antippen (Möbel haben Vorrang, unsichtbare Wände zählen nicht) */
 const shown = o => { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
 function pickWall() {
-  if (!edit || edit.k === 'roof') return null;
+  if (!edit || edit.k === 'roof' || edit.k === 'garten') return null;
   const panels = WALL_KEYS.map(key => floorGroups[edit.k].userData.wallPanels[key]).filter(shown);
   const hits = ray.intersectObjects(panels, false);
   return hits.length ? hits[0].object.userData.wallKey : null;
@@ -1617,6 +1687,7 @@ renderer.domElement.addEventListener('pointerup', e => {
     if (u.type === 'dam') { damTalk(); return; }
     if (u.type === 'moki') { mokiTalk(); return; }
     if (u.type === 'roof') { enterEdit('roof'); return; }
+    if (u.type === 'garten') { if (state.garden) { enterEdit('garten'); return; } continue; }
     if (u.type === 'floor') { if (u.floor <= state.floors) { enterEdit(u.floor); return; } continue; }
   }
 });
@@ -1642,7 +1713,8 @@ $('btn-move').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.i
   const en = selected.entry;
   if (!applyMove(selected, () => { en.cell = c; const p = cellPos(selected.k, c);
     en.x = p.x; en.z = p.z; en.y = DECO.has(en.id) ? surfaceYAt(selected.k, p.x, p.z, selected.mesh) : baseY(selected.k);
-    selected.mesh.position.set(en.x, en.y, en.z); })) return;
+    selected.mesh.position.set(en.x, en.y, en.z);
+    clampEntry(selected.k, selected.mesh, en); })) return;
   selHelper.update(); sfx.pop(); save(); };
 $('btn-rot').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.id)) return;
   const en = selected.entry;
@@ -1941,24 +2013,50 @@ TOWER_CHOICES.forEach(n => { $(`pick-${n}`).onclick = () => {
   location.reload();
 }; });
 
+/* Die sieben Objekte des bisherigen Ensembles, umgerechnet auf die unrotierte
+   Gruppe: alte Gruppenkoordinate mit R_y(0.5) gedreht, Drehung um 0.5 erhöht.
+   Die Blumen rücken dabei ein Stück vom Bach weg — in der alten Reihe stand
+   die äusserste Blume bei (-9.55, 5.01) und damit im Wasser. */
+const GARDEN_DEFAULT = [
+  { id: 'schaukel',   cell: 0, x: -1.70, z:  1.50, y: 0, rot: 0.50 },
+  { id: 'rutsche',    cell: 1, x:  0.30, z:  0.15, y: 0, rot: 0.00 },
+  { id: 'sandkasten', cell: 2, x:  1.90, z: -0.50, y: 0, rot: 0.50 },
+  { id: 'hochbeet',   cell: 3, x:  1.35, z:  1.60, y: 0, rot: 0.65 },
+  { id: 'blumen',     cell: 4, x: -0.75, z:  2.00, y: 0, rot: 0.50 },
+  { id: 'blumen',     cell: 5, x:  1.05, z:  1.05, y: 0, rot: 0.20 },
+  { id: 'blumen',     cell: 6, x:  2.25, z:  0.35, y: 0, rot: 0.80 },
+];
+/* Alte Spielstände kennen nur den Boolean state.garden. Steht der Spielplatz,
+   wird das Ensemble einmalig in einzelne Objekte übersetzt — danach ist
+   state.rooms.garten die Wahrheit, auch wenn es leer ist: alles weggeräumt zu
+   haben ist ein gültiger Zustand und darf nicht neu bestückt werden. Deshalb
+   Array.isArray und nicht der Wahrheitswert (Vorbild: Tapeten-Migration). */
+function migrateGarden() {
+  if (Array.isArray(state.rooms.garten)) return;
+  state.rooms.garten = state.garden ? GARDEN_DEFAULT.map(e => ({ ...e })) : [];
+  migrated = true;
+}
+
 /* ---------- Laden ---------- */
+migrateGarden();
 sanitizeDesigns();
 /* Gebaute Etagen zuerst anlegen — placeItemMesh/spawnTenant greifen direkt
    auf floorGroups[i] zu und dürfen die Gruppe nicht selbst nachziehen (#47). */
 for (let i = 1; i <= state.floors; i++) floorGroup(i);
 Object.keys(state.rooms).forEach(k => {
-  const key = k === 'roof' ? 'roof' : parseInt(k, 10);
+  const key = (k === 'roof' || k === 'garten') ? k : parseInt(k, 10);
   sanitizeRoom(key);
   roomOf(key).forEach(e => {
     const m = placeItemMesh(key, e);
-    if (key === 'roof') clampEntry('roof', m, e);
+    if (key === 'roof' || key === 'garten') clampEntry(key, m, e);
   });
 });
 for (let i = 0; i <= MAXF; i++) if (tenantIn(i)) spawnTenant(i, true);
 for (let i = 0; i <= MAXF; i++) if (floorGroups[i]) applyLook(i);
 if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
-window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, scene, camera, controls, WALL_KEYS, FURN_COLORS, TINTABLE,
+window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, gartenG, gardenEdge, scene, camera, controls, WALL_KEYS, FURN_COLORS, TINTABLE,
+  GARDEN: { pos: GARDEN_POS, w: GARDEN_W, d: GARDEN_D }, riverZ, placeItemMesh, clampEntry, removeItem,
   MAXF, tenantOf, topY, floorGroup, catalogIds: CATALOG.map(c => c.id),
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
