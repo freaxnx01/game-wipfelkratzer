@@ -583,6 +583,56 @@ function clampEntry(k, m, en) {
   }
   m.position.set(en.x, en.y ?? baseY(k), en.z);
 }
+/* ---------- Kollision zwischen Möbeln und Tieren (Issue #40) ---------- */
+/* Flache Dinge sind begehbar: ein Tier darf auf dem Teppich stehen
+   (js/models.js:101-105, Höhe ~0.035). */
+const SOLID_H = 0.12;
+function solidBoxes(k, exclude) {
+  const out = [];
+  itemMeshes[k].forEach(m => {
+    if (m === exclude) return;
+    const id = m.userData.pick.entry.id;
+    if (DECO.has(id) || WALL_ITEMS.has(id)) return;
+    const bb = new THREE.Box3().setFromObject(m);
+    if (bb.max.y - bb.min.y < SOLID_H) return;
+    out.push(bb);
+  });
+  return out;
+}
+/* Berühren ist erlaubt: PAD verkleinert beide Boxen leicht, damit ein Tier
+   dicht an der Sofakante stehen darf. Rein x/z, weil die Wackel-Animation
+   position.y jeden Frame verändert (Render-Schleife) — eine y-Bedingung
+   würde flackern. */
+const COLL_PAD = 0.04;
+const overlapsXZ = (a, b) =>
+  a.min.x + COLL_PAD < b.max.x - COLL_PAD && a.max.x - COLL_PAD > b.min.x + COLL_PAD &&
+  a.min.z + COLL_PAD < b.max.z - COLL_PAD && a.max.z - COLL_PAD > b.min.z + COLL_PAD;
+/* Steckt das Tier an seinem aktuellen Platz in einem Möbel? */
+function tenantBlocked(pick) {
+  const ab = new THREE.Box3().setFromObject(pick.mesh);
+  return solidBoxes(pick.k).some(bb => overlapsXZ(ab, bb));
+}
+/* Mesh aus dem entry neu setzen. Bei einem Tier bleibt position.y in der
+   Hoheit der Wackel-Animation (Render-Schleife). */
+function replaceMesh(pick) {
+  const en = pick.entry;
+  if (pick.tenant) { pick.mesh.position.x = en.x; pick.mesh.position.z = en.z; }
+  else pick.mesh.position.set(en.x, en.y ?? baseY(pick.k), en.z);
+  pick.mesh.rotation.y = en.rot ?? 0;
+  clampEntry(pick.k, pick.mesh, en);
+  if (selHelper && selected === pick) selHelper.update();
+}
+/* Führt eine Bewegung aus und räumt danach die Kollisionen auf.
+   Rückgabe: true, wenn der Zug Bestand hat. */
+function applyMove(pick, mutate) {
+  const en = pick.entry;
+  const snap = { x: en.x, z: en.z, y: en.y, rot: en.rot, wall: en.wall };
+  mutate();
+  const ok = pick.tenant ? resolveTenantMove(pick) : resolveItemMove(pick);
+  if (!ok) { Object.assign(en, snap); replaceMesh(pick); sfx.knock(); }
+  return ok;
+}
+function resolveTenantMove(pick) { return !tenantBlocked(pick); }
 /* ---------- Schaltbare Objekte (Issue #41) ---------- */
 /* Der Zustand ist ein einziges Feld `on` am Eintrag in state.rooms. Fehlt es,
    greift DEFAULT_ON — und DEFAULT_ON bildet exakt das Aussehen ab, das die
@@ -1102,6 +1152,12 @@ function addItem(id, build) {
   roomOf(k).push(entry);
   const m = placeItemMesh(k, entry);
   clampEntry(k, m, entry);
+  if (!resolveItemMove(m.userData.pick)) {
+    const arr = roomOf(k); const idx = arr.indexOf(entry); if (idx >= 0) arr.splice(idx, 1);
+    parentOf(k).remove(m);
+    const mi = itemMeshes[k].indexOf(m); if (mi >= 0) itemMeshes[k].splice(mi, 1);
+    sfx.knock(); save(); return;
+  }
   m.scale.setScalar(0.01);
   tween(0.35, q => { m.scale.setScalar(0.01 + 0.99 * q); if (selHelper) selHelper.update(); });
   select(m.userData.pick);
@@ -1171,6 +1227,54 @@ function setTenantPos(i, n, en) {
   arr[n] = { x: +en.x.toFixed(3), z: +en.z.toFixed(3), rot: +en.rot.toFixed(3) };
   en.manual = true; save();
 }
+/* Ausweichkandidaten: erst ein feiner Ring um den bisherigen Platz (das
+   Tier soll sichtbar nur zur Seite rutschen), danach das Freiraum-Raster
+   aus #14/#39. Jeder Kandidat läuft durch clampEntry, deshalb kann das
+   Ausweichen nie in eine Wand führen. */
+const NUDGE_DIRS = [0, 1, 2, 3, 4, 5, 6, 7].map(i => {
+  const a = i * Math.PI / 4; return { dx: Math.cos(a), dz: Math.sin(a) }; });
+const NUDGE_STEPS = [0.18, 0.36, 0.54, 0.72];
+function nudgeTenant(pick) {
+  const en = pick.entry, from = { x: en.x, z: en.z };
+  const cands = [];
+  NUDGE_STEPS.forEach(r => NUDGE_DIRS.forEach(d =>
+    cands.push({ x: from.x + d.dx * r, z: from.z + d.dz * r })));
+  tenantSpots(pick.k).forEach(s => cands.push({ x: s.x, z: s.z }));
+  for (const c of cands) {
+    en.x = c.x; en.z = c.z;
+    clampEntry(pick.k, pick.mesh, en);
+    if (tenantBlocked(pick)) continue;
+    const to = { x: en.x, z: en.z };
+    en.x = from.x; en.z = from.z;
+    tween(0.25, q => { pick.mesh.position.x = from.x + (to.x - from.x) * q;
+                       pick.mesh.position.z = from.z + (to.z - from.z) * q;
+                       if (selHelper && selected === pick) selHelper.update(); },
+          () => { en.x = to.x; en.z = to.z; });
+    en.x = to.x; en.z = to.z;
+    setTenantPos(pick.tenant.floor, pick.tenant.idx, en);
+    return true;
+  }
+  en.x = from.x; en.z = from.z;
+  replaceMesh(pick);
+  return false;
+}
+/* Ein Möbelzug lässt betroffene Tiere ausweichen. Kann eines nicht
+   ausweichen, wird der ganze Zug zurückgenommen — lieber gesperrt als
+   ein Tier in der Wand. */
+function resolveItemMove(pick) {
+  if (pick.k === 'roof' || !tenantMeshes[pick.k]) return true;
+  const moved = [];
+  for (const a of tenantMeshes[pick.k]) {
+    const ap = a.userData.pick;
+    if (!tenantBlocked(ap)) continue;
+    const snap = { x: ap.entry.x, z: ap.entry.z };
+    if (nudgeTenant(ap)) { moved.push({ ap, snap }); continue; }
+    moved.forEach(m => { m.ap.entry.x = m.snap.x; m.ap.entry.z = m.snap.z; replaceMesh(m.ap); });
+    toast(`Hier ist kein Platz — ${TENANTS[pick.k].name} steht im Weg!`);
+    return false;
+  }
+  return true;
+}
 function spawnTenant(i, silent) {
   if (tenantGroups[i]) return;
   const t = tenantOf(i); const g = new THREE.Group();
@@ -1192,6 +1296,12 @@ function spawnTenant(i, silent) {
     a.userData.pick = { k: i, entry, mesh: a, tenant: { floor: i, idx: n } };
     g.add(a); tenantMeshes[i].push(a); critters.push({ g: a, ph: i * 2 + n, base: baseY(i) }); });
   floorGroup(i).add(g); tenantGroups[i] = g;
+  /* tenantSpot ist eine Platzierungsheuristik, keine Kollisionsprüfung: in
+     einer vollen Wohnung liefert sie trotzdem einen Punkt. Wer ohne
+     gespeicherten Platz einzieht, wird darum einmal freigeräumt. Ein von
+     Hand gesetzter Platz (state.tenantPos, #39) bleibt unangetastet. */
+  if (!saved) tenantMeshes[i].forEach(a => {
+    const ap = a.userData.pick; if (tenantBlocked(ap)) nudgeTenant(ap); });
   if (!silent) { toast(`${t.name} — eingezogen!`); sfx.chime();
     g.scale.setScalar(0.01); tween(0.5, q => g.scale.setScalar(0.01 + 0.99 * q)); }
   renderWishes(); renderResidents(); updateHUD();
@@ -1524,21 +1634,22 @@ $('btn-move').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.i
   if (selected.tenant) { const en = selected.entry;
     const cands = tenantSpots(selected.k);
     const far = cands.find(c => Math.hypot(c.x - en.x, c.z - en.z) > 0.4) || cands[0];
-    en.x = far.x; en.z = far.z;
-    clampEntry(selected.k, selected.mesh, en);
+    if (!applyMove(selected, () => { en.x = far.x; en.z = far.z; clampEntry(selected.k, selected.mesh, en); })) return;
     setTenantPos(selected.tenant.floor, selected.tenant.idx, en);
     selHelper.update(); sfx.pop(); return; }
   const c = freeCell(selected.k, selected.entry.cell + 1);
   if (c < 0) { toast('Kein Platz frei!'); return; }
-  const en = selected.entry; en.cell = c; const p = cellPos(selected.k, c);
-  en.x = p.x; en.z = p.z; en.y = DECO.has(en.id) ? surfaceYAt(selected.k, p.x, p.z, selected.mesh) : baseY(selected.k);
-  selected.mesh.position.set(en.x, en.y, en.z);
+  const en = selected.entry;
+  if (!applyMove(selected, () => { en.cell = c; const p = cellPos(selected.k, c);
+    en.x = p.x; en.z = p.z; en.y = DECO.has(en.id) ? surfaceYAt(selected.k, p.x, p.z, selected.mesh) : baseY(selected.k);
+    selected.mesh.position.set(en.x, en.y, en.z); })) return;
   selHelper.update(); sfx.pop(); save(); };
 $('btn-rot').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.id)) return;
-  selected.entry.rot += Math.PI / 2;
-  selected.mesh.rotation.y = selected.entry.rot;
-  clampEntry(selected.k, selected.mesh, selected.entry);
-  if (selected.tenant) setTenantPos(selected.tenant.floor, selected.tenant.idx, selected.entry); else save();
+  const en = selected.entry;
+  if (!applyMove(selected, () => { en.rot += Math.PI / 2;
+    selected.mesh.rotation.y = en.rot;
+    clampEntry(selected.k, selected.mesh, en); })) return;
+  if (selected.tenant) setTenantPos(selected.tenant.floor, selected.tenant.idx, en); else save();
   selHelper.update(); sfx.pop(); };
 $('btn-color').onclick = () => { if (!selected || !TINTABLE.has(selected.entry.id)) return;
   $('colorpick').classList.toggle('open'); renderColorPick(); };
@@ -1562,17 +1673,17 @@ addEventListener('keydown', e => {
   const en = selected.entry;
   if (st) { e.preventDefault();
     if (WALL_ITEMS.has(en.id)) { moveWallItem(selected, st[0], -st[1]); return; }
-    en.x += st[0]; en.z += st[1];
-    clampEntry(selected.k, selected.mesh, en);
+    if (!applyMove(selected, () => { en.x += st[0]; en.z += st[1];
+      clampEntry(selected.k, selected.mesh, en); })) return;
     /* Bei einem Tier gehört position.y allein der Wackel-Animation (#39). */
     if (selected.tenant) { setTenantPos(selected.tenant.floor, selected.tenant.idx, en); }
     else { en.y = DECO.has(en.id) ? surfaceYAt(selected.k, en.x, en.z, selected.mesh) : baseY(selected.k);
            selected.mesh.position.y = en.y; save(); }
     selHelper.update(); return; }
   if (e.key === 'PageUp' || e.key === 'PageDown') { e.preventDefault();
-    en.rot += (e.key === 'PageUp' ? 1 : -1) * Math.PI / 12;
-    selected.mesh.rotation.y = en.rot;
-    clampEntry(selected.k, selected.mesh, en);
+    if (!applyMove(selected, () => { en.rot += (e.key === 'PageUp' ? 1 : -1) * Math.PI / 12;
+      selected.mesh.rotation.y = en.rot;
+      clampEntry(selected.k, selected.mesh, en); })) return;
     if (selected.tenant) setTenantPos(selected.tenant.floor, selected.tenant.idx, en); else save();
     selHelper.update(); return; }
   if (e.key === 'Delete' && !selected.tenant) { e.preventDefault(); removeItem(selected); }
@@ -1852,7 +1963,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
-  ACTIONS, isOn,
+  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove,
   photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename },
   staende, stand: STAND, speichern: schreibeStand, speichernFotos: savePhotos, get fotos() { return photos; },
   standBild, merkeStandBild, renderStaende };

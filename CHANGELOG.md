@@ -8,6 +8,12 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- Möbel und Tiere gehen sich jetzt aus dem Weg. Wer ein Möbel auf ein Tier
+  schiebt, sieht das Tier zur Seite rücken; ein Tier lässt sich nicht mehr
+  in ein Sofa schieben. Ist in der Wohnung wirklich kein Platz mehr frei,
+  bleibt das Möbel stehen, wo es war, und sagt Bescheid — statt das Tier
+  in die Wand zu drücken. Auf einem Teppich darf ein Tier weiterhin
+  stehen, und Deko landet nach wie vor auf Tisch, Regal und Schrank (#40)
 - Schreinerei: eigene Möbel bauen statt nur auswählen. In der Werkstatt
   stapelst Du bis zu fünf Teile aufeinander und wählst je Teil Form
   (Platte, Klotz, Kiste, Säule, Dach), Breite und Farbe; die Vorschau
