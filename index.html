@@ -60,6 +60,7 @@
   #toolbar > button { pointer-events: auto; }
   /* Wishes */
   #wishes { position: fixed; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 8px; z-index: 5; max-width: 260px; }
+  .wish.more { cursor: default; font-style: italic; opacity: .8; }
   .wish { padding: 8px 12px; font-size: 14px; line-height: 1.25; cursor: pointer; border-left: none; }
   .wish b { color: var(--wood); }
   /* Catalog */
@@ -161,6 +162,8 @@
   #intro h1 { margin: 0 0 6px; font-size: 30px; color: var(--wood); }
   #intro p { margin: 6px 0; font-size: 16px; line-height: 1.4; }
   #intro button { margin-top: 14px; font-size: 20px; padding: 8px 32px; }
+  #tower-pick { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+  #tower-pick button { margin-top: 0; font-size: 16px; padding: 6px 16px; }
   .hidden { display: none !important; }
   @media (max-width: 640px) {
     #hud h1 { font-size: 15px; }
@@ -269,6 +272,12 @@
     <p>Hilf Willi Biber, den Wipfelkratzer zu bauen — Stock für Stock, bis ganz oben!</p>
     <p>Tippe auf ein Stockwerk, um die Wohnung einzurichten. Wenn eine Wohnung schön ist, ziehen Tiere ein — und die haben Wünsche!</p>
     <p style="font-size:14px; opacity:.8;">Tipp: Möbel antippen, dann mit den Pfeiltasten schieben und mit Bild&uarr;/Bild&darr; drehen. Der Pool wartet im Katalog unter «Dach».</p>
+    <div id="tower-pick" class="hidden">
+      <p style="margin:0 0 6px; font-weight:700;">Wie hoch soll der Wipfelkratzer werden?</p>
+      <button id="pick-10" class="primary">Kleiner Turm — 10 Stockwerke</button>
+      <button id="pick-20">Hoher Turm — 20 Stockwerke</button>
+      <button id="pick-50">Riesenturm — 50 Stockwerke</button>
+    </div>
     <button id="btn-start" class="primary">Los geht&rsquo;s!</button>
   </div>
 </div>
