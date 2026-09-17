@@ -6,6 +6,8 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-17
+
 ### Added
 
 - Der Spielplatz war ein festes Ensemble: Schaukel, Rutsche, Sandkasten,
