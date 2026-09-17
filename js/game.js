@@ -14,6 +14,9 @@ const floorY = i => i === 0 ? PLAT_Y : PLAT_Y + E_H + (i - 1) * FLOOR_H;
 const topY = () => PLAT_Y + E_H + state.floors * FLOOR_H;
 const ROOF_W = 6.6, ROOF_D = 4.8;
 const rnd = i => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+const POOL_TRIPS = 3;
+const poolFill = en => en.fill === undefined ? 1
+  : Math.max(0, Math.min(POOL_TRIPS, en.fill | 0)) / POOL_TRIPS;
 /* Wände: Gesamtdicke wie bisher (0.12) = Kern (aussen, immer Putz) + Luft + Innenpanel (tapezierbar) */
 const WALL_KEYS = ['back', 'left', 'right', 'front'];
 const WALL_LABELS = { back: 'Hinten', left: 'Links', right: 'Rechts', front: 'Vorne' };
@@ -228,6 +231,10 @@ const moki = makeAnimal('eichhoernchen'); moki.scale.setScalar(1.3); moki.positi
 const MOKI_WP = [new THREE.Vector3(6, 0, 6), new THREE.Vector3(-6.5, 0, 6.5), new THREE.Vector3(-7.5, 0, -5), new THREE.Vector3(7.5, 0, -5.5)];
 let mokiI = 0, mokiWait = 1.5;
 const magpie = new THREE.Group(); const magInner = makeMagpie(); magInner.rotation.y = -Math.PI / 2; magpie.add(magInner); scene.add(magpie);
+const MAGPIE_DUR = { holen: 3.2, schoepfen: 1.0, bringen: 3.6, giessen: 1.2 };
+const SCOOP = { x: -3.4, y: 0.75, cruiseY: 3.2 };
+let magPhase = 'kreis', magT = 0, magCurve = null, magFrom = null, magTarget = null;
+let magOffset = 0, magToast = false, magPoured = false;
 const bridge = makeBridge(5.6); bridge.position.set(8.7, 0.08, riverZ(8.7)); bridge.rotation.y = Math.PI / 2; bridge.visible = state.bridge; scene.add(bridge);
 
 /* Plattform + Stämme */
@@ -767,6 +774,7 @@ function placeItemMesh(k, entry) {
   m.userData.pick = { k, entry, mesh: m };
   parentOf(k).add(m); itemMeshes[k].push(m);
   if (m.userData.wheel) spinners.push(m.userData.wheel);
+  if (m.userData.setFill) m.userData.setFill(poolFill(entry));
   applyItemState(m, false);
   return m;
 }
@@ -1206,6 +1214,7 @@ function addItem(id, build) {
   /* Der Bauplan wird kopiert, nicht verwiesen: ein späteres Ändern oder
      Löschen des Entwurfs lässt aufgestellte Möbel unberührt. */
   if (id === 'eigenbau') entry.build = JSON.parse(JSON.stringify(normalizeBuild(build) || { parts: [] }));
+  if (id === 'pool') entry.fill = 0;
   if (WALL_ITEMS.has(id)) {
     entry.wall = wallTarget === 'alle' ? 'back' : wallTarget;
     entry.y = id === 'fenster' ? 1.05 : 1.2;
@@ -1398,7 +1407,6 @@ function checkWishes(placedId, k) {
     if (where === k && t.wish === wishKey(placedId)) {
       state.fulfilled[i] = true; state.nuts += 3;
       toast('Wunsch erfüllt! +3 Haselnüsse'); sfx.chime(true);
-      if (placedId === 'pool') sfx.splash();
       save(); } }
   renderWishes(); updateHUD();
 }
@@ -2089,6 +2097,8 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
   ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove,
+  poolEntries: () => roomOf('roof').filter(e => e.id === 'pool'),
+  get magpiePhase() { return magPhase; }, MAGPIE_DUR, magpie,
   photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename },
   staende, stand: STAND, speichern: schreibeStand, speichernFotos: savePhotos, get fotos() { return photos; },
   standBild, merkeStandBild, renderStaende,
@@ -2107,6 +2117,65 @@ applyFronts();
 makeThumbs();
 renderWishes(); renderResidents(); updateHUD();
 
+/* Elses flight logic (#45) */
+function thirstyPool() {
+  for (const en of roomOf('roof'))
+    if (en.id === 'pool' && poolFill(en) < 1) return en;
+  return null;
+}
+function poolMeshOf(en) {
+  return itemMeshes.roof.find(m => m.userData.pick && m.userData.pick.entry === en) || null;
+}
+const poolAir = m => { roofG.updateWorldMatrix(true, false);
+  const v = new THREE.Vector3(); m.getWorldPosition(v); v.y += 1.1; return v; };
+const scoopAir = () => new THREE.Vector3(SCOOP.x, SCOOP.cruiseY, riverZ(SCOOP.x));
+const scoopLow = () => new THREE.Vector3(SCOOP.x, SCOOP.y, riverZ(SCOOP.x));
+function magArc(a, b, lift) {
+  const mid = a.clone().lerp(b, 0.5); mid.y = Math.max(a.y, b.y) + lift;
+  return new THREE.CatmullRomCurve3([a.clone(), mid, b.clone()], false, 'catmullrom', 0.5);
+}
+function magpieEnter(phase) {
+  magPhase = phase; magT = 0;
+  const here = magpie.position.clone();
+  if (phase === 'holen') { magCurve = magArc(here, scoopAir(), 1.6); if (!magToast) { magToast = true; toast('Else holt Wasser für den Pool!'); } }
+  if (phase === 'schoepfen') magCurve = magArc(scoopAir(), scoopLow(), 0.15);
+  if (phase === 'bringen') {
+    const en = thirstyPool(), m = en && poolMeshOf(en);
+    magTarget = en; magCurve = m ? magArc(scoopLow(), poolAir(m), 2.4) : null;
+    if (!magCurve) { magPhase = 'kreis'; magOffset = Math.atan2(here.z, here.x) - clock.elapsedTime * 0.3; }
+  }
+  if (phase === 'kreis') magOffset = Math.atan2(here.z, here.x) - clock.elapsedTime * 0.3;
+}
+function magpieAdvance() {
+  if (magPhase === 'holen') { magpieEnter('schoepfen'); return; }
+  if (magPhase === 'schoepfen') {
+    magInner.userData.bucketWater.visible = true;
+    sfx.whoosh();
+    magpieEnter('bringen'); return;
+  }
+  if (magPhase === 'bringen') {
+    if (!magTarget || roomOf('roof').indexOf(magTarget) < 0) { magpieEnter('kreis'); return; }
+    magpieEnter('giessen'); return;
+  }
+  if (magPhase === 'giessen') {
+    magInner.userData.bucket.rotation.z = 0;
+    magInner.userData.bucketWater.visible = false;
+    magpieEnter(thirstyPool() ? 'holen' : 'kreis'); return;
+  }
+  magpieEnter('kreis');
+}
+function pourBucket() {
+  const en = magTarget;
+  magInner.userData.bucketWater.visible = false;
+  sfx.splash();
+  if (!en || roomOf('roof').indexOf(en) < 0) return;
+  en.fill = Math.min(POOL_TRIPS, (en.fill | 0) + 1);
+  const m = poolMeshOf(en);
+  if (m && m.userData.setFill) m.userData.setFill(poolFill(en));
+  if (en.fill >= POOL_TRIPS) { toast('Der Pool ist voll — Piet und Jan können baden!'); sfx.chime(true); magToast = false; }
+  save();
+}
+
 /* ---------- Loop ---------- */
 const clock = new THREE.Clock();
 function tick() {
@@ -2115,11 +2184,29 @@ function tick() {
   for (let i = tweens.length - 1; i >= 0; i--) { const tw = tweens[i]; tw.t += dt;
     let k = Math.min(tw.t / tw.dur, 1); k = k * k * (3 - 2 * k);
     tw.step(k); if (tw.t >= tw.dur) { tweens.splice(i, 1); if (tw.done) tw.done(); } }
-  const mr = 10 + state.floors * 0.4, ma = t * 0.3;
-  const mh = topY() + 2.6 + Math.sin(t * 0.7) * 0.4;
-  const nx = Math.cos(ma + 0.08) * mr, nz = Math.sin(ma + 0.08) * mr;
-  magpie.position.set(Math.cos(ma) * mr, mh, Math.sin(ma) * mr);
-  magpie.lookAt(nx, mh, nz);
+  if (magPhase === 'kreis') {
+    const mr = 10 + state.floors * 0.4, ma = t * 0.3 + magOffset;
+    const mh = topY() + 2.6 + Math.sin(t * 0.7) * 0.4;
+    const nx = Math.cos(ma + 0.08) * mr, nz = Math.sin(ma + 0.08) * mr;
+    magpie.position.set(Math.cos(ma) * mr, mh, Math.sin(ma) * mr);
+    magpie.lookAt(nx, mh, nz);
+    if (thirstyPool()) magpieEnter('holen');
+  } else {
+    magT += dt;
+    const dur = MAGPIE_DUR[magPhase] || 1;
+    let k = Math.min(magT / dur, 1); k = k * k * (3 - 2 * k);
+    if (magCurve) {
+      const p = magCurve.getPointAt(k), q = magCurve.getPointAt(Math.min(k + 0.02, 1));
+      magpie.position.copy(p);
+      if (p.distanceToSquared(q) > 1e-6) magpie.lookAt(q);
+    }
+    if (magPhase === 'giessen') {
+      const bk = magInner.userData.bucket;
+      bk.rotation.z = -2.2 * Math.sin(k * Math.PI);
+      if (!magPoured && k >= 0.5) { magPoured = true; pourBucket(); }
+    } else magPoured = false;
+    if (magT >= dur) magpieAdvance();
+  }
   magInner.userData.wings.forEach((w, i) => w.rotation.x = Math.sin(t * 9 + i) * 0.55);
   critters.forEach(c => { c.g.position.y = c.base + Math.abs(Math.sin(t * 2.2 + c.ph)) * 0.03; });
   /* Der Auswahlrahmen misst sich nur auf update() neu — beim wackelnden Tier

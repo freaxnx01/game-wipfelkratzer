@@ -499,13 +499,23 @@ const FURN = {
   pool() { const g = G();
     const outer = poolOutline(), lining = poolInset(outer, 0.07), water = poolInset(outer, 0.11), rim = poolInset(outer, -0.04);
     poolSlab(g, outer, lining, 0.36, MAT.wood, 0); poolSlab(g, lining, water, 0.36, POOL_TILE, 0);
-    poolSlab(g, water, null, 0.29, MAT.water, 0); poolSlab(g, rim, water, 0.06, MAT.woodL, 0.36);
+    const wat = poolSlab(g, water, null, 0.29, MAT.water, 0); poolSlab(g, rim, water, 0.06, MAT.woodL, 0.36);
     const surf = G(); g.add(surf); surf.position.y = 0.29;
     [[0.05, -0.05, 0.06, 0.15], [0.14, 0.22, 0.055, -0.2], [-0.15, 0.2, 0.05, 0.3], [0.4, -0.22, 0.04, 0.1]].forEach(([x, z, r, a]) => poolRipple(surf, x, z, r, a));
-    poolFrogSwimming(surf, -0.36, -0.02, 0.9); poolFrogPeeking(surf, 0.4, 0.12, -0.4);
+    const frogs = G(); surf.add(frogs);
+    poolFrogSwimming(frogs, -0.36, -0.02, 0.9); poolFrogPeeking(frogs, 0.4, 0.12, -0.4);
     const lad = G(); g.add(lad); lad.position.set(Math.max(...rim.map(p => p.x)) - 0.028, 0, 0);
     [-0.09, 0.09].forEach(z => cyl(lad, 0.022, 0.022, 0.75, MAT.grey, 0.05, 0.38, z));
     for (let i = 0; i < 3; i++) box(lad, 0.03, 0.03, 0.18, MAT.grey, 0.05, 0.18 + i * 0.2, 0);
+    g.userData.setFill = f => {
+      f = Math.max(0, Math.min(1, f));
+      wat.visible = f > 0.001;
+      wat.scale.z = Math.max(f, 0.001);
+      surf.position.y = 0.29 * f;
+      surf.visible = f > 0.2;
+      frogs.visible = f >= 0.999;
+    };
+    g.userData.setFill(1);
     return g; },
   liegestuhl(body = MAT.red) { const g = G();
     /* Seitenprofil als Punkte [z, y]: Fussende F, Knick K, Kopfende T; Beine stehen bei GF/GB auf dem Boden.
@@ -811,8 +821,12 @@ export function makeMagpie() {
   const bucket = G(); g.add(bucket); bucket.position.set(0.1, -0.32, 0);
   cyl(bucket, 0.09, 0.07, 0.12, MAT.red, 0, 0, 0, 14);
   mesh(new THREE.TorusGeometry(0.08, 0.012, 6, 14, Math.PI), MAT.grey, 0, 0.06, 0, bucket);
+  const bucketWater = cyl(bucket, 0.075, 0.06, 0.02, MAT.water, 0, 0.04, 0, 14);
+  bucketWater.visible = false;
   cyl(g, 0.008, 0.008, 0.2, MAT.grey, 0.08, -0.18, 0);
   g.userData.wings = wings;
+  g.userData.bucket = bucket;
+  g.userData.bucketWater = bucketWater;
   return g;
 }
 
