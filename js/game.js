@@ -1200,9 +1200,17 @@ function doPaste(k, replace) {
   /* Bewohner werden nicht mitkopiert — die Tiere hängen an tenantGroups[i]
      und gehören zur Wohnung, nicht zur Einrichtung. Was die Kopie auslöst,
      ist der Einzug der Familie, die auf DIESE Etage gehört, und die
-     Erfüllung ihres Wunsches, falls er mitgekommen ist. */
+     Erfüllung ihres Wunsches, falls er mitgekommen ist. Auf Etage k kann
+     immer nur der Wunsch von tenantOf(k) selbst erfüllt werden (checkWishes
+     prüft wishKey gegen where===k, und where ist nur für die eigene Etage k
+     gleich k). Dieser eine Treffer muss VOR checkTenant geprüft werden:
+     pasteEntries hat alle Einträge schon in roomOf(k) — ruft man stattdessen
+     erst mit einer nicht passenden id auf, sieht deren renderWishes() den
+     Wunschgegenstand schon im Raum liegen und markiert ihn über wishOpen
+     still als erfüllt, ohne die drei Haselnüsse zu zahlen. */
+  const t = tenantOf(k);
+  if (!t.roofWish) { const wishId = ids.find(id => wishKey(id) === t.wish); if (wishId) checkWishes(wishId, k); }
   checkTenant(k);
-  ids.forEach(id => checkWishes(id, k));
   renderWishes(); renderResidents();
   deselect(); sfx.pop(); save(); updateHUD();
   toast(`Die Wohnung von Stockwerk ${flLabel(clip.from)} ist eingezogen!`);
