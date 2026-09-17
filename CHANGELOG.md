@@ -16,6 +16,18 @@ All notable changes to this project are documented here, following
   Spiel vorher, ob dazugestellt oder alles ersetzt werden soll — nichts
   geht unbemerkt verloren. Die Bewohner kommen nicht mit; es zieht die
   Familie ein, die auf das Zielstockwerk gehört (#48)
+- Der Bach war bisher blosse Kulisse. Ein Tipp auf das Wasser fragt jetzt
+  nach, ob es zu &laquo;Splashdown!&raquo; gehen soll — dem
+  Wasserrutschen-Rennen nebenan. Vor dem Wechsel wird der Wipfelkratzer
+  sofort gespeichert statt wie bisher erst nach einer kurzen Verzögerung,
+  damit auch die allerletzte Änderung erhalten bleibt; nach der Rückkehr
+  steht der Turm unverändert da (#46)
+- Else Elster trug ihren Eimer bisher nur im Kreis spazieren. Sie holt damit
+  jetzt Wasser: sobald ein Pool auf der Dachterrasse steht, fliegt sie zum
+  Bach hinunter, schöpft, bringt den Eimer zum Dach und kippt ihn aus. Ein
+  neu aufgestellter Pool startet deshalb leer und füllt sich in drei sichtbaren
+  Schritten; erst im vollen Becken schwimmen Piet und Jan. Pools aus älteren
+  Spielständen bleiben voll (#45)
 
 ## [0.7.0] - 2026-09-17
 

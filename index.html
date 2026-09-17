@@ -105,8 +105,8 @@
   #extras-menu { position: fixed; bottom: calc(var(--toolbar-h, 60px) + 16px); left: 50%; transform: translateX(-50%); z-index: 7; display: none; flex-direction: column; gap: 8px; padding: 12px; width: 260px; }
   #extras-menu.open { display: flex; }
   /* Residents overlay */
-  #residents { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; background: rgba(60,40,20,.35); }
-  #residents.open { display: flex; }
+  #residents, #splash-ask { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; background: rgba(60,40,20,.35); }
+  #residents.open, #splash-ask.open { display: flex; }
   #animals { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; background: rgba(60,40,20,.35); }
   #animals.open { display: flex; }
   #animals .panel { width: min(580px, 94vw); max-height: 86vh; overflow-y: auto; padding: 16px 20px; }
@@ -171,8 +171,8 @@
   #wallpick .hint { flex: 1 0 100%; margin: 0 0 2px; font-size: 12.5px; line-height: 1.25; opacity: .8; }
   #wallpick button { min-height: 40px; padding: 2px 12px; font-size: 14px; border-radius: 999px; }
   #wallpick button.on { background: var(--wood); color: #fff; border-color: #5b3a1f; box-shadow: none; }
-  #residents .panel { width: min(420px, 92vw); max-height: 84vh; overflow-y: auto; padding: 16px 20px; }
-  #residents h2 { margin: 0 0 8px; color: var(--wood); }
+  #residents .panel, #splash-ask .panel { width: min(420px, 92vw); max-height: 84vh; overflow-y: auto; padding: 16px 20px; }
+  #residents h2, #splash-ask h2 { margin: 0 0 8px; color: var(--wood); }
   #pasteask { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; background: rgba(60,40,20,.35); }
   #pasteask.open { display: flex; }
   #pasteask .panel { width: min(420px, 92vw); padding: 16px 20px; }
@@ -295,6 +295,16 @@
       <button id="paste-replace" class="danger">Alles ersetzen</button>
       <button id="paste-cancel">Abbrechen</button>
     </div>
+  </div>
+</div>
+
+<div id="splash-ask">
+  <div class="panel">
+    <h2>Zum Bach hinunter?</h2>
+    <p>Du kommst zu &laquo;Splashdown!&raquo; &mdash; dem Wasserrutschen-Rennen.</p>
+    <p>Dein Wipfelkratzer bleibt gespeichert und wartet auf Dich.</p>
+    <button id="btn-splash-go" class="primary">Ja, rutschen!</button>
+    <button id="btn-splash-stay">Lieber hier bleiben</button>
   </div>
 </div>
 
