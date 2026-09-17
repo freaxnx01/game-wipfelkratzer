@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { MAT, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, TINTABLE, lookCanvas, lookTexture, makeFurniture, makeAnimal, makeWilli, makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge } from './models.js';
+import { MAT, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, TINTABLE,
+  BUILD_SHAPES, BUILD_WIDTHS, BUILD_MAX, BUILD_MAX_H, DESIGN_MAX, normalizeBuild,
+  makeCustomFurniture, lookCanvas, lookTexture, makeFurniture, makeAnimal, makeWilli,
+  makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge } from './models.js';
 import { zipStore } from './zip.js';
+import * as staende from './staende.js';
 
 /* ---------- Konstanten ---------- */
-const PLAT_Y = 2.2, E_H = 2.4, FLOOR_H = 2.0, MAXF = 10;
-const W = i => i === 0 ? 8.6 : 7.6 - (i - 1) * 0.3;
-const D = i => i === 0 ? 5.6 : 5.0 - (i - 1) * 0.12;
+const PLAT_Y = 2.2, E_H = 2.4, FLOOR_H = 2.0;
 const H = i => i === 0 ? E_H : FLOOR_H;
 const floorY = i => i === 0 ? PLAT_Y : PLAT_Y + E_H + (i - 1) * FLOOR_H;
 const topY = () => PLAT_Y + E_H + state.floors * FLOOR_H;
@@ -31,18 +33,110 @@ const TENANTS = [
   { name: 'Piet und Jan Waldfrosch', animals: ['frosch', 'frosch'], wish: 'pool', roofWish: true, wtext: 'Piet und Jan wünschen sich einen Pool auf dem Dach!' },
 ];
 const flLabel = i => i === 0 ? 'E' : String(i);
+/* Ab Etage 10 gibt es keine handgeschriebenen Bewohner mehr. Sie werden aus
+   vier Töpfen zusammengesetzt und mit demselben Hash ausgewürfelt, der schon
+   Etagenversatz und Baumpositionen bestimmt (rnd, #47). Damit liefert
+   dieselbe Etage bei jedem Laden dieselbe Familie, ohne dass etwas
+   gespeichert werden muss. */
+const SURNAMES = ['Tannenzapfen', 'Moosbart', 'Farnkraut', 'Beerenbusch', 'Haselstrauch',
+  'Ahornblatt', 'Kiefernzweig', 'Wurzelholz', 'Rindenstück', 'Eichelhut',
+  'Brombeer', 'Löwenzahn', 'Klee', 'Birkenrinde', 'Fichtennadel',
+  'Wiesenschaum', 'Waldmeister', 'Sauerklee', 'Heidelbeer', 'Buchenkeim'];
+const FIRSTNAMES = ['Fritzi', 'Mira', 'Bosco', 'Lenni', 'Paula', 'Tuula', 'Nando',
+  'Smilla', 'Kuno', 'Ronja', 'Emil', 'Frida', 'Otto', 'Nelli', 'Karlo', 'Juna'];
+const TENANT_SPECIES = ['maus', 'haselmaus', 'hamster', 'frosch', 'eidechse',
+  'maulwurf', 'siebenschlaefer', 'wiesel', 'eichhoernchen'];
+/* Wunsch samt Akkusativform, damit der Satz stimmt. Nur Gegenstände, die in
+   einer Wohnung stehen können — nichts aus der Kategorie «dach». */
+const TENANT_WISHES = [
+  { id: 'bett', txt: 'ein kuschliges Bett' },
+  { id: 'etagenbett', txt: 'ein Etagenbett' },
+  { id: 'sofa', txt: 'ein weiches Sofa' },
+  { id: 'tisch', txt: 'einen grossen Tisch' },
+  { id: 'schrank', txt: 'einen Schrank' },
+  { id: 'regal', txt: 'ein Bücherregal' },
+  { id: 'ofen', txt: 'einen warmen Ofen' },
+  { id: 'teppich', txt: 'einen weichen Teppich' },
+  { id: 'lampe', txt: 'eine Lampe' },
+  { id: 'badewanne', txt: 'eine Badewanne' },
+  { id: 'pflanze', txt: 'eine Pflanze' },
+  { id: 'bild', txt: 'ein Blumenbild' },
+  { id: 'schaukelstuhl', txt: 'einen Schaukelstuhl' },
+  { id: 'klavier', txt: 'ein Klavier' },
+  { id: 'hamsterrad', txt: 'ein Hamsterrad' },
+  { id: 'nusskiste', txt: 'eine Nusskiste' },
+];
+/* Haushaltsform: wie der Name gebaut wird, wie viele Tiere einziehen und ob
+   der Wunschsatz im Singular oder Plural steht. */
+const HOUSEHOLDS = [
+  { make: (f, s) => `Familie ${s}`, n: 2, plural: true },
+  { make: (f, s) => `Oma und Opa ${s}`, n: 2, plural: true },
+  { make: (f, s) => `${f} ${s}`, n: 1, plural: false },
+  { make: (f, s) => `Die Geschwister ${s}`, n: 2, plural: true },
+];
+const pick = (arr, r) => arr[Math.floor(r * arr.length) % arr.length];
+function madeTenant(i) {
+  const hh = pick(HOUSEHOLDS, rnd(i * 3 + 501));
+  const name = hh.make(pick(FIRSTNAMES, rnd(i * 3 + 502)), pick(SURNAMES, rnd(i * 3 + 503)));
+  const sp = pick(TENANT_SPECIES, rnd(i * 3 + 504));
+  const w = pick(TENANT_WISHES, rnd(i * 3 + 505));
+  return { name, animals: Array.from({ length: hh.n }, () => sp), wish: w.id,
+    wtext: `${name} ${hh.plural ? 'wünschen' : 'wünscht'} sich ${w.txt}.` };
+}
+/* Etage 0 und die oberste Etage sind gesetzt: unten der Kindergarten, oben die
+   Frösche, deren Wunsch (roofWish) auf die Dachterrasse zeigt und an dem der
+   Party-Knopf hängt. Dazwischen so viele handgeschriebene wie da sind, danach
+   erzeugte. */
+const TENANT_CACHE = {};
+function tenantOf(i) {
+  if (TENANT_CACHE[i]) return TENANT_CACHE[i];
+  const t = i === MAXF ? TENANTS[TENANTS.length - 1]
+    : i < TENANTS.length - 1 ? TENANTS[i]
+    : madeTenant(i);
+  TENANT_CACHE[i] = t; return t;
+}
 
 /* ---------- Zustand ---------- */
 /* tenantPos: von Hand gesetzte Tierplätze pro Stockwerk; fehlt der Eintrag,
    platziert tenantSpot automatisch (#14). */
-let state = { floors: 0, rooms: {}, nuts: 0, bridge: false, garden: false, night: false, cutaway: false, fulfilled: {}, wallpaper: {}, flooring: {}, tenantPos: {} };
-try { const s = localStorage.getItem('wipfelkratzer-v1'); if (s) state = Object.assign(state, JSON.parse(s)); } catch (e) {}
+let state = { floors: 0, rooms: {}, nuts: 0, bridge: false, garden: false, night: false, cutaway: false, fulfilled: {}, wallpaper: {}, flooring: {}, tenantPos: {}, maxFloors: 10, designs: [] };
+/* Welcher Turm gerade gespielt wird, entscheidet die Slot-Ebene. Ein Wechsel
+   lädt die Seite neu, deshalb genügt es, den Eintrag einmal beim Start zu holen. */
+const STAND = staende.aktiverStand();
+/* Nur ein leerer Turm zeigt die Höhenwahl (#47) — sobald der Slot einen
+   Spielstand hat, auch einen mit floors: 0 direkt nach der Wahl, bleibt die
+   Höhe wie gewählt und der Startbildschirm zeigt nur noch «Los geht's!». */
+let hasSave = false;
+try { const s = localStorage.getItem(STAND.standKey); if (s) { state = Object.assign(state, JSON.parse(s)); hasSave = true; } } catch (e) {}
+/* Turmhöhe: einmal pro Spielstand gewählt, danach konstant (#47). Ein
+   fremder oder fehlender Wert fällt auf den klassischen Zehner-Turm zurück. */
+const TOWER_CHOICES = [10, 20, 50];
+const MAXF = TOWER_CHOICES.includes(state.maxFloors) ? state.maxFloors : 10;
+state.maxFloors = MAXF;
+
+/* Der Turm verjüngt sich vom Erdgeschoss bis zur obersten Etage immer auf
+   dasselbe Endmass — egal ob er zehn, zwanzig oder fünfzig Stockwerke hoch
+   ist. Bei MAXF = 10 ergeben die Schritte exakt die früheren Festwerte 0.3
+   und 0.12. */
+const W_TOP = 4.9, D_TOP = 3.92;
+const W_STEP = (7.6 - W_TOP) / (MAXF - 1), D_STEP = (5.0 - D_TOP) / (MAXF - 1);
+const W = i => i === 0 ? 8.6 : 7.6 - (i - 1) * W_STEP;
+const D = i => i === 0 ? 5.6 : 5.0 - (i - 1) * D_STEP;
+
+/* Die Szene war auf einen Zehner-Turm eingerichtet. Kamera, Nebel, Sterne und
+   Mond wachsen mit derselben Höhe mit. Bei MAXF = 10 ist HSCALE = 1 und alle
+   abgeleiteten Werte bleiben exakt die alten. */
+const TOWER_TOP = PLAT_Y + E_H + MAXF * FLOOR_H;
+const REF_TOP = PLAT_Y + E_H + 10 * FLOOR_H;
+const HSCALE = Math.max(1, TOWER_TOP / REF_TOP);
+
 let saveT = 0;
-const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { try {
+const schreibeStand = () => { try {
   const wallpaper = {};
   for (const k in state.wallpaper) { const wp = state.wallpaper[k]; if (wp && typeof wp === 'object' && Object.keys(wp).length) wallpaper[k] = wp; }
-  localStorage.setItem('wipfelkratzer-v1', JSON.stringify({ ...state, wallpaper }));
-} catch (e) {} }, 300); };
+  localStorage.setItem(STAND.standKey, JSON.stringify({ ...state, wallpaper }));
+} catch (e) {} };
+const save = () => { clearTimeout(saveT); saveT = setTimeout(schreibeStand, 300); };
 const roomOf = k => (state.rooms[k] || (state.rooms[k] = []));
 const tenantIn = i => i <= state.floors && roomOf(i).length >= 3;
 
@@ -54,12 +148,12 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 holder.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 200);
+const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 200 * HSCALE);
 camera.position.set(13, PLAT_Y + 7, 18);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, PLAT_Y + 2.8, 0);
 controls.enableDamping = true; controls.dampingFactor = 0.09; controls.enablePan = false;
-controls.minDistance = 4; controls.maxDistance = 44; controls.maxPolarAngle = 1.52; controls.minPolarAngle = 0.12;
+controls.minDistance = 4; controls.maxDistance = 44 * HSCALE; controls.maxPolarAngle = 1.52; controls.minPolarAngle = 0.12;
 
 const hemi = new THREE.HemisphereLight(0xfff4da, 0x9dbb7a, 1.05); scene.add(hemi);
 const dir = new THREE.DirectionalLight(0xffe8c0, 1.15); dir.position.set(14, 22, 10);
@@ -71,16 +165,16 @@ const SKY = { d: new THREE.Color(0xcfe3c2), n: new THREE.Color(0x18294e) };
 const HEMI = { d: new THREE.Color(0xfff4da), n: new THREE.Color(0x2a3a66) };
 const GRND = { d: new THREE.Color(0x9dbb7a), n: new THREE.Color(0x1c2a3a) };
 scene.background = SKY.d.clone();
-scene.fog = new THREE.Fog(SKY.d.clone(), 45, 110);
+scene.fog = new THREE.Fog(SKY.d.clone(), 45 * HSCALE, 110 * HSCALE);
 
 /* Sterne + Mond */
 const starGeo = new THREE.BufferGeometry();
-{ const p = []; for (let i = 0; i < 260; i++) { const a = Math.random() * Math.PI * 2, r = 40 + Math.random() * 30, y = 8 + Math.random() * 45; p.push(Math.cos(a) * r, y, Math.sin(a) * r); }
+{ const p = []; for (let i = 0; i < 260; i++) { const a = Math.random() * Math.PI * 2, r = (40 + Math.random() * 30) * HSCALE, y = (8 + Math.random() * 45) * HSCALE; p.push(Math.cos(a) * r, y, Math.sin(a) * r); }
   starGeo.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); }
 const starMat = new THREE.PointsMaterial({ color: 0xfff6d8, size: 0.35, transparent: true, opacity: 0 });
 const stars = new THREE.Points(starGeo, starMat); scene.add(stars);
 const moonMat = new THREE.MeshBasicMaterial({ color: 0xfff3c8, transparent: true, opacity: 0 });
-const moon = new THREE.Mesh(new THREE.SphereGeometry(1.6, 20, 14), moonMat); moon.position.set(-24, 30, -30); scene.add(moon);
+const moon = new THREE.Mesh(new THREE.SphereGeometry(1.6 * HSCALE, 20, 14), moonMat); moon.position.set(-24 * HSCALE, 30 * HSCALE, -30 * HSCALE); scene.add(moon);
 
 /* ---------- Umgebung ---------- */
 const mesh = (geo, mat, x = 0, y = 0, z = 0, parent = scene) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
@@ -245,7 +339,11 @@ function buildFlight(i, stairs) {
 const floorGroups = [], hitboxes = [], itemMeshes = {}, tenantMeshes = {}, tenantGroups = {}, critters = [], spinners = [];
 const towerG = new THREE.Group(); scene.add(towerG);
 
-for (let i = 0; i <= MAXF; i++) {
+/* Eine Etagengruppe entsteht erst, wenn sie gebraucht wird — beim Bauen oder
+   beim Laden eines Spielstands, der sie schon enthält. Bei fünfzig
+   Stockwerken bliebe ein Turm, der beim Start alle auf einmal anlegt, sonst
+   kein Selbstläufer (#47). */
+function makeFloor(i) {
   const g = new THREE.Group(); const pose = floorPose(i);
   g.position.set(pose.x, pose.y, 0); g.rotation.y = pose.ry;
   const w = W(i), d = D(i), h = H(i);
@@ -297,9 +395,16 @@ for (let i = 0; i <= MAXF; i++) {
   const hit = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, h, d + 0.3), new THREE.MeshBasicMaterial({ visible: false }));
   hit.position.y = h / 2; hit.userData = { type: 'floor', floor: i }; g.add(hit); hitboxes.push(hit);
   g.visible = i === 0 || i <= state.floors;
-  towerG.add(g); floorGroups.push(g);
+  /* Über dem Ausschnitt der Schattenkamera (top: 32) landet ohnehin nichts
+     mehr in der Schattenkarte — dort spart der Verzicht auf castShadow den
+     zweiten Zeichendurchgang. */
+  if (floorY(i) > 30) g.traverse(o => { o.castShadow = false; });
+  towerG.add(g); floorGroups[i] = g;
   itemMeshes[i] = []; tenantMeshes[i] = []; tenantGroups[i] = null;
+  return g;
 }
+function floorGroup(i) { return floorGroups[i] || makeFloor(i); }
+makeFloor(0);
 itemMeshes.roof = [];
 
 /* Spielplatz. Die Gruppe steht bewusst unrotiert: die Spielfläche ist dadurch
@@ -388,7 +493,7 @@ const colsOf = k => Math.max(3, Math.floor(dims(k).w / 0.95));
 function cellPos(k, cell) { const { w, d } = dims(k); const cols = colsOf(k);
   const col = cell % cols, row = Math.floor(cell / cols);
   return { x: -w / 2 + (col + 0.5) * (w / cols), z: -d / 2 + (row + 0.5) * (d / 2) }; }
-function parentOf(k) { return k === 'roof' ? roofG : k === 'garten' ? gartenG : floorGroups[k]; }
+function parentOf(k) { return k === 'roof' ? roofG : k === 'garten' ? gartenG : floorGroup(k); }
 function baseY(k) { return k === 'roof' ? ROOF_DECK_T : k === 'garten' ? 0 : 0.155; }
 
 const DECO = new Set(['vase', 'teekanne', 'kerze', 'buecher', 'nussschale', 'blockfloete']);
@@ -420,6 +525,29 @@ function normalizeColor(en) {
   if (!en.color) return;
   if (!TINTABLE.has(en.id) || !FURN_COLORS.some(c => c.id === en.color)) { delete en.color; migrated = true; }
 }
+/* Eigenbauten prüfen, bevor sie gebaut werden. Ein Bauplan ist Fremdeingabe:
+   von Hand verändert, aus einer älteren Version, aus einer entfernten Form.
+   Ungültige Einträge verschwinden still, gekürzte werden ersetzt — und der
+   bereinigte Stand wird wie bei der Tapeten-Migration einmalig
+   zurückgeschrieben. */
+function sanitizeRoom(key) {
+  const arr = roomOf(key);
+  for (let i = arr.length - 1; i >= 0; i--) {
+    const en = arr[i]; if (en.id !== 'eigenbau') continue;
+    const b = normalizeBuild(en.build);
+    if (!b) { arr.splice(i, 1); migrated = true; continue; }
+    if (JSON.stringify(b) !== JSON.stringify(en.build)) { en.build = b; migrated = true; }
+  }
+}
+/* Gespeicherte Entwürfe durch dieselbe Prüfung schicken. */
+function sanitizeDesigns() {
+  if (!Array.isArray(state.designs)) { state.designs = []; return; }
+  const before = JSON.stringify(state.designs);
+  state.designs = state.designs
+    .map(d => { const b = normalizeBuild(d); return b ? { name: String(d.name || 'Eigenbau'), parts: b.parts } : null; })
+    .filter(Boolean).slice(0, DESIGN_MAX);
+  if (JSON.stringify(state.designs) !== before) migrated = true;
+}
 function applyLook(k) {
   if (k === 'roof') return; const g = floorGroups[k];
   const wp = wallpaperOf(k), fl = state.flooring[k];
@@ -431,6 +559,7 @@ function applyLook(k) {
 let wallTarget = 'alle';
 function highlightWalls() {
   for (let i = 0; i <= MAXF; i++) {
+    if (!floorGroups[i]) continue;
     const mats = floorGroups[i].userData.wallMats;
     const lit = edit && edit.k === i && catTab === 'farbe';
     WALL_KEYS.forEach(key => { const on = lit && (wallTarget === 'alle' || wallTarget === key);
@@ -505,6 +634,56 @@ function clampEntry(k, m, en) {
   }
   m.position.set(en.x, en.y ?? baseY(k), en.z);
 }
+/* ---------- Kollision zwischen Möbeln und Tieren (Issue #40) ---------- */
+/* Flache Dinge sind begehbar: ein Tier darf auf dem Teppich stehen
+   (js/models.js:101-105, Höhe ~0.035). */
+const SOLID_H = 0.12;
+function solidBoxes(k, exclude) {
+  const out = [];
+  itemMeshes[k].forEach(m => {
+    if (m === exclude) return;
+    const id = m.userData.pick.entry.id;
+    if (DECO.has(id) || WALL_ITEMS.has(id)) return;
+    const bb = new THREE.Box3().setFromObject(m);
+    if (bb.max.y - bb.min.y < SOLID_H) return;
+    out.push(bb);
+  });
+  return out;
+}
+/* Berühren ist erlaubt: PAD verkleinert beide Boxen leicht, damit ein Tier
+   dicht an der Sofakante stehen darf. Rein x/z, weil die Wackel-Animation
+   position.y jeden Frame verändert (Render-Schleife) — eine y-Bedingung
+   würde flackern. */
+const COLL_PAD = 0.04;
+const overlapsXZ = (a, b) =>
+  a.min.x + COLL_PAD < b.max.x - COLL_PAD && a.max.x - COLL_PAD > b.min.x + COLL_PAD &&
+  a.min.z + COLL_PAD < b.max.z - COLL_PAD && a.max.z - COLL_PAD > b.min.z + COLL_PAD;
+/* Steckt das Tier an seinem aktuellen Platz in einem Möbel? */
+function tenantBlocked(pick) {
+  const ab = new THREE.Box3().setFromObject(pick.mesh);
+  return solidBoxes(pick.k).some(bb => overlapsXZ(ab, bb));
+}
+/* Mesh aus dem entry neu setzen. Bei einem Tier bleibt position.y in der
+   Hoheit der Wackel-Animation (Render-Schleife). */
+function replaceMesh(pick) {
+  const en = pick.entry;
+  if (pick.tenant) { pick.mesh.position.x = en.x; pick.mesh.position.z = en.z; }
+  else pick.mesh.position.set(en.x, en.y ?? baseY(pick.k), en.z);
+  pick.mesh.rotation.y = en.rot ?? 0;
+  clampEntry(pick.k, pick.mesh, en);
+  if (selHelper && selected === pick) selHelper.update();
+}
+/* Führt eine Bewegung aus und räumt danach die Kollisionen auf.
+   Rückgabe: true, wenn der Zug Bestand hat. */
+function applyMove(pick, mutate) {
+  const en = pick.entry;
+  const snap = { x: en.x, z: en.z, y: en.y, rot: en.rot, wall: en.wall };
+  mutate();
+  const ok = pick.tenant ? resolveTenantMove(pick) : resolveItemMove(pick);
+  if (!ok) { Object.assign(en, snap); replaceMesh(pick); sfx.knock(); }
+  return ok;
+}
+function resolveTenantMove(pick) { return !tenantBlocked(pick); }
 /* ---------- Schaltbare Objekte (Issue #41) ---------- */
 /* Der Zustand ist ein einziges Feld `on` am Eintrag in state.rooms. Fehlt es,
    greift DEFAULT_ON — und DEFAULT_ON bildet exakt das Aussehen ab, das die
@@ -564,7 +743,8 @@ function applyItemState(m, animate) {
 function placeItemMesh(k, entry) {
   normalizeColor(entry);
   if (entry.x === undefined) { const p = cellPos(k, entry.cell || 0); entry.x = p.x; entry.z = p.z; entry.rot = (entry.rot || 0) * Math.PI / 2; }
-  const m = makeFurniture(entry.id, entry.color);
+  /* Zwei Wege zu einem Möbel-Mesh: Katalog-id oder Bauplan (Schreinerei). */
+  const m = entry.id === 'eigenbau' ? makeCustomFurniture(entry.build) : makeFurniture(entry.id, entry.color);
   if (WALL_ITEMS.has(entry.id)) {
     /* entry.x ist die Position entlang der Wand (siehe wallPlacement); die feste Achse
        (Wandebene) wird aus entry.wall/k neu bestimmt, nicht mitgespeichert. */
@@ -667,26 +847,52 @@ function updateHUD() { $('nuts').textContent = state.nuts; $('floors').textConte
 
 /* ---------- Katalog ---------- */
 let thumbs = {}; const animalThumbs = {}; let williThumb = '', damThumb = '', mokiThumb = '';
+/* Ein einziger, dauerhafter Vorschau-Renderer. Er wird nicht verworfen
+   (früher r2.dispose()), weil die Schreinerei zur Laufzeit Bilder braucht —
+   bei jedem Tipp eines. Browser begrenzen die Zahl gleichzeitiger
+   WebGL-Kontexte hart, also genau einer für alle Vorschaubilder. */
+let thumbR = null, thumbS = null, thumbC = null;
+function snapshot(o, fx, fy, fz) {
+  if (!thumbR) {
+    thumbR = new THREE.WebGLRenderer({ alpha: true, antialias: true }); thumbR.setSize(160, 160);
+    thumbS = new THREE.Scene();
+    thumbS.add(new THREE.HemisphereLight(0xfff4da, 0xbfae90, 1.4));
+    const d2 = new THREE.DirectionalLight(0xffffff, 1.6); d2.position.set(2, 4, 3); thumbS.add(d2);
+    thumbC = new THREE.PerspectiveCamera(35, 1, 0.05, 20);
+  }
+  thumbS.add(o);
+  const bb = new THREE.Box3().setFromObject(o);
+  const size = bb.getSize(new THREE.Vector3()), ctr = bb.getCenter(new THREE.Vector3());
+  const md = Math.max(size.x, size.y, size.z) || 1;
+  thumbC.position.set(ctr.x + md * fx, ctr.y + md * fy, ctr.z + md * fz); thumbC.lookAt(ctr);
+  thumbR.render(thumbS, thumbC);
+  const url = thumbR.domElement.toDataURL(); thumbS.remove(o); return url;
+}
+/* Vorschaubild eines Bauplans, gecacht über den Bauplan selbst: in der
+   Werkstatt ändert sich pro Tipp genau ein Feld, und der Cache trägt die
+   vorherigen Zustände ohne Neurendern. */
+const designThumbs = new Map();
+function designThumb(build) {
+  const key = JSON.stringify(build.parts || []);
+  if (!designThumbs.has(key)) designThumbs.set(key, snapshot(makeCustomFurniture(build), 1.15, 0.85, 1.35));
+  return designThumbs.get(key);
+}
 function makeThumbs() {
-  const r2 = new THREE.WebGLRenderer({ alpha: true, antialias: true }); r2.setSize(160, 160);
-  const s2 = new THREE.Scene();
-  s2.add(new THREE.HemisphereLight(0xfff4da, 0xbfae90, 1.4));
-  const d2 = new THREE.DirectionalLight(0xffffff, 1.6); d2.position.set(2, 4, 3); s2.add(d2);
-  const c2 = new THREE.PerspectiveCamera(35, 1, 0.05, 20);
-  const snap = (o, fx, fy, fz) => { s2.add(o);
-    const bb = new THREE.Box3().setFromObject(o); const size = bb.getSize(new THREE.Vector3()), ctr = bb.getCenter(new THREE.Vector3());
-    const md = Math.max(size.x, size.y, size.z);
-    c2.position.set(ctr.x + md * fx, ctr.y + md * fy, ctr.z + md * fz); c2.lookAt(ctr);
-    r2.render(s2, c2); const url = r2.domElement.toDataURL(); s2.remove(o); return url; };
-  CATALOG.forEach(it => { thumbs[it.id] = snap(makeFurniture(it.id), 1.15, 0.85, 1.35); });
-  TENANTS.forEach((t, i) => { const o = new THREE.Group();
-    t.animals.forEach((sp, n) => { const a = makeAnimal(sp);
-      a.position.x = (n - (t.animals.length - 1) / 2) * 0.52; a.rotation.y = (n - 0.5) * -0.5; o.add(a); });
-    animalThumbs[i] = snap(o, 0.4, 0.55, 1.5); });
-  { const wg = makeWilli(); williThumb = snap(wg, 0.5, 0.7, 1.4); }
-  { const dg = makeDam(); damThumb = snap(dg, 0.8, 0.8, 1.2); }
-  { const mg = makeAnimal('eichhoernchen'); mokiThumb = snap(mg, 0.4, 0.55, 1.5); }
-  r2.dispose();
+  CATALOG.forEach(it => { thumbs[it.id] = snapshot(makeFurniture(it.id), 1.15, 0.85, 1.35); });
+  /* Ein Bild pro Tierkombination statt pro Etage — bei fünfzig Stockwerken
+     kommen dieselben paar Tierarten mehrfach vor, das spart WebGL-Rendergänge
+     beim Start (#47). */
+  const thumbByKey = {};
+  for (let i = 0; i <= MAXF; i++) { const t = tenantOf(i);
+    const key = t.animals.join('+');
+    if (!thumbByKey[key]) { const o = new THREE.Group();
+      t.animals.forEach((sp, n) => { const a = makeAnimal(sp);
+        a.position.x = (n - (t.animals.length - 1) / 2) * 0.52; a.rotation.y = (n - 0.5) * -0.5; o.add(a); });
+      thumbByKey[key] = snapshot(o, 0.4, 0.55, 1.5); }
+    animalThumbs[i] = thumbByKey[key]; }
+  { const wg = makeWilli(); williThumb = snapshot(wg, 0.5, 0.7, 1.4); }
+  { const dg = makeDam(); damThumb = snapshot(dg, 0.8, 0.8, 1.2); }
+  { const mg = makeAnimal('eichhoernchen'); mokiThumb = snapshot(mg, 0.4, 0.55, 1.5); }
 }
 function renderCatalog() {
   const roof = edit && edit.k === 'roof';
@@ -721,6 +927,18 @@ function renderCatalog() {
       d.onclick = () => setLook(kind, l.id); wrap.appendChild(d); });
     return;
   }
+  if (catTab === 'eigenbau') {
+    const neu = document.createElement('div'); neu.className = 'item look';
+    neu.innerHTML = `<i class="none"></i><span>Neu bauen</span>`;
+    neu.onclick = openWorkshop; wrap.appendChild(neu);
+    state.designs.forEach((d, i) => {
+      const el = document.createElement('div'); el.className = 'item design';
+      el.innerHTML = `<img src="${designThumb(d)}" alt=""><span>${d.name}</span>`
+        + `<button class="del" aria-label="${d.name} löschen">×</button>`;
+      el.onclick = e => { if (e.target.closest('button.del')) deleteDesign(i); else addItem('eigenbau', d); };
+      wrap.appendChild(el); });
+    return;
+  }
   if (catTab === 'wand') {
     const pick = document.createElement('div'); pick.id = 'wallpick';
     const hint = document.createElement('p'); hint.className = 'hint';
@@ -742,6 +960,87 @@ function renderCatalog() {
     d.onclick = () => addItem(it.id); wrap.appendChild(d); });
 }
 let catTab = 'mobel';
+/* Löschen braucht zwei Tipps. Gelöscht wird nur der Entwurf; bereits
+   aufgestellte Möbel tragen ihren eigenen Bauplan und bleiben stehen. */
+let delArmed = -1, delArmedAt = 0;
+function deleteDesign(i) {
+  if (delArmed === i && Date.now() - delArmedAt < 4000) {
+    state.designs.splice(i, 1); delArmed = -1; sfx.knock(); save(); renderCatalog(); return; }
+  delArmed = i; delArmedAt = Date.now();
+  toast(`«${state.designs[i].name}» wirklich löschen? Tippe nochmal auf das ×. Schon aufgestellte Möbel bleiben stehen.`);
+}
+
+/* ---------- Werkstatt ----------
+   Der Entwurf lebt hier als lokaler Bauplan; erst «Fertig» schreibt ihn in
+   state.designs. Das aktive Teil ist der Index im Stapel, auf den die drei
+   Knopfreihen wirken. */
+let wsBuild = null, wsActive = 0;
+function openWorkshop() {
+  if (state.designs.length >= DESIGN_MAX) {
+    toast(`Die Werkstatt ist voll — es passen ${DESIGN_MAX} Entwürfe hinein. Lösche zuerst einen (× auf der Kachel).`);
+    return; }
+  wsBuild = { parts: [{ shape: 'klotz', width: 'mittel', color: FURN_COLORS[0].id }] };
+  wsActive = 0;
+  $('workshop').classList.add('open');
+  renderWorkshop();
+}
+function closeWorkshop() { $('workshop').classList.remove('open'); wsBuild = null; }
+/* Höhe des Stapels — entscheidet, ob noch ein Teil dazu darf. */
+const wsHeight = b => b.parts.reduce((h, p) => h + BUILD_SHAPES.find(s => s.id === p.shape).h, 0);
+function renderWorkshop() {
+  const part = wsBuild.parts[wsActive];
+  $('ws-preview').src = designThumb(wsBuild);
+  const stack = $('ws-stack'); stack.innerHTML = '';
+  wsBuild.parts.forEach((p, i) => {
+    const sh = BUILD_SHAPES.find(s => s.id === p.shape), wd = BUILD_WIDTHS.find(w => w.id === p.width);
+    const col = FURN_COLORS.find(c => c.id === p.color);
+    const b = document.createElement('button');
+    b.textContent = `${i + 1}. ${sh.name} · ${wd.name} · ${col.name}`;
+    if (i === wsActive) b.className = 'on';
+    b.onclick = () => { wsActive = i; renderWorkshop(); };
+    stack.appendChild(b); });
+  const row = (id, list, cur, pick, dot) => {
+    const el = $(id); el.innerHTML = '';
+    list.forEach(o => { const b = document.createElement('button');
+      if (dot) { b.className = 'ws-dot'; b.style.background = '#' + MAT[o.mat].color.getHexString();
+        b.setAttribute('aria-label', o.name); b.title = o.name; }
+      else b.textContent = o.name;
+      if (o.id === cur) b.className = (b.className ? b.className + ' ' : '') + 'on';
+      b.onclick = () => { pick(o.id); renderWorkshop(); };
+      el.appendChild(b); }); };
+  row('ws-shape', BUILD_SHAPES, part.shape, id => { part.shape = id; }, false);
+  row('ws-width', BUILD_WIDTHS, part.width, id => { part.width = id; }, false);
+  row('ws-color', FURN_COLORS, part.color, id => { part.color = id; }, true);
+  const smallest = Math.min(...BUILD_SHAPES.map(s => s.h));
+  $('ws-add').disabled = wsBuild.parts.length >= BUILD_MAX || wsHeight(wsBuild) + smallest > BUILD_MAX_H;
+  $('ws-del').disabled = wsBuild.parts.length <= 1;
+}
+$('ws-add').onclick = () => {
+  const p = wsBuild.parts[wsActive];
+  /* Ein neues Teil ist eine Kopie des aktiven — passt es nicht mehr unter den
+     Höhendeckel, wird die flachste Form genommen. */
+  const sh = BUILD_SHAPES.find(s => s.id === p.shape);
+  const fits = wsHeight(wsBuild) + sh.h <= BUILD_MAX_H;
+  const flat = BUILD_SHAPES.reduce((a, s) => s.h < a.h ? s : a);
+  wsBuild.parts.push({ shape: fits ? p.shape : flat.id, width: p.width, color: p.color });
+  wsActive = wsBuild.parts.length - 1; sfx.pop(); renderWorkshop();
+};
+$('ws-del').onclick = () => {
+  if (wsBuild.parts.length <= 1) return;
+  wsBuild.parts.splice(wsActive, 1);
+  wsActive = Math.min(wsActive, wsBuild.parts.length - 1); sfx.knock(); renderWorkshop();
+};
+$('ws-cancel').onclick = closeWorkshop;
+$('ws-ok').onclick = () => {
+  const b = normalizeBuild(wsBuild);
+  if (!b) { closeWorkshop(); return; }
+  /* Der Name zählt hoch und füllt Lücken, die das Löschen hinterlässt. */
+  let n = 1; const taken = new Set(state.designs.map(d => d.name));
+  while (taken.has(`Eigenbau ${n}`)) n++;
+  state.designs.push({ name: `Eigenbau ${n}`, parts: b.parts });
+  closeWorkshop(); sfx.chime(); save(); renderCatalog();
+};
+$('workshop').onclick = e => { if (e.target === $('workshop')) closeWorkshop(); };
 
 /* ---------- Einrichten ---------- */
 let edit = null, selected = null, selHelper = null;
@@ -753,7 +1052,7 @@ function moveCam(pos, tgt, dur = 0.9) {
   tween(dur, k => { camera.position.lerpVectors(p0, pos, k); controls.target.lerpVectors(t0, tgt, k); });
 }
 function applyFronts() {
-  for (let j = 0; j <= MAXF; j++) floorGroups[j].userData.front.visible = !state.cutaway && !(edit && edit.k === j);
+  for (let j = 0; j <= MAXF; j++) if (floorGroups[j]) floorGroups[j].userData.front.visible = !state.cutaway && !(edit && edit.k === j);
   $('btn-cutaway').textContent = state.cutaway ? 'Wände hin' : 'Wände weg';
 }
 function fitDistance(halfWidth, halfHeight) {
@@ -794,12 +1093,12 @@ function enterEdit(k) {
     moveCam(eye, tgt);
     $('edit-title').textContent = 'Dachterrasse einrichten';
   } else {
-    for (let j = k + 1; j <= MAXF; j++) floorGroups[j].visible = false;
+    for (let j = k + 1; j <= MAXF; j++) if (floorGroups[j]) floorGroups[j].visible = false;
     roofG.visible = false;
     applyFronts();
     floorGroups[k].userData.ceil.visible = false;
     moveCam(eye, tgt);
-    const t = TENANTS[k];
+    const t = tenantOf(k);
     $('edit-title').textContent = `${flLabel(k)} — ${tenantIn(k) ? (t.unit || t.name) : 'Wohnung einrichten'}`;
   }
   $('editbar').classList.add('on');
@@ -810,8 +1109,8 @@ function enterEdit(k) {
 function exitEdit() {
   if (!edit) return;
   gardenEdge.visible = false;
-  if (edit.k !== 'roof' && edit.k !== 'garten') { for (let j = 1; j <= MAXF; j++) floorGroups[j].visible = j <= state.floors; }
-  for (let j = 0; j <= MAXF; j++) floorGroups[j].userData.ceil.visible = true;
+  if (edit.k !== 'roof' && edit.k !== 'garten') { for (let j = 1; j <= MAXF; j++) if (floorGroups[j]) floorGroups[j].visible = j <= state.floors; }
+  for (let j = 0; j <= MAXF; j++) if (floorGroups[j]) floorGroups[j].userData.ceil.visible = true;
   updateRoof();
   deselect();
   moveCam(camSave.p, camSave.t);
@@ -889,13 +1188,16 @@ function toggleAction() {
 }
 $('btn-action').onclick = toggleAction;
 
-function addItem(id) {
+function addItem(id, build) {
   if (!edit) return;
   const k = edit.k;
   const cell = freeCell(k);
   if (cell < 0 && !DECO.has(id) && !WALL_ITEMS.has(id)) { toast('Die Wohnung ist schon ganz voll!'); return; }
   const p = cellPos(k, Math.max(cell, 0));
   const entry = { id, cell: Math.max(cell, 0), x: p.x, z: p.z, rot: 0 };
+  /* Der Bauplan wird kopiert, nicht verwiesen: ein späteres Ändern oder
+     Löschen des Entwurfs lässt aufgestellte Möbel unberührt. */
+  if (id === 'eigenbau') entry.build = JSON.parse(JSON.stringify(normalizeBuild(build) || { parts: [] }));
   if (WALL_ITEMS.has(id)) {
     entry.wall = wallTarget === 'alle' ? 'back' : wallTarget;
     entry.y = id === 'fenster' ? 1.05 : 1.2;
@@ -915,6 +1217,12 @@ function addItem(id) {
   roomOf(k).push(entry);
   const m = placeItemMesh(k, entry);
   clampEntry(k, m, entry);
+  if (!resolveItemMove(m.userData.pick)) {
+    const arr = roomOf(k); const idx = arr.indexOf(entry); if (idx >= 0) arr.splice(idx, 1);
+    parentOf(k).remove(m);
+    const mi = itemMeshes[k].indexOf(m); if (mi >= 0) itemMeshes[k].splice(mi, 1);
+    sfx.knock(); save(); return;
+  }
   m.scale.setScalar(0.01);
   tween(0.35, q => { m.scale.setScalar(0.01 + 0.99 * q); if (selHelper) selHelper.update(); });
   select(m.userData.pick);
@@ -984,9 +1292,57 @@ function setTenantPos(i, n, en) {
   arr[n] = { x: +en.x.toFixed(3), z: +en.z.toFixed(3), rot: +en.rot.toFixed(3) };
   en.manual = true; save();
 }
+/* Ausweichkandidaten: erst ein feiner Ring um den bisherigen Platz (das
+   Tier soll sichtbar nur zur Seite rutschen), danach das Freiraum-Raster
+   aus #14/#39. Jeder Kandidat läuft durch clampEntry, deshalb kann das
+   Ausweichen nie in eine Wand führen. */
+const NUDGE_DIRS = [0, 1, 2, 3, 4, 5, 6, 7].map(i => {
+  const a = i * Math.PI / 4; return { dx: Math.cos(a), dz: Math.sin(a) }; });
+const NUDGE_STEPS = [0.18, 0.36, 0.54, 0.72];
+function nudgeTenant(pick) {
+  const en = pick.entry, from = { x: en.x, z: en.z };
+  const cands = [];
+  NUDGE_STEPS.forEach(r => NUDGE_DIRS.forEach(d =>
+    cands.push({ x: from.x + d.dx * r, z: from.z + d.dz * r })));
+  tenantSpots(pick.k).forEach(s => cands.push({ x: s.x, z: s.z }));
+  for (const c of cands) {
+    en.x = c.x; en.z = c.z;
+    clampEntry(pick.k, pick.mesh, en);
+    if (tenantBlocked(pick)) continue;
+    const to = { x: en.x, z: en.z };
+    en.x = from.x; en.z = from.z;
+    tween(0.25, q => { pick.mesh.position.x = from.x + (to.x - from.x) * q;
+                       pick.mesh.position.z = from.z + (to.z - from.z) * q;
+                       if (selHelper && selected === pick) selHelper.update(); },
+          () => { en.x = to.x; en.z = to.z; });
+    en.x = to.x; en.z = to.z;
+    setTenantPos(pick.tenant.floor, pick.tenant.idx, en);
+    return true;
+  }
+  en.x = from.x; en.z = from.z;
+  replaceMesh(pick);
+  return false;
+}
+/* Ein Möbelzug lässt betroffene Tiere ausweichen. Kann eines nicht
+   ausweichen, wird der ganze Zug zurückgenommen — lieber gesperrt als
+   ein Tier in der Wand. */
+function resolveItemMove(pick) {
+  if (pick.k === 'roof' || !tenantMeshes[pick.k]) return true;
+  const moved = [];
+  for (const a of tenantMeshes[pick.k]) {
+    const ap = a.userData.pick;
+    if (!tenantBlocked(ap)) continue;
+    const snap = { x: ap.entry.x, z: ap.entry.z };
+    if (nudgeTenant(ap)) { moved.push({ ap, snap }); continue; }
+    moved.forEach(m => { m.ap.entry.x = m.snap.x; m.ap.entry.z = m.snap.z; replaceMesh(m.ap); });
+    toast(`Hier ist kein Platz — ${TENANTS[pick.k].name} steht im Weg!`);
+    return false;
+  }
+  return true;
+}
 function spawnTenant(i, silent) {
   if (tenantGroups[i]) return;
-  const t = TENANTS[i]; const g = new THREE.Group();
+  const t = tenantOf(i); const g = new THREE.Group();
   g.userData = { type: 'tenant', floor: i };
   const saved = state.tenantPos[i];
   const spot = saved ? null : tenantSpot(i);
@@ -1004,7 +1360,13 @@ function spawnTenant(i, silent) {
     a.rotation.y = entry.rot;
     a.userData.pick = { k: i, entry, mesh: a, tenant: { floor: i, idx: n } };
     g.add(a); tenantMeshes[i].push(a); critters.push({ g: a, ph: i * 2 + n, base: baseY(i) }); });
-  floorGroups[i].add(g); tenantGroups[i] = g;
+  floorGroup(i).add(g); tenantGroups[i] = g;
+  /* tenantSpot ist eine Platzierungsheuristik, keine Kollisionsprüfung: in
+     einer vollen Wohnung liefert sie trotzdem einen Punkt. Wer ohne
+     gespeicherten Platz einzieht, wird darum einmal freigeräumt. Ein von
+     Hand gesetzter Platz (state.tenantPos, #39) bleibt unangetastet. */
+  if (!saved) tenantMeshes[i].forEach(a => {
+    const ap = a.userData.pick; if (tenantBlocked(ap)) nudgeTenant(ap); });
   if (!silent) { toast(`${t.name} — eingezogen!`); sfx.chime();
     g.scale.setScalar(0.01); tween(0.5, q => g.scale.setScalar(0.01 + 0.99 * q)); }
   renderWishes(); renderResidents(); updateHUD();
@@ -1017,12 +1379,12 @@ function checkTenant(k) { if (typeof k === 'number' && tenantIn(k) && !tenantGro
 const wishKey = id => id.startsWith('wk_') ? id.slice(3) : id;
 function wishOpen(i) {
   if (!tenantIn(i) || state.fulfilled[i]) return false;
-  const t = TENANTS[i]; const where = t.roofWish ? 'roof' : i;
+  const t = tenantOf(i); const where = t.roofWish ? 'roof' : i;
   if (roomOf(where).some(e => wishKey(e.id) === t.wish)) { state.fulfilled[i] = true; return false; }
   return true;
 }
 function checkWishes(placedId, k) {
-  for (let i = 0; i <= MAXF; i++) { const t = TENANTS[i];
+  for (let i = 0; i <= MAXF; i++) { const t = tenantOf(i);
     if (!tenantIn(i) || state.fulfilled[i]) continue;
     const where = t.roofWish ? 'roof' : i;
     if (where === k && t.wish === wishKey(placedId)) {
@@ -1032,21 +1394,33 @@ function checkWishes(placedId, k) {
       save(); } }
   renderWishes(); updateHUD();
 }
+/* Bei zehn Etagen passt jeder offene Wunsch knapp aufs Panel; bei fünfzig
+   nicht mehr — das Panel ist fest positioniert, ohne Scrollbereich (#47). */
+const WISH_MAX = 5;
 function renderWishes() {
   const box = $('wishes'); box.innerHTML = '';
-  for (let i = 0; i <= MAXF; i++) { if (!wishOpen(i)) continue;
-    const t = TENANTS[i];
+  const open = [];
+  for (let i = 0; i <= MAXF; i++) if (wishOpen(i)) open.push(i);
+  open.slice(0, WISH_MAX).forEach(i => {
+    const t = tenantOf(i);
     const d = document.createElement('div'); d.className = 'wish panel';
     d.innerHTML = `<b>${flLabel(i)}:</b> ${t.wtext}`;
     d.onclick = () => { if (edit) exitEdit(); setTimeout(() => enterEdit(t.roofWish ? 'roof' : i), 60); $('extras-menu').classList.remove('open'); };
-    box.appendChild(d); }
+    box.appendChild(d);
+  });
+  if (open.length > WISH_MAX) {
+    const rest = open.length - WISH_MAX;
+    const d = document.createElement('div'); d.className = 'wish panel more';
+    d.textContent = `… und ${rest} weitere ${rest === 1 ? 'Wunsch' : 'Wünsche'} weiter oben.`;
+    box.appendChild(d);
+  }
 }
 function renderResidents() {
   const ul = $('resident-list'); ul.innerHTML = '';
   for (let i = MAXF; i >= 0; i--) {
     const li = document.createElement('li');
     const built = i <= state.floors;
-    const nm = !built ? '<span class="free">noch nicht gebaut</span>' : tenantIn(i) ? `<b>${TENANTS[i].unit || TENANTS[i].name}</b>` : '<span class="free">zurzeit frei</span>';
+    const nm = !built ? '<span class="free">noch nicht gebaut</span>' : tenantIn(i) ? `<b>${tenantOf(i).unit || tenantOf(i).name}</b>` : '<span class="free">zurzeit frei</span>';
     const hint = i === 0 ? '<span class="hint">Erdgeschoss, war schon da</span>' : '';
     li.innerHTML = `<span class="fl">${flLabel(i)}</span><span>${nm}${hint}</span>`;
     ul.appendChild(li); }
@@ -1057,7 +1431,7 @@ let buildingUntil = 0;
 function buildFloor() {
   if (state.floors >= MAXF || edit) return;
   state.floors++;
-  const i = state.floors, g = floorGroups[i];
+  const i = state.floors, g = floorGroup(i);
   g.visible = true; g.scale.y = 0.01;
   tween(0.7, q => { g.scale.y = 0.01 + 0.99 * q; });
   buildingUntil = clock.elapsedTime + 1.4;
@@ -1088,11 +1462,11 @@ $('btn-garden').onclick = () => { $('extras-menu').classList.remove('open');
 $('btn-sign').onclick = () => { $('extras-menu').classList.remove('open'); renderResidents(); $('residents').classList.add('open'); };
 function renderAnimals() {
   const grid = $('animal-grid'); grid.innerHTML = '';
-  TENANTS.forEach((t, i) => {
+  for (let i = 0; i <= MAXF; i++) { const t = tenantOf(i);
     const d = document.createElement('div'); d.className = 'acard';
     const status = tenantIn(i) ? '<span class="in">Eingezogen!</span>' : '<small>wartet noch auf die Wohnung</small>';
     d.innerHTML = `<img src="${animalThumbs[i] || ''}" alt=""><b>${t.name}</b><small>Stock ${flLabel(i)}</small>${status}`;
-    grid.appendChild(d); });
+    grid.appendChild(d); }
   const d = document.createElement('div'); d.className = 'acard';
   d.innerHTML = `<img src="${mokiThumb}" alt=""><b>Móki das Eichhörnchen</b><small>flitzt ums Haus</small><span class="in">Besucher</span>`;
   grid.appendChild(d);
@@ -1111,7 +1485,7 @@ function startParty() {
   setNight(true); partyG.visible = true;
   let n = 0;
   for (let i = 0; i <= MAXF; i++) { if (!tenantIn(i)) continue;
-    TENANTS[i].animals.forEach(sp => { const a = makeAnimal(sp);
+    tenantOf(i).animals.forEach(sp => { const a = makeAnimal(sp);
       const ang = n * 1.1, r = 0.6 + (n % 3) * 0.45;
       a.position.set(Math.cos(ang) * r, 0.18, Math.sin(ang) * r * 0.6);
       a.rotation.y = Math.random() * 6; roofG.add(a); dancers.push({ g: a, ph: n }); n++; }); }
@@ -1141,7 +1515,7 @@ function applyNight(k) {
   hemi.color.lerpColors(HEMI.d, HEMI.n, k); hemi.groundColor.lerpColors(GRND.d, GRND.n, k);
   hemi.intensity = 1.05 - 0.62 * k; dir.intensity = 1.15 - 1.0 * k;
   starMat.opacity = k * 0.9; moonMat.opacity = k;
-  for (let i = 0; i <= MAXF; i++) { const ls = floorLampState(i);
+  for (let i = 0; i <= MAXF; i++) { if (!floorGroups[i]) continue; const ls = floorLampState(i);
     const lit = k > 0.5 && tenantIn(i) && (!ls.has || ls.any);
     floorGroups[i].userData.wins.forEach(w => { w.material.color.set(lit ? 0xffd98a : 0x6b4526);
       w.material.emissive.set(lit ? 0xffc257 : 0x000000); w.material.emissiveIntensity = lit ? 0.9 : 0; }); }
@@ -1158,13 +1532,6 @@ function setNight(on) {
 $('btn-night').onclick = () => { if (party && state.night) { toast('Bei der Party bleibt es Nacht!'); return; } setNight(!state.night); };
 $('btn-cutaway').onclick = () => { state.cutaway = !state.cutaway; applyFronts(); sfx.whoosh(); save();
   if (state.cutaway) toast('Blick in alle Wohnungen — wie im Buch!'); };
-
-/* Reset */
-let resetArmed = 0;
-$('btn-reset').onclick = () => {
-  if (Date.now() - resetArmed < 4000) { try { localStorage.removeItem('wipfelkratzer-v1'); } catch (e) {} location.reload(); }
-  else { resetArmed = Date.now(); $('btn-reset').textContent = 'Wirklich alles löschen?';
-    setTimeout(() => { $('btn-reset').textContent = 'Neu anfangen'; resetArmed = 0; }, 4000); } };
 
 /* ---------- Audio ---------- */
 let AC = null, master, musGain, musicOn = true, seqPos = 0, nextNote = 0;
@@ -1243,7 +1610,7 @@ const sfx = {
 $('btn-music').onclick = () => { musicOn = !musicOn; $('btn-music').textContent = musicOn ? 'Musik aus' : 'Musik an'; };
 
 function tenantTalk(i) {
-  const t = TENANTS[i];
+  const t = tenantOf(i);
   bubbleTarget = tenantGroups[i]; bubbleH = 1.0;
   const status = state.fulfilled[i] ? 'ist glücklich und zufrieden!' : wishOpen(i) ? t.wtext : 'fühlt sich schon richtig wohl.';
   bubbleEl.innerHTML = `<img src="${animalThumbs[i] || ''}" alt=""><span><b>${t.name}</b><br>${status}</span>`;
@@ -1262,8 +1629,8 @@ $('btn-tip').onclick = () => { if (!edit) return;
   const k = edit.k;
   if (k === 'garten') { toast('Tippe ein Spielplatz-Objekt an, dann kannst du es verschieben, drehen oder wegräumen.'); return; }
   if (k === 'roof') { toast(state.floors === MAXF && wishOpen(MAXF) ? 'Die Frösche warten auf einen Pool!' : 'Lampions, Sonnenschirm und Liegestuhl machen die Dachterrasse fein.'); return; }
-  if (!tenantIn(k)) { toast(`Noch ${Math.max(0, 3 - roomOf(k).length)} Sachen einrichten, dann zieht ${TENANTS[k].name} ein!`); return; }
-  if (wishOpen(k)) { toast(TENANTS[k].wtext); return; }
+  if (!tenantIn(k)) { toast(`Noch ${Math.max(0, 3 - roomOf(k).length)} Sachen einrichten, dann zieht ${tenantOf(k).name} ein!`); return; }
+  if (wishOpen(k)) { toast(tenantOf(k).wtext); return; }
   toast(TIPS[tipI++ % TIPS.length]); };
 
 /* ---------- Interaktion ---------- */
@@ -1338,22 +1705,23 @@ $('btn-move').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.i
   if (selected.tenant) { const en = selected.entry;
     const cands = tenantSpots(selected.k);
     const far = cands.find(c => Math.hypot(c.x - en.x, c.z - en.z) > 0.4) || cands[0];
-    en.x = far.x; en.z = far.z;
-    clampEntry(selected.k, selected.mesh, en);
+    if (!applyMove(selected, () => { en.x = far.x; en.z = far.z; clampEntry(selected.k, selected.mesh, en); })) return;
     setTenantPos(selected.tenant.floor, selected.tenant.idx, en);
     selHelper.update(); sfx.pop(); return; }
   const c = freeCell(selected.k, selected.entry.cell + 1);
   if (c < 0) { toast('Kein Platz frei!'); return; }
-  const en = selected.entry; en.cell = c; const p = cellPos(selected.k, c);
-  en.x = p.x; en.z = p.z; en.y = DECO.has(en.id) ? surfaceYAt(selected.k, p.x, p.z, selected.mesh) : baseY(selected.k);
-  selected.mesh.position.set(en.x, en.y, en.z);
-  clampEntry(selected.k, selected.mesh, en);
+  const en = selected.entry;
+  if (!applyMove(selected, () => { en.cell = c; const p = cellPos(selected.k, c);
+    en.x = p.x; en.z = p.z; en.y = DECO.has(en.id) ? surfaceYAt(selected.k, p.x, p.z, selected.mesh) : baseY(selected.k);
+    selected.mesh.position.set(en.x, en.y, en.z);
+    clampEntry(selected.k, selected.mesh, en); })) return;
   selHelper.update(); sfx.pop(); save(); };
 $('btn-rot').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.id)) return;
-  selected.entry.rot += Math.PI / 2;
-  selected.mesh.rotation.y = selected.entry.rot;
-  clampEntry(selected.k, selected.mesh, selected.entry);
-  if (selected.tenant) setTenantPos(selected.tenant.floor, selected.tenant.idx, selected.entry); else save();
+  const en = selected.entry;
+  if (!applyMove(selected, () => { en.rot += Math.PI / 2;
+    selected.mesh.rotation.y = en.rot;
+    clampEntry(selected.k, selected.mesh, en); })) return;
+  if (selected.tenant) setTenantPos(selected.tenant.floor, selected.tenant.idx, en); else save();
   selHelper.update(); sfx.pop(); };
 $('btn-color').onclick = () => { if (!selected || !TINTABLE.has(selected.entry.id)) return;
   $('colorpick').classList.toggle('open'); renderColorPick(); };
@@ -1377,17 +1745,17 @@ addEventListener('keydown', e => {
   const en = selected.entry;
   if (st) { e.preventDefault();
     if (WALL_ITEMS.has(en.id)) { moveWallItem(selected, st[0], -st[1]); return; }
-    en.x += st[0]; en.z += st[1];
-    clampEntry(selected.k, selected.mesh, en);
+    if (!applyMove(selected, () => { en.x += st[0]; en.z += st[1];
+      clampEntry(selected.k, selected.mesh, en); })) return;
     /* Bei einem Tier gehört position.y allein der Wackel-Animation (#39). */
     if (selected.tenant) { setTenantPos(selected.tenant.floor, selected.tenant.idx, en); }
     else { en.y = DECO.has(en.id) ? surfaceYAt(selected.k, en.x, en.z, selected.mesh) : baseY(selected.k);
            selected.mesh.position.y = en.y; save(); }
     selHelper.update(); return; }
   if (e.key === 'PageUp' || e.key === 'PageDown') { e.preventDefault();
-    en.rot += (e.key === 'PageUp' ? 1 : -1) * Math.PI / 12;
-    selected.mesh.rotation.y = en.rot;
-    clampEntry(selected.k, selected.mesh, en);
+    if (!applyMove(selected, () => { en.rot += (e.key === 'PageUp' ? 1 : -1) * Math.PI / 12;
+      selected.mesh.rotation.y = en.rot;
+      clampEntry(selected.k, selected.mesh, en); })) return;
     if (selected.tenant) setTenantPos(selected.tenant.floor, selected.tenant.idx, en); else save();
     selHelper.update(); return; }
   if (e.key === 'Delete' && !selected.tenant) { e.preventDefault(); removeItem(selected); }
@@ -1442,8 +1810,9 @@ function mokiTalk() {
 
 /* ---------- Fotos ---------- */
 let photos = [];
-try { photos = JSON.parse(localStorage.getItem('wipfelkratzer-fotos') || '[]'); } catch (e) {}
-function savePhotos() { try { localStorage.setItem('wipfelkratzer-fotos', JSON.stringify(photos)); } catch (e) { toast('Die Galerie ist voll — lösche ein paar Fotos.'); } }
+try { photos = JSON.parse(localStorage.getItem(STAND.fotoKey) || '[]'); } catch (e) {}
+if (!Array.isArray(photos)) photos = [];
+function savePhotos() { try { localStorage.setItem(STAND.fotoKey, JSON.stringify(photos)); } catch (e) { toast('Die Galerie ist voll — lösche ein paar Fotos.'); } }
 function takePhoto() {
   renderer.render(scene, camera);
   const src = renderer.domElement, s = Math.min(1, 800 / src.width);
@@ -1459,6 +1828,19 @@ function photoFilename(p) {
   const dt = new Date(p.t), pad = n => String(n).padStart(2, '0');
   return `wipfelkratzer-${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}-${pad(dt.getHours())}${pad(dt.getMinutes())}${pad(dt.getSeconds())}.jpg`;
 }
+/* Vorschaubild für die Turm-Übersicht: klein und sparsam, weil es im Index
+   liegt und der Index bei jedem Wechsel geschrieben wird. Bewusst nicht im
+   save()-Pfad — der läuft bei jedem Handgriff. */
+function standBild() {
+  renderer.render(scene, camera);
+  const src = renderer.domElement, s = Math.min(1, 240 / src.width);
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(src.width * s));
+  c.height = Math.max(1, Math.round(src.height * s));
+  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.5);
+}
+function merkeStandBild() { try { staende.merkeBild(STAND.id, standBild()); } catch (e) {} }
 function dataUrlToBytes(url) {
   const bin = atob(url.slice(url.indexOf(',') + 1));
   const out = new Uint8Array(bin.length);
@@ -1532,7 +1914,104 @@ $('btn-gallery').onclick = () => { $('extras-menu').classList.remove('open'); re
 $('btn-galclose').onclick = () => $('gallery').classList.remove('open');
 $('gallery').onclick = e => { if (e.target === $('gallery')) $('gallery').classList.remove('open'); };
 
+/* ---------- Turm-Übersicht ---------- */
+function renderStaende() {
+  const idx = staende.ladeIndex(), grid = $('stand-grid');
+  grid.innerHTML = '';
+  idx.staende.forEach(e => {
+    const info = staende.standInfo(e), hier = e.id === idx.aktiv;
+    const d = document.createElement('div');
+    d.className = 'standkarte' + (hier ? ' aktiv' : '');
+    d.dataset.id = e.id;
+    const bild = e.bild
+      ? `<img class="stand-bild" src="${e.bild}" alt="">`
+      : '<div class="stand-bild leer"></div>';
+    d.innerHTML = `${bild}
+      <input class="stand-name" maxlength="40" value="${String(e.name).replace(/"/g, '&quot;')}">
+      <div class="stand-info">${info.floors} Stockwerke · ${info.möbel} Möbel</div>
+      <div class="zeile">${hier ? '<span class="stand-hier">Hier bist du</span>'
+        : '<button class="stand-hin primary">Weiterbauen</button>'}
+        <button class="stand-weg danger">Löschen</button></div>`;
+    grid.appendChild(d);
+  });
+  const voll = idx.staende.length >= staende.MAX_STAENDE;
+  $('btn-stand-neu').disabled = voll;
+  $('stand-voll').classList.toggle('hidden', !voll);
+}
+function oeffneStaende() {
+  merkeStandBild();
+  renderStaende();
+  $('staende').classList.add('open');
+}
+$('btn-staende').onclick = () => { $('extras-menu').classList.remove('open'); oeffneStaende(); };
+$('btn-intro-staende').onclick = oeffneStaende;
+$('btn-standclose').onclick = () => $('staende').classList.remove('open');
+$('staende').onclick = e => { if (e.target === $('staende')) $('staende').classList.remove('open'); };
+
+/* Ein Wechsel lädt die Seite neu: die Szene wird beim Start einmalig aus state
+   aufgebaut, einen Abbau-Pfad gibt es nicht. Vorher noch schnell den
+   aktuellen Stand sichern — save() ist entprellt. */
+function wechsleZu(id) {
+  schreibeStand();
+  merkeStandBild();
+  if (!staende.wähleStand(id)) { toast('Dieser Turm ist nicht mehr da.'); renderStaende(); return; }
+  location.reload();
+}
+$('btn-stand-neu').onclick = () => {
+  const e = staende.neuerStand();
+  if (!e) { toast('Mehr als vier Türme passen nicht — lösche zuerst einen.'); renderStaende(); return; }
+  wechsleZu(e.id);
+};
+$('stand-grid').addEventListener('click', ev => {
+  const karte = ev.target.closest('.standkarte'); if (!karte) return;
+  if (ev.target.classList.contains('stand-hin')) wechsleZu(karte.dataset.id);
+});
+$('stand-grid').addEventListener('change', ev => {
+  const karte = ev.target.closest('.standkarte'); if (!karte) return;
+  if (ev.target.classList.contains('stand-name')) {
+    staende.benenneUm(karte.dataset.id, ev.target.value);
+    renderStaende();
+  }
+});
+$('stand-grid').addEventListener('keydown', ev => {
+  if (ev.key === 'Enter' && ev.target.classList.contains('stand-name')) ev.target.blur();
+});
+/* Löschen trifft genau einen Turm — und braucht wie beim alten Reset das
+   zweite Antippen. Danach ist auch die Galerie dieses Turms weg, was der
+   alte Reset vergessen hatte. */
+let wegArmed = { id: '', t: 0 };
+$('stand-grid').addEventListener('click', ev => {
+  const karte = ev.target.closest('.standkarte'); if (!karte) return;
+  if (!ev.target.classList.contains('stand-weg')) return;
+  const id = karte.dataset.id;
+  if (wegArmed.id === id && Date.now() - wegArmed.t < 4000) {
+    wegArmed = { id: '', t: 0 };
+    const bleibt = staende.loescheStand(id);
+    if (id === STAND.id) { location.reload(); return; }
+    renderStaende();
+    toast('Der Turm ist weg. Du baust an «' + bleibt.name + '» weiter.');
+    return;
+  }
+  wegArmed = { id, t: Date.now() };
+  ev.target.textContent = 'Wirklich löschen?';
+  setTimeout(() => {
+    if (wegArmed.id !== id) return;
+    wegArmed = { id: '', t: 0 };
+    renderStaende();
+  }, 4000);
+});
+
 $('btn-start').onclick = () => { initAudio(); $('intro').classList.add('hidden'); };
+/* Die Turmhöhe steckt in jedem Mass der Szene, die beim Laden des Moduls
+   schon steht. Deshalb wird die Wahl geschrieben und die Seite neu geladen,
+   statt die Szene zur Laufzeit umzubauen (#47). */
+if (!hasSave) $('tower-pick').classList.remove('hidden');
+TOWER_CHOICES.forEach(n => { $(`pick-${n}`).onclick = () => {
+  if (n === MAXF) { initAudio(); $('intro').classList.add('hidden'); return; }
+  state.maxFloors = n;
+  try { localStorage.setItem(STAND.standKey, JSON.stringify(state)); } catch (e) {}
+  location.reload();
+}; });
 
 /* Die sieben Objekte des bisherigen Ensembles, umgerechnet auf die unrotierte
    Gruppe: alte Gruppenkoordinate mit R_y(0.5) gedreht, Drehung um 0.5 erhöht.
@@ -1560,24 +2039,32 @@ function migrateGarden() {
 
 /* ---------- Laden ---------- */
 migrateGarden();
+sanitizeDesigns();
+/* Gebaute Etagen zuerst anlegen — placeItemMesh/spawnTenant greifen direkt
+   auf floorGroups[i] zu und dürfen die Gruppe nicht selbst nachziehen (#47). */
+for (let i = 1; i <= state.floors; i++) floorGroup(i);
 Object.keys(state.rooms).forEach(k => {
   const key = (k === 'roof' || k === 'garten') ? k : parseInt(k, 10);
+  sanitizeRoom(key);
   roomOf(key).forEach(e => {
     const m = placeItemMesh(key, e);
     if (key === 'roof' || key === 'garten') clampEntry(key, m, e);
   });
 });
 for (let i = 0; i <= MAXF; i++) if (tenantIn(i)) spawnTenant(i, true);
-for (let i = 0; i <= MAXF; i++) applyLook(i);
+for (let i = 0; i <= MAXF; i++) if (floorGroups[i]) applyLook(i);
 if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
 window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, gartenG, gardenEdge, scene, camera, controls, WALL_KEYS, FURN_COLORS, TINTABLE,
   GARDEN: { pos: GARDEN_POS, w: GARDEN_W, d: GARDEN_D }, riverZ, placeItemMesh, clampEntry, removeItem,
+  MAXF, tenantOf, topY, floorGroup, catalogIds: CATALOG.map(c => c.id),
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
-  ACTIONS, isOn,
-  photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename } };
+  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove,
+  photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename },
+  staende, stand: STAND, speichern: schreibeStand, speichernFotos: savePhotos, get fotos() { return photos; },
+  standBild, merkeStandBild, renderStaende };
 applyNight(state.night ? 1 : 0);
 applyFronts();
 makeThumbs();
