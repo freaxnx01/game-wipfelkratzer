@@ -1799,6 +1799,30 @@ function zugEnde(e) {
 renderer.domElement.addEventListener('pointerup', zugEnde);
 renderer.domElement.addEventListener('pointercancel', zugEnde);
 
+/* Das Rad dreht nur über dem ausgewählten Objekt — dieselbe Bedingung wie
+   beim Ziehen. Überall sonst zoomt OrbitControls unverändert (#64).
+   Der Handler hängt am Fenster im Capture-Lauf, nicht an der Leinwand:
+   OrbitControls hat seinen eigenen wheel-Handler schon beim Aufbau der Szene
+   an renderer.domElement gehängt und hätte längst gezoomt, bevor ein später
+   registrierter Handler dort überhaupt an die Reihe käme — preventDefault
+   unterbindet nur die Voreinstellung des Browsers, keinen zweiten Handler.
+   Capture auf einem Vorfahren läuft davor und schneidet den Weg mit
+   stopPropagation ab. */
+addEventListener('wheel', e => {
+  if (e.target !== renderer.domElement) return;   /* im Katalog bleibt Scrollen Scrollen */
+  if (!trifftAuswahl(e)) return;
+  const en = selected.entry;
+  if (WALL_ITEMS.has(en.id)) return;   /* Wandobjekte richtet die Wand aus */
+  e.preventDefault(); e.stopPropagation();
+  /* Math.sign statt deltaY: Mäuse, Trackpads und deltaMode 0/1/2 liefern
+     völlig verschiedene Beträge — eine Kerbe soll eine Rasterung sein. */
+  if (!applyMove(selected, () => { en.rot += Math.sign(e.deltaY) * Math.PI / 12;
+    selected.mesh.rotation.y = en.rot;
+    clampEntry(selected.k, selected.mesh, en); })) { meldeBlockade(); return; }
+  if (selected.tenant) setTenantPos(selected.tenant.floor, selected.tenant.idx, en); else save();
+  selHelper.update();
+}, { capture: true, passive: false });
+
 $('btn-build').onclick = buildFloor;
 $('btn-done').onclick = exitEdit;
 $('btn-catalog').onclick = () => {
