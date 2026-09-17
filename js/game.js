@@ -673,6 +673,15 @@ function replaceMesh(pick) {
   clampEntry(pick.k, pick.mesh, en);
   if (selHelper && selected === pick) selHelper.update();
 }
+/* Der Ablehnungspfad meldet sich nicht mehr selbst: wer die Geste kennt,
+   entscheidet, ob und wie oft gemeldet wird. Ein gezogenes Objekt stösst
+   pro Mausbewegung an und würde sonst 60× pro Sekunde klopfen (#64). */
+let blockGrund = null;
+function meldeBlockade() {
+  sfx.knock();
+  if (blockGrund) toast(blockGrund);
+  blockGrund = null;
+}
 /* Führt eine Bewegung aus und räumt danach die Kollisionen auf.
    Rückgabe: true, wenn der Zug Bestand hat. */
 function applyMove(pick, mutate) {
@@ -680,7 +689,7 @@ function applyMove(pick, mutate) {
   const snap = { x: en.x, z: en.z, y: en.y, rot: en.rot, wall: en.wall };
   mutate();
   const ok = pick.tenant ? resolveTenantMove(pick) : resolveItemMove(pick);
-  if (!ok) { Object.assign(en, snap); replaceMesh(pick); sfx.knock(); }
+  if (!ok) { Object.assign(en, snap); replaceMesh(pick); }
   return ok;
 }
 function resolveTenantMove(pick) { return !tenantBlocked(pick); }
@@ -1221,7 +1230,7 @@ function addItem(id, build) {
     const arr = roomOf(k); const idx = arr.indexOf(entry); if (idx >= 0) arr.splice(idx, 1);
     parentOf(k).remove(m);
     const mi = itemMeshes[k].indexOf(m); if (mi >= 0) itemMeshes[k].splice(mi, 1);
-    sfx.knock(); save(); return;
+    meldeBlockade(); save(); return;
   }
   m.scale.setScalar(0.01);
   tween(0.35, q => { m.scale.setScalar(0.01 + 0.99 * q); if (selHelper) selHelper.update(); });
@@ -1335,7 +1344,7 @@ function resolveItemMove(pick) {
     const snap = { x: ap.entry.x, z: ap.entry.z };
     if (nudgeTenant(ap)) { moved.push({ ap, snap }); continue; }
     moved.forEach(m => { m.ap.entry.x = m.snap.x; m.ap.entry.z = m.snap.z; replaceMesh(m.ap); });
-    toast(`Hier ist kein Platz — ${TENANTS[pick.k].name} steht im Weg!`);
+    blockGrund = `Hier ist kein Platz — ${TENANTS[pick.k].name} steht im Weg!`;
     return false;
   }
   return true;
@@ -1705,7 +1714,7 @@ $('btn-move').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.i
   if (selected.tenant) { const en = selected.entry;
     const cands = tenantSpots(selected.k);
     const far = cands.find(c => Math.hypot(c.x - en.x, c.z - en.z) > 0.4) || cands[0];
-    if (!applyMove(selected, () => { en.x = far.x; en.z = far.z; clampEntry(selected.k, selected.mesh, en); })) return;
+    if (!applyMove(selected, () => { en.x = far.x; en.z = far.z; clampEntry(selected.k, selected.mesh, en); })) { meldeBlockade(); return; }
     setTenantPos(selected.tenant.floor, selected.tenant.idx, en);
     selHelper.update(); sfx.pop(); return; }
   const c = freeCell(selected.k, selected.entry.cell + 1);
@@ -1714,13 +1723,13 @@ $('btn-move').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.i
   if (!applyMove(selected, () => { en.cell = c; const p = cellPos(selected.k, c);
     en.x = p.x; en.z = p.z; en.y = DECO.has(en.id) ? surfaceYAt(selected.k, p.x, p.z, selected.mesh) : baseY(selected.k);
     selected.mesh.position.set(en.x, en.y, en.z);
-    clampEntry(selected.k, selected.mesh, en); })) return;
+    clampEntry(selected.k, selected.mesh, en); })) { meldeBlockade(); return; }
   selHelper.update(); sfx.pop(); save(); };
 $('btn-rot').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.id)) return;
   const en = selected.entry;
   if (!applyMove(selected, () => { en.rot += Math.PI / 2;
     selected.mesh.rotation.y = en.rot;
-    clampEntry(selected.k, selected.mesh, en); })) return;
+    clampEntry(selected.k, selected.mesh, en); })) { meldeBlockade(); return; }
   if (selected.tenant) setTenantPos(selected.tenant.floor, selected.tenant.idx, en); else save();
   selHelper.update(); sfx.pop(); };
 $('btn-color').onclick = () => { if (!selected || !TINTABLE.has(selected.entry.id)) return;
@@ -1746,7 +1755,7 @@ addEventListener('keydown', e => {
   if (st) { e.preventDefault();
     if (WALL_ITEMS.has(en.id)) { moveWallItem(selected, st[0], -st[1]); return; }
     if (!applyMove(selected, () => { en.x += st[0]; en.z += st[1];
-      clampEntry(selected.k, selected.mesh, en); })) return;
+      clampEntry(selected.k, selected.mesh, en); })) { meldeBlockade(); return; }
     /* Bei einem Tier gehört position.y allein der Wackel-Animation (#39). */
     if (selected.tenant) { setTenantPos(selected.tenant.floor, selected.tenant.idx, en); }
     else { en.y = DECO.has(en.id) ? surfaceYAt(selected.k, en.x, en.z, selected.mesh) : baseY(selected.k);
@@ -1755,7 +1764,7 @@ addEventListener('keydown', e => {
   if (e.key === 'PageUp' || e.key === 'PageDown') { e.preventDefault();
     if (!applyMove(selected, () => { en.rot += (e.key === 'PageUp' ? 1 : -1) * Math.PI / 12;
       selected.mesh.rotation.y = en.rot;
-      clampEntry(selected.k, selected.mesh, en); })) return;
+      clampEntry(selected.k, selected.mesh, en); })) { meldeBlockade(); return; }
     if (selected.tenant) setTenantPos(selected.tenant.floor, selected.tenant.idx, en); else save();
     selHelper.update(); return; }
   if (e.key === 'Delete' && !selected.tenant) { e.preventDefault(); removeItem(selected); }
@@ -2061,7 +2070,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
-  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove,
+  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade,
   photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename },
   staende, stand: STAND, speichern: schreibeStand, speichernFotos: savePhotos, get fotos() { return photos; },
   standBild, merkeStandBild, renderStaende };
