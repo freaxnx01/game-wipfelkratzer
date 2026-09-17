@@ -8,6 +8,12 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- Schreinerei: eigene Möbel bauen statt nur auswählen. In der Werkstatt
+  stapelst Du bis zu fünf Teile aufeinander und wählst je Teil Form
+  (Platte, Klotz, Kiste, Säule, Dach), Breite und Farbe; die Vorschau
+  zeigt sofort, wie das Möbel aussieht. Fertige Entwürfe landen im
+  Katalog unter «Schreinerei» und lassen sich beliebig oft aufstellen —
+  gelöschte Entwürfe lassen bereits aufgestellte Möbel unberührt (#43)
 - Es lassen sich jetzt bis zu vier Türme nebeneinander bauen. Unter «Meine
   Türme» — im Extras-Menü und gleich im Intro — steht jeder Turm mit
   Vorschaubild, eigenem Namen und seiner Stockwerkzahl; ein Tipp wechselt
