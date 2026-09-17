@@ -1736,11 +1736,19 @@ renderer.domElement.addEventListener('pointerdown', e => {
   const treffer = trifftAuswahl(e);
   if (!treffer) return;
   const en = selected.entry;
-  if (WALL_ITEMS.has(en.id)) return;        /* Wandobjekte: Task 3 */
-  ziehen = { id: e.pointerId, blockiert: false };
-  selected.mesh.getWorldPosition(zugPunkt);
-  zugVersatz.copy(treffer).sub(zugPunkt);
-  zugEbene.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), treffer);
+  const normale = new THREE.Vector3(0, 1, 0);
+  ziehen = { id: e.pointerId, blockiert: false, wand: null, wandStart: null };
+  if (WALL_ITEMS.has(en.id)) {
+    /* Wandobjekte laufen nicht über eine Bodenebene: en.x führt entlang der
+       Wand, en.y die Höhe. Die Zugebene ist deshalb die Wand selbst. */
+    const pl = wallPlacement(selected.k, en.wall || 'back');
+    normale.set(0, 0, 0); normale[pl.fixedAxis] = 1;
+    ziehen.wand = pl; ziehen.wandStart = treffer.clone();
+  } else {
+    selected.mesh.getWorldPosition(zugPunkt);
+    zugVersatz.copy(treffer).sub(zugPunkt);
+  }
+  zugEbene.setFromNormalAndCoplanarPoint(normale, treffer);
   controls.enabled = false;
   renderer.domElement.setPointerCapture(e.pointerId);
 });
@@ -1753,6 +1761,7 @@ renderer.domElement.addEventListener('pointermove', e => {
   /* en.x/en.y/en.z sind lokal zur Elterngruppe — gartenG trägt GARDEN_POS,
      die Stockwerksgruppen ihre Höhe. */
   const eltern = parentOf(selected.k);
+  if (ziehen.wand) { zieheWandobjekt(eltern); return; }
   zugPunkt.sub(zugVersatz);
   const lokal = eltern.worldToLocal(zugPunkt.clone());
   if (!applyMove(selected, () => { en.x = lokal.x; en.z = lokal.z;
@@ -1766,6 +1775,19 @@ renderer.domElement.addEventListener('pointermove', e => {
          selected.mesh.position.y = en.y; }
   selHelper.update();
 });
+
+/* Der Zug wird als Weg entlang der Wand und in der Höhe gelesen und über
+   moveWallItem geführt, das en.x/en.y kennt und clampEntry, selHelper und
+   save selbst ruft. zugPunkt liegt bereits auf der Wandebene. Der Startpunkt
+   wird nach jedem Schritt nachgezogen, damit die Wege relativ bleiben — sonst
+   liefe das Objekt nach einem Anschlag an clampEntry aus dem Tritt. */
+function zieheWandobjekt(eltern) {
+  const pl = ziehen.wand;
+  const lokal = eltern.worldToLocal(zugPunkt.clone());
+  const start = eltern.worldToLocal(ziehen.wandStart.clone());
+  ziehen.wandStart = zugPunkt.clone();
+  moveWallItem(selected, lokal[pl.freeAxis] - start[pl.freeAxis], lokal.y - start.y);
+}
 
 function zugEnde(e) {
   if (!ziehen || (e && e.pointerId !== ziehen.id)) return;
