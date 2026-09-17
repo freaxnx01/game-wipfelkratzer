@@ -14,6 +14,26 @@ All notable changes to this project are documented here, following
   zwischen Tag und Nacht schon tut. Jeder Baum behält seinen eigenen Farbton,
   der Wald wird also nie einfarbig. Die gewählte Jahreszeit bleibt gespeichert
   und lässt sich mit Tag und Nacht frei kombinieren (#50)
+- Eine fertig eingerichtete Wohnung lässt sich jetzt auf ein anderes
+  Stockwerk kopieren: In der Einrichtungsleiste merkt «Raum kopieren» die
+  Wohnung samt Möbeln, Wandobjekten, Deko, Tapete und Bodenbelag, «Raum
+  einfügen» stellt sie im nächsten Stockwerk wieder auf und rückt dabei
+  alles auf dessen Masse zurecht. Steht am Ziel schon etwas, fragt das
+  Spiel vorher, ob dazugestellt oder alles ersetzt werden soll — nichts
+  geht unbemerkt verloren. Die Bewohner kommen nicht mit; es zieht die
+  Familie ein, die auf das Zielstockwerk gehört (#48)
+- Der Bach war bisher blosse Kulisse. Ein Tipp auf das Wasser fragt jetzt
+  nach, ob es zu &laquo;Splashdown!&raquo; gehen soll — dem
+  Wasserrutschen-Rennen nebenan. Vor dem Wechsel wird der Wipfelkratzer
+  sofort gespeichert statt wie bisher erst nach einer kurzen Verzögerung,
+  damit auch die allerletzte Änderung erhalten bleibt; nach der Rückkehr
+  steht der Turm unverändert da (#46)
+- Else Elster trug ihren Eimer bisher nur im Kreis spazieren. Sie holt damit
+  jetzt Wasser: sobald ein Pool auf der Dachterrasse steht, fliegt sie zum
+  Bach hinunter, schöpft, bringt den Eimer zum Dach und kippt ihn aus. Ein
+  neu aufgestellter Pool startet deshalb leer und füllt sich in drei sichtbaren
+  Schritten; erst im vollen Becken schwimmen Piet und Jan. Pools aus älteren
+  Spielständen bleiben voll (#45)
 
 ## [0.7.0] - 2026-09-17
 

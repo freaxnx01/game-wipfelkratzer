@@ -14,6 +14,9 @@ const floorY = i => i === 0 ? PLAT_Y : PLAT_Y + E_H + (i - 1) * FLOOR_H;
 const topY = () => PLAT_Y + E_H + state.floors * FLOOR_H;
 const ROOF_W = 6.6, ROOF_D = 4.8;
 const rnd = i => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+const POOL_TRIPS = 3;
+const poolFill = en => en.fill === undefined ? 1
+  : Math.max(0, Math.min(POOL_TRIPS, en.fill | 0)) / POOL_TRIPS;
 /* Wände: Gesamtdicke wie bisher (0.12) = Kern (aussen, immer Putz) + Luft + Innenpanel (tapezierbar) */
 const WALL_KEYS = ['back', 'left', 'right', 'front'];
 const WALL_LABELS = { back: 'Hinten', left: 'Links', right: 'Rechts', front: 'Vorne' };
@@ -137,6 +140,10 @@ const schreibeStand = () => { try {
   localStorage.setItem(STAND.standKey, JSON.stringify({ ...state, wallpaper }));
 } catch (e) {} };
 const save = () => { clearTimeout(saveT); saveT = setTimeout(schreibeStand, 300); };
+/* Netz für Wege aus der Seite, die keine eigene Navigation sind — Zurück-Taste,
+   Tab schliessen, Wechsel in den bfcache. pagehide statt beforeunload: Letzteres
+   ist auf mobilen Browsern unzuverlässig und bfcache-feindlich (#46). */
+addEventListener('pagehide', schreibeStand);
 const roomOf = k => (state.rooms[k] || (state.rooms[k] = []));
 const tenantIn = i => i <= state.floors && roomOf(i).length >= 3;
 
@@ -200,7 +207,11 @@ const riverSandMat = new THREE.MeshLambertMaterial({ color: 0xc9b083 });
 const riverWaterMat = new THREE.MeshLambertMaterial({ color: 0x5aa7c7 });
 const riverFoamMat = new THREE.MeshLambertMaterial({ color: 0x7fc4dd });
 ribbon(5.6, 0.02, riverSandMat);
-ribbon(3.6, 0.045, riverWaterMat);
+/* Das breite Wasserband ist die Trefferfläche des Bachs (#46) — nicht das
+   Sandufer darunter und nicht der helle Streifen darüber, der zwar höher
+   liegt, aber nicht in der Pickliste steht und deshalb nichts abschirmt. */
+const river = ribbon(3.6, 0.045, riverWaterMat);
+river.userData.type = 'bach';
 ribbon(1.5, 0.06, riverFoamMat);
 const dam = makeDam(); dam.position.set(-7, 0, riverZ(-7) - 1.2); dam.rotation.y = 0.6; dam.userData.type = 'dam'; scene.add(dam);
 for (let i = 0; i < 60; i++) {
@@ -226,6 +237,10 @@ const moki = makeAnimal('eichhoernchen'); moki.scale.setScalar(1.3); moki.positi
 const MOKI_WP = [new THREE.Vector3(6, 0, 6), new THREE.Vector3(-6.5, 0, 6.5), new THREE.Vector3(-7.5, 0, -5), new THREE.Vector3(7.5, 0, -5.5)];
 let mokiI = 0, mokiWait = 1.5;
 const magpie = new THREE.Group(); const magInner = makeMagpie(); magInner.rotation.y = -Math.PI / 2; magpie.add(magInner); scene.add(magpie);
+const MAGPIE_DUR = { holen: 3.2, schoepfen: 1.0, bringen: 3.6, giessen: 1.2 };
+const SCOOP = { x: -3.4, y: 0.75, cruiseY: 3.2 };
+let magPhase = 'kreis', magT = 0, magCurve = null, magFrom = null, magTarget = null;
+let magOffset = 0, magToast = false, magPoured = false;
 const bridge = makeBridge(5.6); bridge.position.set(8.7, 0.08, riverZ(8.7)); bridge.rotation.y = Math.PI / 2; bridge.visible = state.bridge; scene.add(bridge);
 
 /* Plattform + Stämme */
@@ -765,6 +780,7 @@ function placeItemMesh(k, entry) {
   m.userData.pick = { k, entry, mesh: m };
   parentOf(k).add(m); itemMeshes[k].push(m);
   if (m.userData.wheel) spinners.push(m.userData.wheel);
+  if (m.userData.setFill) m.userData.setFill(poolFill(entry));
   applyItemState(m, false);
   return m;
 }
@@ -1110,6 +1126,7 @@ function enterEdit(k) {
   $('editbar').classList.add('on');
   wallTarget = 'alle';
   $('catalog').classList.add('open'); renderCatalog(); highlightWalls();
+  updateRoomClipButtons();
   updateHUD(); sfx.whoosh();
 }
 function exitEdit() {
@@ -1123,6 +1140,7 @@ function exitEdit() {
   edit = null;
   wallTarget = 'alle'; highlightWalls();
   applyFronts();
+  updateRoomClipButtons();
   $('editbar').classList.remove('on');
   $('catalog').classList.remove('open');
   updateHUD();
@@ -1141,6 +1159,101 @@ function select(pick) { deselect(); selected = pick;
   $('btn-del').classList.toggle('hidden', !!pick.tenant);
   updateActionBtn();
   $('selbar').classList.add('on'); }
+
+/* ---------- Raum kopieren ----------
+   Die Zwischenablage hält eine tiefe Kopie der Quellwohnung: Möbelliste,
+   Tapete (vier Wände) und Bodenbelag. Sie lebt nur in dieser Sitzung und
+   wird nicht gespeichert — ein über Tage gemerkter Raum, dessen Quelle
+   längst umgeräumt ist, wäre mehr Überraschung als Hilfe. */
+let clip = null;
+const deepCopy = v => JSON.parse(JSON.stringify(v));
+function updateRoomClipButtons() {
+  const normal = !!edit && edit.k !== 'roof' && edit.k !== 'garten';
+  $('btn-roomcopy').classList.toggle('hidden', !normal);
+  $('btn-roompaste').classList.toggle('hidden', !(normal && clip && clip.from !== edit.k));
+}
+function copyRoom() {
+  if (!edit || edit.k === 'roof' || edit.k === 'garten') return;
+  const k = edit.k;
+  clip = { from: k, items: deepCopy(roomOf(k)),
+    wallpaper: deepCopy(wallpaperOf(k)), flooring: state.flooring[k] || null };
+  updateRoomClipButtons(); sfx.pop();
+  toast(`Wohnung ${flLabel(k)} gemerkt — geh auf ein anderes Stockwerk und tippe auf «Raum einfügen».`);
+}
+$('btn-roomcopy').onclick = copyRoom;
+
+/* Eingefügt wird in zwei Durchgängen: erst die Möbel, dann die Deko. Nur so
+   sieht surfaceYAt beim Ablegen der Vase den Tisch, auf dem sie stand.
+   clampEntry rechnet jeden Eintrag auf die Masse der ZIELetage um — obere
+   Stockwerke sind schmaler als untere (siehe W/D). */
+function pasteEntries(k, items) {
+  const maxCell = colsOf(k) * 2 - 1;
+  const order = [...items.filter(e => !DECO.has(e.id)), ...items.filter(e => DECO.has(e.id))];
+  const placed = [];
+  order.forEach(src => {
+    const en = deepCopy(src);
+    en.cell = Math.max(0, Math.min(maxCell, en.cell || 0));
+    if (DECO.has(en.id)) en.y = surfaceYAt(k, en.x, en.z);
+    else if (!WALL_ITEMS.has(en.id)) en.y = baseY(k);
+    roomOf(k).push(en);
+    const m = placeItemMesh(k, en);
+    clampEntry(k, m, en);
+    placed.push(en.id);
+  });
+  return placed;
+}
+/* Leeren mit derselben Mechanik wie removeItem: Liste, Szenengraph und
+   itemMeshes müssen zusammen aufgeräumt werden, sonst bleiben Möbel
+   sichtbar stehen, die es im Spielstand nicht mehr gibt. */
+function clearRoom(k) {
+  itemMeshes[k].slice().forEach(m => parentOf(k).remove(m));
+  itemMeshes[k].length = 0;
+  roomOf(k).length = 0;
+}
+function doPaste(k, replace) {
+  if (replace) clearRoom(k);
+  const ids = pasteEntries(k, clip.items);
+  /* Tapete liegt pro Wand, der Bodenbelag als einzelne Id — beides getrennt
+     von der Möbelliste. Wer «den Raum» kopiert, meint sie mit. */
+  state.wallpaper[k] = deepCopy(clip.wallpaper);
+  if (clip.flooring) state.flooring[k] = clip.flooring;
+  else delete state.flooring[k];
+  applyLook(k);
+  /* Bewohner werden nicht mitkopiert — die Tiere hängen an tenantGroups[i]
+     und gehören zur Wohnung, nicht zur Einrichtung. Was die Kopie auslöst,
+     ist der Einzug der Familie, die auf DIESE Etage gehört, und die
+     Erfüllung ihres Wunsches, falls er mitgekommen ist. Auf Etage k kann
+     immer nur der Wunsch von tenantOf(k) selbst erfüllt werden (checkWishes
+     prüft wishKey gegen where===k, und where ist nur für die eigene Etage k
+     gleich k). Dieser eine Treffer muss VOR checkTenant geprüft werden:
+     pasteEntries hat alle Einträge schon in roomOf(k) — ruft man stattdessen
+     erst mit einer nicht passenden id auf, sieht deren renderWishes() den
+     Wunschgegenstand schon im Raum liegen und markiert ihn über wishOpen
+     still als erfüllt, ohne die drei Haselnüsse zu zahlen. */
+  const t = tenantOf(k);
+  if (!t.roofWish) { const wishId = ids.find(id => wishKey(id) === t.wish); if (wishId) checkWishes(wishId, k); }
+  checkTenant(k);
+  renderWishes(); renderResidents();
+  deselect(); sfx.pop(); save(); updateHUD();
+  toast(`Die Wohnung von Stockwerk ${flLabel(clip.from)} ist eingezogen!`);
+}
+let pasteTarget = null;
+function pasteRoom() {
+  if (!edit || edit.k === 'roof' || edit.k === 'garten' || !clip || clip.from === edit.k) return;
+  const k = edit.k;
+  if (!roomOf(k).length) { doPaste(k, false); return; }
+  pasteTarget = k;
+  $('pasteask-text').textContent =
+    `In Stockwerk ${flLabel(k)} stehen schon ${roomOf(k).length} Sachen. Soll die kopierte Wohnung dazukommen oder alles ersetzen?`;
+  $('pasteask').classList.add('open');
+}
+$('btn-roompaste').onclick = pasteRoom;
+function closePasteAsk() { $('pasteask').classList.remove('open'); pasteTarget = null; }
+$('paste-cancel').onclick = closePasteAsk;
+$('pasteask').onclick = e => { if (e.target === $('pasteask')) closePasteAsk(); };
+$('paste-add').onclick = () => { const k = pasteTarget; closePasteAsk(); if (k !== null) doPaste(k, false); };
+$('paste-replace').onclick = () => { const k = pasteTarget; closePasteAsk(); if (k !== null) doPaste(k, true); };
+
 /* Die Reihe zeigt «Standard» plus die Palette; die Punkte tragen den Farbwert
    der MAT-Instanz, damit kein zweiter Ort eine Farbe festlegt. */
 function renderColorPick() {
@@ -1204,6 +1317,7 @@ function addItem(id, build) {
   /* Der Bauplan wird kopiert, nicht verwiesen: ein späteres Ändern oder
      Löschen des Entwurfs lässt aufgestellte Möbel unberührt. */
   if (id === 'eigenbau') entry.build = JSON.parse(JSON.stringify(normalizeBuild(build) || { parts: [] }));
+  if (id === 'pool') entry.fill = 0;
   if (WALL_ITEMS.has(id)) {
     entry.wall = wallTarget === 'alle' ? 'back' : wallTarget;
     entry.y = id === 'fenster' ? 1.05 : 1.2;
@@ -1396,7 +1510,6 @@ function checkWishes(placedId, k) {
     if (where === k && t.wish === wishKey(placedId)) {
       state.fulfilled[i] = true; state.nuts += 3;
       toast('Wunsch erfüllt! +3 Haselnüsse'); sfx.chime(true);
-      if (placedId === 'pool') sfx.splash();
       save(); } }
   renderWishes(); updateHUD();
 }
@@ -1482,6 +1595,24 @@ $('btn-aniclose').onclick = () => $('animals').classList.remove('open');
 $('animals').onclick = e => { if (e.target === $('animals')) $('animals').classList.remove('open'); };
 $('btn-resclose').onclick = () => $('residents').classList.remove('open');
 $('residents').onclick = e => { if (e.target === $('residents')) $('residents').classList.remove('open'); };
+
+/* ---------- Bach -> Splashdown (#46) ----------
+   Splashdown ist ein eigenes Spiel unter derselben Domain, in einem anderen
+   Pfad. Der Rückweg wird als Query-Parameter mitgegeben; Splashdown darf ihn
+   heute noch ignorieren — dann führt der Rückweg über die Zurück-Taste und
+   den «More Games…»-Link (siehe Spec, Abschnitt «Abhängigkeit»). */
+const SPLASHDOWN_URL = 'https://github.freaxnx01.ch/game-splashdown/';
+function askSplashdown() { $('splash-ask').classList.add('open'); sfx.pop(); }
+function gotoSplashdown() {
+  schreibeStand();   /* NICHT save() — das ist um 300 ms entprellt und stirbt mit dem Dokument */
+  sfx.splash();
+  const back = new URL('.', location.href).href;
+  location.href = SPLASHDOWN_URL + '?zurueck=' + encodeURIComponent(back)
+    + '&zurueck-name=' + encodeURIComponent('Wipfelkratzer');
+}
+$('btn-splash-go').onclick = gotoSplashdown;
+$('btn-splash-stay').onclick = () => { $('splash-ask').classList.remove('open'); sfx.pop(); };
+$('splash-ask').onclick = e => { if (e.target === $('splash-ask')) $('splash-ask').classList.remove('open'); };
 
 /* Party */
 let party = false; const dancers = [];
@@ -1728,7 +1859,7 @@ renderer.domElement.addEventListener('pointerup', e => {
     if (th.length) { let o = th[0].object; while (o && !(o.userData && o.userData.type === 'tenant')) o = o.parent;
       if (o) { tenantTalk(o.userData.floor); return; } }
   }
-  const hits = ray.intersectObjects([...hitboxes, sign, willi, dam, moki], true);
+  const hits = ray.intersectObjects([...hitboxes, sign, willi, dam, moki, river], true);
   for (const h of hits) {
     let o = h.object; while (o && !(o.userData && o.userData.type)) o = o.parent;
     if (!o) continue; const u = o.userData;
@@ -1736,6 +1867,7 @@ renderer.domElement.addEventListener('pointerup', e => {
     if (u.type === 'willi') { williTalk(); return; }
     if (u.type === 'dam') { damTalk(); return; }
     if (u.type === 'moki') { mokiTalk(); return; }
+    if (u.type === 'bach') { askSplashdown(); return; }
     if (u.type === 'roof') { enterEdit('roof'); return; }
     if (u.type === 'garten') { if (state.garden) { enterEdit('garten'); return; } continue; }
     if (u.type === 'floor') { if (u.floor <= state.floors) { enterEdit(u.floor); return; } continue; }
@@ -2115,7 +2247,7 @@ for (let i = 0; i <= MAXF; i++) if (floorGroups[i]) applyLook(i);
 if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
 window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, gartenG, gardenEdge, scene, camera, controls, WALL_KEYS, FURN_COLORS, TINTABLE,
-  GARDEN: { pos: GARDEN_POS, w: GARDEN_W, d: GARDEN_D }, riverZ, placeItemMesh, clampEntry, removeItem,
+  GARDEN: { pos: GARDEN_POS, w: GARDEN_W, d: GARDEN_D }, riverZ, river, placeItemMesh, clampEntry, removeItem,
   MAT, SEASONS, LEAVES, setSeason, setNight, ground,
   riverMats: { sand: riverSandMat, water: riverWaterMat, foam: riverFoamMat },
   leafColors: () => LEAVES.map(e => e.mat.color.getHexString()),
@@ -2126,16 +2258,87 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
-  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove,
+  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, roomOf, get clip() { return clip; },
+  poolEntries: () => roomOf('roof').filter(e => e.id === 'pool'),
+  get magpiePhase() { return magPhase; }, MAGPIE_DUR, magpie,
   photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename },
   staende, stand: STAND, speichern: schreibeStand, speichernFotos: savePhotos, get fotos() { return photos; },
-  standBild, merkeStandBild, renderStaende };
+  standBild, merkeStandBild, renderStaende,
+  /* Debug-Trefferprobe für Playwright-Checks (#46): denselben Strahl und dieselbe
+     Objektliste wie der pointerup-Handler nehmen, ohne eine Aktion auszulösen. */
+  pickAt(nx, ny) {
+    ray.setFromCamera(new THREE.Vector2(nx, ny), camera);
+    const hs = ray.intersectObjects([...hitboxes, sign, willi, dam, moki, river], true);
+    for (const h of hs) { let o = h.object; while (o && !(o.userData && o.userData.type)) o = o.parent;
+      if (o) return o.userData.type; }
+    return null;
+  },
+  askSplashdown, SPLASHDOWN_URL };
 /* Setzt die Jahreszeit ohne Überblendung (seasonFrom === seasonTo) und ruft am
    Ende applyNight(nightK) — das ersetzt den früheren Erstaufruf von applyNight. */
 applySeason(1);
 applyFronts();
 makeThumbs();
 renderWishes(); renderResidents(); updateHUD();
+
+/* Elses flight logic (#45) */
+function thirstyPool() {
+  for (const en of roomOf('roof'))
+    if (en.id === 'pool' && poolFill(en) < 1) return en;
+  return null;
+}
+function poolMeshOf(en) {
+  return itemMeshes.roof.find(m => m.userData.pick && m.userData.pick.entry === en) || null;
+}
+const poolAir = m => { roofG.updateWorldMatrix(true, false);
+  const v = new THREE.Vector3(); m.getWorldPosition(v); v.y += 1.1; return v; };
+const scoopAir = () => new THREE.Vector3(SCOOP.x, SCOOP.cruiseY, riverZ(SCOOP.x));
+const scoopLow = () => new THREE.Vector3(SCOOP.x, SCOOP.y, riverZ(SCOOP.x));
+function magArc(a, b, lift) {
+  const mid = a.clone().lerp(b, 0.5); mid.y = Math.max(a.y, b.y) + lift;
+  return new THREE.CatmullRomCurve3([a.clone(), mid, b.clone()], false, 'catmullrom', 0.5);
+}
+function magpieEnter(phase) {
+  magPhase = phase; magT = 0;
+  const here = magpie.position.clone();
+  if (phase === 'holen') { magCurve = magArc(here, scoopAir(), 1.6); if (!magToast) { magToast = true; toast('Else holt Wasser für den Pool!'); } }
+  if (phase === 'schoepfen') magCurve = magArc(scoopAir(), scoopLow(), 0.15);
+  if (phase === 'bringen') {
+    const en = thirstyPool(), m = en && poolMeshOf(en);
+    magTarget = en; magCurve = m ? magArc(scoopLow(), poolAir(m), 2.4) : null;
+    if (!magCurve) { magPhase = 'kreis'; magOffset = Math.atan2(here.z, here.x) - clock.elapsedTime * 0.3; }
+  }
+  if (phase === 'kreis') magOffset = Math.atan2(here.z, here.x) - clock.elapsedTime * 0.3;
+}
+function magpieAdvance() {
+  if (magPhase === 'holen') { magpieEnter('schoepfen'); return; }
+  if (magPhase === 'schoepfen') {
+    magInner.userData.bucketWater.visible = true;
+    sfx.whoosh();
+    magpieEnter('bringen'); return;
+  }
+  if (magPhase === 'bringen') {
+    if (!magTarget || roomOf('roof').indexOf(magTarget) < 0) { magpieEnter('kreis'); return; }
+    magpieEnter('giessen'); return;
+  }
+  if (magPhase === 'giessen') {
+    magInner.userData.bucket.rotation.z = 0;
+    magInner.userData.bucketWater.visible = false;
+    magpieEnter(thirstyPool() ? 'holen' : 'kreis'); return;
+  }
+  magpieEnter('kreis');
+}
+function pourBucket() {
+  const en = magTarget;
+  magInner.userData.bucketWater.visible = false;
+  sfx.splash();
+  if (!en || roomOf('roof').indexOf(en) < 0) return;
+  en.fill = Math.min(POOL_TRIPS, (en.fill | 0) + 1);
+  const m = poolMeshOf(en);
+  if (m && m.userData.setFill) m.userData.setFill(poolFill(en));
+  if (en.fill >= POOL_TRIPS) { toast('Der Pool ist voll — Piet und Jan können baden!'); sfx.chime(true); magToast = false; }
+  save();
+}
 
 /* ---------- Loop ---------- */
 const clock = new THREE.Clock();
@@ -2145,11 +2348,29 @@ function tick() {
   for (let i = tweens.length - 1; i >= 0; i--) { const tw = tweens[i]; tw.t += dt;
     let k = Math.min(tw.t / tw.dur, 1); k = k * k * (3 - 2 * k);
     tw.step(k); if (tw.t >= tw.dur) { tweens.splice(i, 1); if (tw.done) tw.done(); } }
-  const mr = 10 + state.floors * 0.4, ma = t * 0.3;
-  const mh = topY() + 2.6 + Math.sin(t * 0.7) * 0.4;
-  const nx = Math.cos(ma + 0.08) * mr, nz = Math.sin(ma + 0.08) * mr;
-  magpie.position.set(Math.cos(ma) * mr, mh, Math.sin(ma) * mr);
-  magpie.lookAt(nx, mh, nz);
+  if (magPhase === 'kreis') {
+    const mr = 10 + state.floors * 0.4, ma = t * 0.3 + magOffset;
+    const mh = topY() + 2.6 + Math.sin(t * 0.7) * 0.4;
+    const nx = Math.cos(ma + 0.08) * mr, nz = Math.sin(ma + 0.08) * mr;
+    magpie.position.set(Math.cos(ma) * mr, mh, Math.sin(ma) * mr);
+    magpie.lookAt(nx, mh, nz);
+    if (thirstyPool()) magpieEnter('holen');
+  } else {
+    magT += dt;
+    const dur = MAGPIE_DUR[magPhase] || 1;
+    let k = Math.min(magT / dur, 1); k = k * k * (3 - 2 * k);
+    if (magCurve) {
+      const p = magCurve.getPointAt(k), q = magCurve.getPointAt(Math.min(k + 0.02, 1));
+      magpie.position.copy(p);
+      if (p.distanceToSquared(q) > 1e-6) magpie.lookAt(q);
+    }
+    if (magPhase === 'giessen') {
+      const bk = magInner.userData.bucket;
+      bk.rotation.z = -2.2 * Math.sin(k * Math.PI);
+      if (!magPoured && k >= 0.5) { magPoured = true; pourBucket(); }
+    } else magPoured = false;
+    if (magT >= dur) magpieAdvance();
+  }
   magInner.userData.wings.forEach((w, i) => w.rotation.x = Math.sin(t * 9 + i) * 0.55);
   critters.forEach(c => { c.g.position.y = c.base + Math.abs(Math.sin(t * 2.2 + c.ph)) * 0.03; });
   /* Der Auswahlrahmen misst sich nur auf update() neu — beim wackelnden Tier
