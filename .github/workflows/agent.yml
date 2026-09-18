@@ -21,7 +21,7 @@ jobs:
       pipeline-ref: v2
       # Hard cap on the whole job. Raised from the upstream default of 30 so
       # claude-timeout-minutes below still has room under it.
-      timeout-minutes: 50
+      timeout-minutes: 80
       # The agent's own wall-clock cap, distinct from the job's. It defaults to
       # 10 minutes, which was harmless only while the pipeline was dropping it
       # on the floor (agent-workflow#341, fixed in v2.0.5) — now that it applies,
@@ -32,5 +32,9 @@ jobs:
       # 25:00 on Opus with the implementation finished and three commits on its
       # branch, mid-verification, before it could open a PR. Kept under the job's
       # cap above so the agent is stopped first and the run still reports a result.
+      # 40 held for four issues of 34-47k plan size (#45 #46 #48 #50, all green)
+      # but not beyond: #64 (31k) was cut off mid-run and only survived because
+      # it had pushed after every task, and #52 (64k, the largest plan in this
+      # repo) timed out twice — the second time with nothing pushed at all.
       # Revisit if agent-workflow#311 raises the upstream default.
-      claude-timeout-minutes: 40
+      claude-timeout-minutes: 70
