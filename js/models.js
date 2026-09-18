@@ -19,6 +19,31 @@ export const GMAT = {
   fl: [L(0xe6604d), L(0xe6a0b8), L(0xf0c04d), L(0xffffff), L(0xb27fd4)],
 };
 
+/* Jahreszeiten (#50). `leaf` ist bewusst ein *Delta* auf die bestehende
+   HSL-Formel der Baumkronen (makeTree/makeTallTree) und keine feste Farbe: so
+   bleibt der Jitter von Baum zu Baum erhalten, und der Sommer ist nachweislich
+   identisch mit heute (dh = 0, ks = 1, dl = 0). Die Sommerzeile ist aus den
+   heutigen Konstanten in game.js abgeschrieben — Boden, Hemisphärengrund,
+   Himmel und die drei Bachbänder. */
+export const SEASONS = [
+  { id: 'fruehling', name: 'Frühling',
+    leaf: { dh: -0.010, ks: 1.15, dl: 0.08 },
+    ground: 0x9fc776, hemiGround: 0xa9c886, sky: 0xd7e9c9,
+    sand: 0xc9b083, water: 0x5aa7c7, foam: 0x7fc4dd },
+  { id: 'sommer', name: 'Sommer',
+    leaf: { dh: 0.000, ks: 1.00, dl: 0.00 },
+    ground: 0x8fbb6e, hemiGround: 0x9dbb7a, sky: 0xcfe3c2,
+    sand: 0xc9b083, water: 0x5aa7c7, foam: 0x7fc4dd },
+  { id: 'herbst', name: 'Herbst',
+    leaf: { dh: -0.215, ks: 1.60, dl: 0.05 },
+    ground: 0xb0a76a, hemiGround: 0xb5aa72, sky: 0xdcd9b8,
+    sand: 0xc0a679, water: 0x53929f, foam: 0x84b6c4 },
+  { id: 'winter', name: 'Winter',
+    leaf: { dh: 0.020, ks: 0.16, dl: 0.34 },
+    ground: 0xe6ecef, hemiGround: 0xd3dde4, sky: 0xd3dbe6,
+    sand: 0xe0e4e6, water: 0x9fc4d2, foam: 0xd8e6ec },
+];
+
 /* Palette für einfärbbare Möbel. Jeder Eintrag verweist auf eine bestehende
    MAT-Instanz — es wird nie eine neue erzeugt und nie eine mutiert, sonst
    färbt sich der halbe Turm mit. */
@@ -499,13 +524,23 @@ const FURN = {
   pool() { const g = G();
     const outer = poolOutline(), lining = poolInset(outer, 0.07), water = poolInset(outer, 0.11), rim = poolInset(outer, -0.04);
     poolSlab(g, outer, lining, 0.36, MAT.wood, 0); poolSlab(g, lining, water, 0.36, POOL_TILE, 0);
-    poolSlab(g, water, null, 0.29, MAT.water, 0); poolSlab(g, rim, water, 0.06, MAT.woodL, 0.36);
+    const wat = poolSlab(g, water, null, 0.29, MAT.water, 0); poolSlab(g, rim, water, 0.06, MAT.woodL, 0.36);
     const surf = G(); g.add(surf); surf.position.y = 0.29;
     [[0.05, -0.05, 0.06, 0.15], [0.14, 0.22, 0.055, -0.2], [-0.15, 0.2, 0.05, 0.3], [0.4, -0.22, 0.04, 0.1]].forEach(([x, z, r, a]) => poolRipple(surf, x, z, r, a));
-    poolFrogSwimming(surf, -0.36, -0.02, 0.9); poolFrogPeeking(surf, 0.4, 0.12, -0.4);
+    const frogs = G(); surf.add(frogs);
+    poolFrogSwimming(frogs, -0.36, -0.02, 0.9); poolFrogPeeking(frogs, 0.4, 0.12, -0.4);
     const lad = G(); g.add(lad); lad.position.set(Math.max(...rim.map(p => p.x)) - 0.028, 0, 0);
     [-0.09, 0.09].forEach(z => cyl(lad, 0.022, 0.022, 0.75, MAT.grey, 0.05, 0.38, z));
     for (let i = 0; i < 3; i++) box(lad, 0.03, 0.03, 0.18, MAT.grey, 0.05, 0.18 + i * 0.2, 0);
+    g.userData.setFill = f => {
+      f = Math.max(0, Math.min(1, f));
+      wat.visible = f > 0.001;
+      wat.scale.z = Math.max(f, 0.001);
+      surf.position.y = 0.29 * f;
+      surf.visible = f > 0.2;
+      frogs.visible = f >= 0.999;
+    };
+    g.userData.setFill(1);
     return g; },
   liegestuhl(body = MAT.red) { const g = G();
     /* Seitenprofil als Punkte [z, y]: Fussende F, Knick K, Kopfende T; Beine stehen bei GF/GB auf dem Boden.
@@ -775,10 +810,21 @@ export function makeWilli() {
   return g;
 }
 
+/* Alle Laubmaterialien des Waldes samt ihrer Sommer-Basis in HSL. Jeder Baum
+   hat wegen des Jitters seine eigene Instanz — deshalb ein Register statt eines
+   geteilten MAT-Eintrags: MAT.leaf/MAT.leafD stecken in der Zimmerpflanze, in
+   Bücherrücken und im Spielplatz und dürfen nie mitgefärbt werden (#50). */
+export const LEAVES = [];
+function leafMat(h, s, l) {
+  const m = L(new THREE.Color().setHSL(h, s, l));
+  LEAVES.push({ mat: m, h, s, l });
+  return m;
+}
+
 export function makeTree(s = 1, seed = 0) {
   const g = G(); const j = (seed * 37) % 10 / 10;
   cyl(g, 0.14 * s, 0.2 * s, 1.6 * s, MAT.woodD, 0, 0.8 * s, 0, 10);
-  const lf = L(new THREE.Color().setHSL(0.28 + j * 0.06, 0.42, 0.38 + j * 0.12));
+  const lf = leafMat(0.28 + j * 0.06, 0.42, 0.38 + j * 0.12);
   sph(g, 0.75 * s, lf, 0, 1.9 * s, 0, 1, 1.15, 1);
   sph(g, 0.5 * s, lf, 0.5 * s, 1.5 * s, 0.1 * s);
   sph(g, 0.45 * s, lf, -0.45 * s, 1.6 * s, -0.1 * s);
@@ -788,7 +834,7 @@ export function makeTree(s = 1, seed = 0) {
 export function makeTallTree(h, seed = 0) {
   const g = G(); const j = ((seed * 37) % 10) / 10;
   cyl(g, 0.22 + j * 0.12, 0.4 + j * 0.18, h * 0.78, MAT.woodD, 0, h * 0.39, 0, 10);
-  const lf = L(new THREE.Color().setHSL(0.27 + j * 0.07, 0.4, 0.3 + j * 0.15));
+  const lf = leafMat(0.27 + j * 0.07, 0.4, 0.3 + j * 0.15);
   sph(g, h * 0.16, lf, 0, h * 0.86, 0, 1, 1.2, 1);
   sph(g, h * 0.12, lf, h * 0.1, h * 0.72, h * 0.03);
   sph(g, h * 0.11, lf, -h * 0.09, h * 0.76, -h * 0.04);
@@ -811,8 +857,12 @@ export function makeMagpie() {
   const bucket = G(); g.add(bucket); bucket.position.set(0.1, -0.32, 0);
   cyl(bucket, 0.09, 0.07, 0.12, MAT.red, 0, 0, 0, 14);
   mesh(new THREE.TorusGeometry(0.08, 0.012, 6, 14, Math.PI), MAT.grey, 0, 0.06, 0, bucket);
+  const bucketWater = cyl(bucket, 0.075, 0.06, 0.02, MAT.water, 0, 0.04, 0, 14);
+  bucketWater.visible = false;
   cyl(g, 0.008, 0.008, 0.2, MAT.grey, 0.08, -0.18, 0);
   g.userData.wings = wings;
+  g.userData.bucket = bucket;
+  g.userData.bucketWater = bucketWater;
   return g;
 }
 
