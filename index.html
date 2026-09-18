@@ -189,7 +189,10 @@
   /* Toast — bleibt offen, bis er weggetippt wird; Stapel über Werkzeug- und
      Auswahlleiste, deren gemessene Höhen er wie #catalog mitrechnet. Der
      Container selbst ist klickdurchlässig, nur die Toasts fangen Tipps ab. */
-  #toast-stack { position: fixed; bottom: calc(var(--toolbar-h, 60px) + 16px + var(--selbar-h, 0px) + 10px); left: 50%; transform: translateX(-50%); z-index: 9;
+  /* Über der Turm-Übersicht (z-index 25): Meldungen beim Einlesen entstehen,
+     während die Übersicht offen ist — darunter wären sie abgedunkelt und
+     liessen sich nicht wegtippen. */
+  #toast-stack { position: fixed; bottom: calc(var(--toolbar-h, 60px) + 16px + var(--selbar-h, 0px) + 10px); left: 50%; transform: translateX(-50%); z-index: 26;
     display: flex; flex-direction: column-reverse; align-items: center; gap: 8px; width: max-content; max-width: 90vw; max-height: 60vh; overflow-y: auto; pointer-events: none; }
   .toast-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 16px; font-size: 16px; font-weight: 700; cursor: pointer; animation: toast-in .3s; pointer-events: auto; }
   .toast-close { min-width: 44px; min-height: 44px; padding: 0; border-radius: 50%; font-size: 20px; line-height: 1; flex-shrink: 0; }
@@ -357,6 +360,8 @@
     <p id="stand-voll" class="hidden">Mehr als vier Türme passen nicht. Lösche zuerst einen.</p>
     <div id="staende-actions">
       <button id="btn-stand-neu">Neuer Turm</button>
+      <button id="btn-stand-import">Turm einlesen</button>
+      <input id="stand-datei" class="hidden" type="file" accept="application/json,.json">
       <button id="btn-standclose" class="primary">Zu</button>
     </div>
   </div>
