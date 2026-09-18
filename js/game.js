@@ -6,6 +6,7 @@ import { MAT, SEASONS, LEAVES, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_CO
   makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge } from './models.js';
 import { zipStore } from './zip.js';
 import * as staende from './staende.js';
+import { baueDatei, dateiName } from './standdatei.js';
 
 /* ---------- Konstanten ---------- */
 const PLAT_Y = 2.2, E_H = 2.4, FLOOR_H = 2.0;
@@ -2251,6 +2252,48 @@ function renderStaende() {
   $('btn-stand-neu').disabled = voll;
   $('stand-voll').classList.toggle('hidden', !voll);
 }
+/* ---------- Turm sichern ---------- */
+/* Liest den Turm aus seinen Schlüsseln — auch einen, der gerade nicht gespielt
+   wird. Beim aktiven Turm vorher schreiben: save() ist um 300 ms entprellt
+   (js/game.js:143), sonst fehlten der Datei die letzten Handgriffe. */
+function standDatei(eintrag, mitFotos) {
+  if (eintrag.id === STAND.id) schreibeStand();
+  let stand = {}, fotos = null;
+  try { stand = JSON.parse(localStorage.getItem(eintrag.standKey) || '{}'); } catch (e) { stand = {}; }
+  if (mitFotos) {
+    try { fotos = JSON.parse(localStorage.getItem(eintrag.fotoKey) || '[]'); } catch (e) { fotos = []; }
+    if (!Array.isArray(fotos)) fotos = [];
+  }
+  const datei = baueDatei({ name: eintrag.name, bild: eintrag.bild, stand, fotos });
+  return { text: JSON.stringify(datei), name: dateiName(eintrag.name) };
+}
+
+/* Zwei Wege: Tablets bekommen das System-Sheet, alles andere eine Datei.
+   Ein Blob statt einer Data-URL, weil iOS-Safari grosse Data-URLs in einem
+   neuen Tab öffnet statt sie zu sichern. */
+async function exportiereStand(eintrag, mitFotos) {
+  const { text, name } = standDatei(eintrag, mitFotos);
+  const blob = new Blob([text], { type: 'application/json' });
+  try {
+    if (navigator.canShare && navigator.share) {
+      const f = new File([blob], name, { type: 'application/json' });
+      if (navigator.canShare({ files: [f] })) {
+        /* Ein Abbruch im Sheet ist kein Fehler — das Kind hat es sich anders
+           überlegt, und ein zusätzlicher Download wäre erst recht verwirrend. */
+        try { await navigator.share({ files: [f], title: eintrag.name }); }
+        catch (e) { if (e && e.name !== 'AbortError') toast('Das Sichern hat nicht geklappt.'); }
+        return;
+      }
+    }
+  } catch (e) {}
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  toast('Der Turm ist als Datei gesichert.');
+}
+
 function oeffneStaende() {
   merkeStandBild();
   renderStaende();
@@ -2395,7 +2438,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   get magpiePhase() { return magPhase; }, MAGPIE_DUR, magpie,
   photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename },
   staende, stand: STAND, speichern: schreibeStand, speichernFotos: savePhotos, get fotos() { return photos; },
-  standBild, merkeStandBild, renderStaende,
+  standBild, merkeStandBild, renderStaende, standDatei, exportiereStand,
   /* Debug-Trefferprobe für Playwright-Checks (#46): denselben Strahl und dieselbe
      Objektliste wie der pointerup-Handler nehmen, ohne eine Aktion auszulösen. */
   pickAt(nx, ny) {
