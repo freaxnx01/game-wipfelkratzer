@@ -6,7 +6,7 @@ import { MAT, SEASONS, LEAVES, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_CO
   makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge } from './models.js';
 import { zipStore } from './zip.js';
 import * as staende from './staende.js';
-import { baueDatei, dateiName } from './standdatei.js';
+import { baueDatei, dateiName, pruefeDatei, MAX_DATEI } from './standdatei.js';
 
 /* ---------- Konstanten ---------- */
 const PLAT_Y = 2.2, E_H = 2.4, FLOOR_H = 2.0;
@@ -2309,6 +2309,51 @@ function exportGroesse(eintrag) {
   return { ohne: lesbar(stand), mit: lesbar(stand + laenge(eintrag.fotoKey)) };
 }
 
+/* ---------- Turm einlesen ---------- */
+/* Ein Import geht immer in einen freien Platz — überschrieben wird nie.
+   Schlägt das Schreiben fehl (voller Speicher), wird der eben angelegte Turm
+   wieder entfernt, damit keine Ruine stehen bleibt. */
+function importiereText(text) {
+  const geprüft = pruefeDatei(text);
+  if (!geprüft.ok) { toast(geprüft.grund); return { ok: false, grund: geprüft.grund }; }
+  const d = geprüft.datei;
+  const idx = staende.ladeIndex();
+  const name = idx.staende.some(e => e.name === d.name) ? d.name + ' (eingelesen)' : d.name;
+  const eintrag = staende.neuerStand(name);
+  if (!eintrag) {
+    const grund = 'Es sind schon vier Türme da — lösche zuerst einen.';
+    toast(grund); return { ok: false, grund };
+  }
+  let ok = true;
+  try { localStorage.setItem(eintrag.standKey, JSON.stringify(d.stand)); } catch (e) { ok = false; }
+  if (ok && d.fotos) { try { localStorage.setItem(eintrag.fotoKey, JSON.stringify(d.fotos)); } catch (e) { ok = false; } }
+  if (!ok) {
+    staende.loescheStand(eintrag.id);
+    const grund = 'Der Speicher ist voll — lösche ein paar Fotos oder einen Turm.';
+    toast(grund); renderStaende(); return { ok: false, grund };
+  }
+  if (d.bild) staende.merkeBild(eintrag.id, d.bild);
+  renderStaende();
+  toast('«' + name + '» ist da. Tippe auf «Weiterbauen», um hinzugehen.');
+  return { ok: true, eintrag };
+}
+
+/* Auf dem Tablet gibt es kein Ziehen von Dateien — der Dateidialog ist der
+   einzige Weg, der auf iPad und Rechner gleich funktioniert. */
+function importiereDatei(file) {
+  if (!file) return;
+  if (file.size > MAX_DATEI) { toast('Diese Datei ist zu gross.'); return; }
+  const leser = new FileReader();
+  leser.onload = () => importiereText(String(leser.result || ''));
+  leser.onerror = () => toast('Diese Datei liess sich nicht lesen.');
+  leser.readAsText(file);
+}
+$('btn-stand-import').onclick = () => $('stand-datei').click();
+$('stand-datei').onchange = ev => {
+  importiereDatei(ev.target.files && ev.target.files[0]);
+  ev.target.value = '';   /* sonst löst dieselbe Datei kein zweites Mal aus */
+};
+
 function oeffneStaende() {
   merkeStandBild();
   renderStaende();
@@ -2471,7 +2516,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   get magpiePhase() { return magPhase; }, MAGPIE_DUR, magpie,
   photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename },
   staende, stand: STAND, speichern: schreibeStand, speichernFotos: savePhotos, get fotos() { return photos; },
-  standBild, merkeStandBild, renderStaende, standDatei, exportiereStand,
+  standBild, merkeStandBild, renderStaende, standDatei, exportiereStand, importiereText,
   /* Debug-Trefferprobe für Playwright-Checks (#46): denselben Strahl und dieselbe
      Objektliste wie der pointerup-Handler nehmen, ohne eine Aktion auszulösen. */
   pickAt(nx, ny) {
