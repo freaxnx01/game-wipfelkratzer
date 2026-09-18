@@ -14,6 +14,14 @@ All notable changes to this project are documented here, following
   «wipfelkratzer-<Turmname>-<Datum>.json» — auf dem Tablet über das gewohnte
   Teilen-Fenster, am Rechner als Download. Sichern lässt sich jeder Turm, auch
   einer, an dem gerade nicht gebaut wird; gewechselt wird dabei nicht (#78)
+- Eine gesicherte Turm-Datei lässt sich jetzt wieder einlesen. In «Meine Türme»
+  holt «Turm einlesen» sie zurück — immer auf einen freien Platz, ein
+  bestehender Turm wird also nie überschrieben. Der eingelesene Turm steht
+  danach als neue Karte da, mit seinen Möbeln, Tapeten und Fotos; hingehen
+  kannst du mit «Weiterbauen». Auch ein Turm aus einer älteren Version des
+  Spiels kommt sauber zurück. Sind schon vier Türme da, sagt das Spiel, dass
+  zuerst einer gelöscht werden muss. Eine kaputte oder fremde Datei wird
+  freundlich abgelehnt und ändert nichts an dem, was du gebaut hast (#79)
 - Möbel lassen sich jetzt einfach an ihren Platz ziehen: erst antippen, dann
   mit Maus oder Finger verschieben — und mit dem Mausrad drehen, solange der
   Zeiger darauf liegt. Bilder und Fenster wandern dabei der Wand entlang und in

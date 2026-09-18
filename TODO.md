@@ -5,6 +5,8 @@
 - [ ] Tag/Nacht mit Beleuchtung (Innenlicht, Lampen leuchten richtig)
 - [ ] Wetter (Regen, Wind, Schnee)
 - [ ] Material sammeln: Willi nagt Äste, Schilf, Gras — Bauen kostet Material
+- [ ] Auf dem iPad einmal von Hand prüfen: «Sichern» legt über das Share-Sheet
+      eine .json in «Dateien» ab, und «Turm einlesen» findet sie dort wieder (#79)
 
 ## Erledigt
 - [x] Pool: Dachterrasse ist jetzt von Anfang an oben auf dem Turm einrichtbar (Katalog «Dach»)
@@ -35,6 +37,8 @@
 - [x] Fenster, Badewanne und Lampe sind schaltbar — mit Geräusch, gespeichert, und bei Nacht sieht man das Licht von aussen (#41)
 - [x] Schreinerei: eigene Möbel aus Bauteilen stapeln und im Katalog speichern (#43)
 - [x] Mehrere Spielstände nebeneinander — Übersicht «Meine Türme», je eigene Galerie (#53)
+- [x] Turm als Datei sichern (#78) und wieder einlesen — der Import geht immer
+      auf einen freien Platz (#79)
 
 ## Gefunden beim Aufräumen (noch offen)
 
@@ -47,5 +51,10 @@
 - [ ] `wallpaperOf` schreibt `{}` für jedes Stockwerk in den Spielstand (harmlos,
       nur unnötig gross)
 - [ ] Toter Test-Hook `g.userData.doorX`
+- [ ] Den *aktiven* Turm zu löschen hält nicht: der `pagehide`-Haken
+      (`js/game.js:147`) schreibt den Stand aus dem Speicher beim folgenden
+      `location.reload()` wieder auf denselben Schlüssel, der Turm ist danach
+      unverändert da. Stammt aus #53, steht auch auf main so; beim Einlesen
+      (#79) aufgefallen
 - [ ] Aussenfarbe des Turms ist jetzt einheitlich `#f3e2bd`; vorher waren Rück-
       und linke Wand versehentlich leicht heller — bewusst prüfen, ob das gefällt
