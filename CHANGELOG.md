@@ -8,6 +8,12 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- Ein Turm lässt sich jetzt als Datei sichern. In «Meine Türme» steht auf jeder
+  Karte ein Knopf «Sichern»; ein Tipp fragt, ob die Fotos mitkommen sollen, und
+  nennt gleich, wie gross die Datei wird. Heraus kommt eine Datei
+  «wipfelkratzer-<Turmname>-<Datum>.json» — auf dem Tablet über das gewohnte
+  Teilen-Fenster, am Rechner als Download. Sichern lässt sich jeder Turm, auch
+  einer, an dem gerade nicht gebaut wird; gewechselt wird dabei nicht (#78)
 - Möbel lassen sich jetzt einfach an ihren Platz ziehen: erst antippen, dann
   mit Maus oder Finger verschieben — und mit dem Mausrad drehen, solange der
   Zeiger darauf liegt. Bilder und Fenster wandern dabei der Wand entlang und in
