@@ -694,6 +694,15 @@ function replaceMesh(pick) {
   clampEntry(pick.k, pick.mesh, en);
   if (selHelper && selected === pick) selHelper.update();
 }
+/* Der Ablehnungspfad meldet sich nicht mehr selbst: wer die Geste kennt,
+   entscheidet, ob und wie oft gemeldet wird. Ein gezogenes Objekt stösst
+   pro Mausbewegung an und würde sonst 60× pro Sekunde klopfen (#64). */
+let blockGrund = null;
+function meldeBlockade() {
+  sfx.knock();
+  if (blockGrund) toast(blockGrund);
+  blockGrund = null;
+}
 /* Führt eine Bewegung aus und räumt danach die Kollisionen auf.
    Rückgabe: true, wenn der Zug Bestand hat. */
 function applyMove(pick, mutate) {
@@ -701,7 +710,7 @@ function applyMove(pick, mutate) {
   const snap = { x: en.x, z: en.z, y: en.y, rot: en.rot, wall: en.wall };
   mutate();
   const ok = pick.tenant ? resolveTenantMove(pick) : resolveItemMove(pick);
-  if (!ok) { Object.assign(en, snap); replaceMesh(pick); sfx.knock(); }
+  if (!ok) { Object.assign(en, snap); replaceMesh(pick); }
   return ok;
 }
 function resolveTenantMove(pick) { return !tenantBlocked(pick); }
@@ -1341,7 +1350,7 @@ function addItem(id, build) {
     const arr = roomOf(k); const idx = arr.indexOf(entry); if (idx >= 0) arr.splice(idx, 1);
     parentOf(k).remove(m);
     const mi = itemMeshes[k].indexOf(m); if (mi >= 0) itemMeshes[k].splice(mi, 1);
-    sfx.knock(); save(); return;
+    meldeBlockade(); save(); return;
   }
   m.scale.setScalar(0.01);
   tween(0.35, q => { m.scale.setScalar(0.01 + 0.99 * q); if (selHelper) selHelper.update(); });
@@ -1455,7 +1464,7 @@ function resolveItemMove(pick) {
     const snap = { x: ap.entry.x, z: ap.entry.z };
     if (nudgeTenant(ap)) { moved.push({ ap, snap }); continue; }
     moved.forEach(m => { m.ap.entry.x = m.snap.x; m.ap.entry.z = m.snap.z; replaceMesh(m.ap); });
-    toast(`Hier ist kein Platz — ${TENANTS[pick.k].name} steht im Weg!`);
+    blockGrund = `Hier ist kein Platz — ${TENANTS[pick.k].name} steht im Weg!`;
     return false;
   }
   return true;
@@ -1874,6 +1883,128 @@ renderer.domElement.addEventListener('pointerup', e => {
   }
 });
 
+/* ---------- Objekt ziehen (#64) ---------- */
+/* Nur das bereits ausgewählte Objekt lässt sich ziehen, und nur wenn der
+   Zug auf ihm beginnt — sonst bliebe in einer vollen Wohnung keine
+   Fläche mehr übrig, um die Kamera zu drehen. Gilt für Maus und Finger. */
+let ziehen = null;
+const zugEbene = new THREE.Plane();
+const zugVersatz = new THREE.Vector3();
+const zugPunkt = new THREE.Vector3();
+
+function zeigerStrahl(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ptr.set(((e.clientX - r.left) / r.width) * 2 - 1,
+          -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ptr, camera);
+}
+
+/* Liegt der Zeiger auf dem ausgewählten Objekt? Liefert den Weltpunkt
+   des Treffers oder null. */
+function trifftAuswahl(e) {
+  if (!edit || !selected) return null;
+  zeigerStrahl(e);
+  const hits = ray.intersectObject(selected.mesh, true);
+  return hits.length ? hits[0].point.clone() : null;
+}
+
+/* Reihenfolge-Falle: OrbitControls hängt seinen eigenen pointerdown schon beim
+   Aufbau der Szene an renderer.domElement, also vor diesem hier — es hat den
+   Zug bereits begonnen, wenn controls.enabled = false gesetzt wird. Genau
+   deshalb ist `enabled` das Mittel und nicht stopPropagation():
+   OrbitControls.onPointerMove prüft `enabled` bei jeder Bewegung und steigt
+   aus, die Kamera bewegt sich also keinen Pixel. */
+renderer.domElement.addEventListener('pointerdown', e => {
+  const treffer = trifftAuswahl(e);
+  if (!treffer) return;
+  const en = selected.entry;
+  const normale = new THREE.Vector3(0, 1, 0);
+  ziehen = { id: e.pointerId, blockiert: false, wand: null, wandStart: null };
+  if (WALL_ITEMS.has(en.id)) {
+    /* Wandobjekte laufen nicht über eine Bodenebene: en.x führt entlang der
+       Wand, en.y die Höhe. Die Zugebene ist deshalb die Wand selbst. */
+    const pl = wallPlacement(selected.k, en.wall || 'back');
+    normale.set(0, 0, 0); normale[pl.fixedAxis] = 1;
+    ziehen.wand = pl; ziehen.wandStart = treffer.clone();
+  } else {
+    selected.mesh.getWorldPosition(zugPunkt);
+    zugVersatz.copy(treffer).sub(zugPunkt);
+  }
+  zugEbene.setFromNormalAndCoplanarPoint(normale, treffer);
+  controls.enabled = false;
+  renderer.domElement.setPointerCapture(e.pointerId);
+});
+
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!ziehen || e.pointerId !== ziehen.id || !selected) return;
+  zeigerStrahl(e);
+  if (!ray.ray.intersectPlane(zugEbene, zugPunkt)) return;
+  const en = selected.entry;
+  /* en.x/en.y/en.z sind lokal zur Elterngruppe — gartenG trägt GARDEN_POS,
+     die Stockwerksgruppen ihre Höhe. */
+  const eltern = parentOf(selected.k);
+  if (ziehen.wand) { zieheWandobjekt(eltern); return; }
+  zugPunkt.sub(zugVersatz);
+  const lokal = eltern.worldToLocal(zugPunkt.clone());
+  if (!applyMove(selected, () => { en.x = lokal.x; en.z = lokal.z;
+    clampEntry(selected.k, selected.mesh, en); })) {
+    if (!ziehen.blockiert) { ziehen.blockiert = true; meldeBlockade(); }
+    return; }
+  ziehen.blockiert = false;
+  /* Bei einem Tier gehört position.y allein der Wackel-Animation (#39). */
+  if (selected.tenant) { setTenantPos(selected.tenant.floor, selected.tenant.idx, en); }
+  else { en.y = DECO.has(en.id) ? surfaceYAt(selected.k, en.x, en.z, selected.mesh) : baseY(selected.k);
+         selected.mesh.position.y = en.y; }
+  selHelper.update();
+});
+
+/* Der Zug wird als Weg entlang der Wand und in der Höhe gelesen und über
+   moveWallItem geführt, das en.x/en.y kennt und clampEntry, selHelper und
+   save selbst ruft. zugPunkt liegt bereits auf der Wandebene. Der Startpunkt
+   wird nach jedem Schritt nachgezogen, damit die Wege relativ bleiben — sonst
+   liefe das Objekt nach einem Anschlag an clampEntry aus dem Tritt. */
+function zieheWandobjekt(eltern) {
+  const pl = ziehen.wand;
+  const lokal = eltern.worldToLocal(zugPunkt.clone());
+  const start = eltern.worldToLocal(ziehen.wandStart.clone());
+  ziehen.wandStart = zugPunkt.clone();
+  moveWallItem(selected, lokal[pl.freeAxis] - start[pl.freeAxis], lokal.y - start.y);
+}
+
+function zugEnde(e) {
+  if (!ziehen || (e && e.pointerId !== ziehen.id)) return;
+  if (e) { try { renderer.domElement.releasePointerCapture(e.pointerId); } catch (err) {} }
+  ziehen = null;
+  controls.enabled = true;
+  save();
+}
+renderer.domElement.addEventListener('pointerup', zugEnde);
+renderer.domElement.addEventListener('pointercancel', zugEnde);
+
+/* Das Rad dreht nur über dem ausgewählten Objekt — dieselbe Bedingung wie
+   beim Ziehen. Überall sonst zoomt OrbitControls unverändert (#64).
+   Der Handler hängt am Fenster im Capture-Lauf, nicht an der Leinwand:
+   OrbitControls hat seinen eigenen wheel-Handler schon beim Aufbau der Szene
+   an renderer.domElement gehängt und hätte längst gezoomt, bevor ein später
+   registrierter Handler dort überhaupt an die Reihe käme — preventDefault
+   unterbindet nur die Voreinstellung des Browsers, keinen zweiten Handler.
+   Capture auf einem Vorfahren läuft davor und schneidet den Weg mit
+   stopPropagation ab. */
+addEventListener('wheel', e => {
+  if (e.target !== renderer.domElement) return;   /* im Katalog bleibt Scrollen Scrollen */
+  if (!trifftAuswahl(e)) return;
+  const en = selected.entry;
+  if (WALL_ITEMS.has(en.id)) return;   /* Wandobjekte richtet die Wand aus */
+  e.preventDefault(); e.stopPropagation();
+  /* Math.sign statt deltaY: Mäuse, Trackpads und deltaMode 0/1/2 liefern
+     völlig verschiedene Beträge — eine Kerbe soll eine Rasterung sein. */
+  if (!applyMove(selected, () => { en.rot += Math.sign(e.deltaY) * Math.PI / 12;
+    selected.mesh.rotation.y = en.rot;
+    clampEntry(selected.k, selected.mesh, en); })) { meldeBlockade(); return; }
+  if (selected.tenant) setTenantPos(selected.tenant.floor, selected.tenant.idx, en); else save();
+  selHelper.update();
+}, { capture: true, passive: false });
+
 $('btn-build').onclick = buildFloor;
 $('btn-done').onclick = exitEdit;
 $('btn-catalog').onclick = () => {
@@ -1887,7 +2018,7 @@ $('btn-move').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.i
   if (selected.tenant) { const en = selected.entry;
     const cands = tenantSpots(selected.k);
     const far = cands.find(c => Math.hypot(c.x - en.x, c.z - en.z) > 0.4) || cands[0];
-    if (!applyMove(selected, () => { en.x = far.x; en.z = far.z; clampEntry(selected.k, selected.mesh, en); })) return;
+    if (!applyMove(selected, () => { en.x = far.x; en.z = far.z; clampEntry(selected.k, selected.mesh, en); })) { meldeBlockade(); return; }
     setTenantPos(selected.tenant.floor, selected.tenant.idx, en);
     selHelper.update(); sfx.pop(); return; }
   const c = freeCell(selected.k, selected.entry.cell + 1);
@@ -1896,13 +2027,13 @@ $('btn-move').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.i
   if (!applyMove(selected, () => { en.cell = c; const p = cellPos(selected.k, c);
     en.x = p.x; en.z = p.z; en.y = DECO.has(en.id) ? surfaceYAt(selected.k, p.x, p.z, selected.mesh) : baseY(selected.k);
     selected.mesh.position.set(en.x, en.y, en.z);
-    clampEntry(selected.k, selected.mesh, en); })) return;
+    clampEntry(selected.k, selected.mesh, en); })) { meldeBlockade(); return; }
   selHelper.update(); sfx.pop(); save(); };
 $('btn-rot').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.id)) return;
   const en = selected.entry;
   if (!applyMove(selected, () => { en.rot += Math.PI / 2;
     selected.mesh.rotation.y = en.rot;
-    clampEntry(selected.k, selected.mesh, en); })) return;
+    clampEntry(selected.k, selected.mesh, en); })) { meldeBlockade(); return; }
   if (selected.tenant) setTenantPos(selected.tenant.floor, selected.tenant.idx, en); else save();
   selHelper.update(); sfx.pop(); };
 $('btn-color').onclick = () => { if (!selected || !TINTABLE.has(selected.entry.id)) return;
@@ -1928,7 +2059,7 @@ addEventListener('keydown', e => {
   if (st) { e.preventDefault();
     if (WALL_ITEMS.has(en.id)) { moveWallItem(selected, st[0], -st[1]); return; }
     if (!applyMove(selected, () => { en.x += st[0]; en.z += st[1];
-      clampEntry(selected.k, selected.mesh, en); })) return;
+      clampEntry(selected.k, selected.mesh, en); })) { meldeBlockade(); return; }
     /* Bei einem Tier gehört position.y allein der Wackel-Animation (#39). */
     if (selected.tenant) { setTenantPos(selected.tenant.floor, selected.tenant.idx, en); }
     else { en.y = DECO.has(en.id) ? surfaceYAt(selected.k, en.x, en.z, selected.mesh) : baseY(selected.k);
@@ -1937,7 +2068,7 @@ addEventListener('keydown', e => {
   if (e.key === 'PageUp' || e.key === 'PageDown') { e.preventDefault();
     if (!applyMove(selected, () => { en.rot += (e.key === 'PageUp' ? 1 : -1) * Math.PI / 12;
       selected.mesh.rotation.y = en.rot;
-      clampEntry(selected.k, selected.mesh, en); })) return;
+      clampEntry(selected.k, selected.mesh, en); })) { meldeBlockade(); return; }
     if (selected.tenant) setTenantPos(selected.tenant.floor, selected.tenant.idx, en); else save();
     selHelper.update(); return; }
   if (e.key === 'Delete' && !selected.tenant) { e.preventDefault(); removeItem(selected); }
@@ -2258,7 +2389,8 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
-  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, roomOf, get clip() { return clip; },
+  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, get clip() { return clip; },
+  ziehtGerade: () => !!ziehen, zugBlockiert: () => !!(ziehen && ziehen.blockiert),
   poolEntries: () => roomOf('roof').filter(e => e.id === 'pool'),
   get magpiePhase() { return magPhase; }, MAGPIE_DUR, magpie,
   photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename },

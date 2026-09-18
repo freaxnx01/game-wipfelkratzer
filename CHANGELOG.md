@@ -6,6 +6,18 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added
+
+- Möbel lassen sich jetzt einfach an ihren Platz ziehen: erst antippen, dann
+  mit Maus oder Finger verschieben — und mit dem Mausrad drehen, solange der
+  Zeiger darauf liegt. Bilder und Fenster wandern dabei der Wand entlang und in
+  der Höhe, und auch die Tiere lassen sich so an ihren Lieblingsplatz setzen.
+  Steht ein Tier im Weg, rückt es zur Seite; ist nirgends Platz, bleibt das
+  Möbel stehen, statt sich durchzudrängen — und das Klopfen kommt einmal und
+  nicht im Dauerlauf.
+  Pfeiltasten und Knöpfe funktionieren unverändert weiter, und überall sonst
+  dreht ein Zug wie bisher die Kamera (#64)
+
 ## [0.8.0] - 2026-09-18
 
 ### Added
