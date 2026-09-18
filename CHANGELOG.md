@@ -6,6 +6,8 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-18
+
 ### Added
 
 - Der Wald kennt jetzt Jahreszeiten. Ein neuer Knopf in der Werkzeugleiste
