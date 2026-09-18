@@ -6,6 +6,8 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-18
+
 ### Added
 
 - Ein Turm lässt sich jetzt als Datei sichern. In «Meine Türme» steht auf jeder
