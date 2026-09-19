@@ -2388,11 +2388,17 @@ function wechsleZu(id) {
   if (!staende.wähleStand(id)) { toast('Dieser Turm ist nicht mehr da.'); renderStaende(); return; }
   location.reload();
 }
-$('btn-stand-neu').onclick = () => {
+function legeTurmAn() {
   const e = staende.neuerStand();
   if (!e) { toast('Mehr als vier Türme passen nicht — lösche zuerst einen.'); renderStaende(); return; }
   wechsleZu(e.id);
-};
+}
+$('btn-stand-neu').onclick = legeTurmAn;
+/* Ein leerer Bauplatz auf der Karte tut dasselbe wie «Neuer Turm» — der Knopf
+   bleibt, weil er auf der Schmalansicht schneller zu treffen ist. */
+$('stand-grid').addEventListener('click', ev => {
+  if (ev.target.classList.contains('bauplatz')) legeTurmAn();
+});
 $('stand-grid').addEventListener('click', ev => {
   const karte = ev.target.closest('.standkarte'); if (!karte) return;
   if (ev.target.classList.contains('stand-save')) {
