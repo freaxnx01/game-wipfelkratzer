@@ -6,6 +6,12 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Changed
+
+- Die Aussichtsplattform steht jetzt auf der anderen Seite des Bachs. Von dort
+  blickst Du über das Wasser zurück auf Deinen Turm, und Willis Biberburg
+  liegt mit im Bild — vorher war vom Bach kaum etwas zu sehen (#82)
+
 ## [0.11.0] - 2026-09-19
 
 ### Added
