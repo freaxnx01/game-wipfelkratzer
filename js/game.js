@@ -1209,6 +1209,7 @@ function enterBesuch(k) {
      der halbe Turm. */
   if (typeof k === 'number' && floorGroups[k]) floorGroups[k].userData.ceil.visible = false;
   applyFronts();
+  renderBesuchbar();
   sfx.whoosh();
 }
 
@@ -1223,12 +1224,49 @@ function exitBesuch() {
   for (let j = 0; j <= MAXF; j++) if (floorGroups[j]) floorGroups[j].userData.ceil.visible = true;
   applyFronts();
   moveCam(camSave.p, camSave.t);
+  renderBesuchbar();
   sfx.whoosh();
+}
+
+/* Gesperrt statt versteckt: ein Knopf, der verschwindet, verwirrt mehr als
+   einer, der grau ist (#44). Nur «Draussen» fehlt ganz, solange es keinen
+   Spielplatz gibt — dort wäre auch grau eine Lüge. */
+function renderBesuchbar() {
+  $('besuchbar').classList.toggle('on', !!besuch);
+  if (!besuch) return;
+  const k = besuch.k;
+  const zahl = typeof k === 'number';
+  $('besuch-titel').textContent = k === 'roof' ? 'Dachterrasse'
+    : k === 'garten' ? 'Spielplatz'
+    : `${flLabel(k)} — ${tenantIn(k) ? (tenantOf(k).unit || tenantOf(k).name) : 'noch niemand'}`;
+  $('btn-besuch-runter').disabled = !zahl || k <= 0;
+  $('btn-besuch-hoch').disabled = !zahl || k >= state.floors;
+  $('btn-besuch-dach').disabled = k === 'roof';
+  $('btn-besuch-garten').classList.toggle('hidden', !state.garden);
+  $('btn-besuch-garten').disabled = k === 'garten';
+}
+
+/* Der Wechsel ist ein neuer Standpunkt, kein neuer Besuch: camSave und die
+   gesicherten Grenzen bleiben, damit «Schluss» auch nach fünf Wechseln
+   dorthin zurückführt, wo man angefangen hat. */
+function wechsleBesuch(k) {
+  if (!besuch) return;
+  besuch.k = k;
+  if (typeof k === 'number' && floorGroups[k]) floorGroups[k].userData.ceil.visible = false;
+  const { eye, tgt } = besuchCamFor(k);
+  moveCam(eye, tgt);
+  renderBesuchbar();
+  sfx.pop();
 }
 
 /* Beginnt beim untersten gebauten Stockwerk — das Erdgeschoss ist immer da,
    auch in einem frisch begonnenen Turm. */
 $('btn-besuch').onclick = () => { if (besuch) exitBesuch(); else enterBesuch(0); };
+$('btn-besuch-runter').onclick = () => { if (besuch && typeof besuch.k === 'number' && besuch.k > 0) wechsleBesuch(besuch.k - 1); };
+$('btn-besuch-hoch').onclick = () => { if (besuch && typeof besuch.k === 'number' && besuch.k < state.floors) wechsleBesuch(besuch.k + 1); };
+$('btn-besuch-dach').onclick = () => wechsleBesuch('roof');
+$('btn-besuch-garten').onclick = () => { if (state.garden) wechsleBesuch('garten'); };
+$('btn-besuch-zu').onclick = exitBesuch;
 
 function deselect() { if (selHelper) { scene.remove(selHelper); selHelper = null; } selected = null;
   $('colorpick').classList.remove('open'); $('selbar').classList.remove('on'); }
