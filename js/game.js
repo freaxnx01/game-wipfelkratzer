@@ -1749,12 +1749,13 @@ $('btn-bridge').onclick = () => { $('extras-menu').classList.remove('open');
   sfx.knock(); toast('Willi baut eine Brücke über den Fluss!'); updateHUD(); save(); };
 $('btn-garden').onclick = () => { $('extras-menu').classList.remove('open');
   if (state.garden) { enterEdit('garten'); return; }
+  if (!bezahle('garden')) return;
   state.garden = true;
   state.rooms.garten = GARDEN_DEFAULT.map(e => ({ ...e }));
   roomOf('garten').forEach(e => { const m = placeItemMesh('garten', e); clampEntry('garten', m, e); });
   gartenG.visible = true; gartenG.scale.setScalar(0.01);
   tween(0.6, q => gartenG.scale.setScalar(0.01 + 0.99 * q));
-  sfx.pop(); toast('Spielplatz, Beete und Blumen — fertig!'); save();
+  sfx.pop(); toast('Spielplatz, Beete und Blumen — fertig!'); updateHUD(); save();
   enterEdit('garten'); };
 $('btn-sign').onclick = () => { $('extras-menu').classList.remove('open'); renderResidents(); $('residents').classList.add('open'); };
 function renderAnimals() {
