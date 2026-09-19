@@ -2269,6 +2269,16 @@ function renderStaende() {
     }
     grid.appendChild(platz);
   }
+  /* Drei Orte neben den Lichtungen. Sie hängen im selben Container, aber
+     ausserhalb jeder .standkarte — die bestehenden Handler steigen bei ihnen
+     über ihr closest('.standkarte') von selbst aus. */
+  [['ort-schreinerei', 'Schreinerei'],
+   ['ort-wipfkea', 'Wipfkea'],
+   ['ort-aussicht', 'Aussicht']].forEach(([id, label]) => {
+    const b = document.createElement('button');
+    b.id = id; b.className = 'ort ' + id.slice(4); b.textContent = label;
+    grid.appendChild(b);
+  });
   const voll = idx.staende.length >= staende.MAX_STAENDE;
   $('btn-stand-neu').disabled = voll;
   $('stand-voll').classList.toggle('hidden', !voll);
@@ -2397,8 +2407,31 @@ $('btn-stand-neu').onclick = legeTurmAn;
 /* Ein leerer Bauplatz auf der Karte tut dasselbe wie «Neuer Turm» — der Knopf
    bleibt, weil er auf der Schmalansicht schneller zu treffen ist. */
 $('stand-grid').addEventListener('click', ev => {
-  if (ev.target.classList.contains('bauplatz')) legeTurmAn();
+  if (ev.target.classList.contains('bauplatz')) { legeTurmAn(); return; }
+  /* Die Werkstatt braucht keine Wohnung: openWorkshop baut an wsBuild und legt
+     fertige Entwürfe in state.designs. Von der Karte aus ist sie deshalb ein
+     echter Ort, kein Schaufenster. */
+  if (ev.target.id === 'ort-schreinerei') { openWorkshop(); return; }
+  if (ev.target.id === 'ort-wipfkea') { zeigeSchaufenster(); return; }
+  if (ev.target.id === 'ort-aussicht') {
+    toast('Hier soll einmal eine Aussichtsplattform stehen — die gibt es noch nicht.');
+  }
 });
+
+/* Schaufenster: die Wipfkea-Serie zum Anschauen. Platzieren braucht eine
+   Wohnung und wäre von der Karte aus sinnlos — deshalb gibt es hier bewusst
+   keinen Platzieren-Knopf. */
+function zeigeSchaufenster() {
+  const wrap = $('schaufenster-items'); wrap.innerHTML = '';
+  CATALOG.filter(it => it.id.startsWith('wk_')).forEach(it => {
+    const d = document.createElement('div'); d.className = 'item';
+    d.innerHTML = `<img src="${thumbs[it.id] || ''}" alt=""><span>${it.name}</span>`;
+    wrap.appendChild(d);
+  });
+  $('schaufenster').classList.add('open');
+}
+$('btn-schaufenster-zu').onclick = () => $('schaufenster').classList.remove('open');
+$('schaufenster').onclick = e => { if (e.target === $('schaufenster')) $('schaufenster').classList.remove('open'); };
 $('stand-grid').addEventListener('click', ev => {
   const karte = ev.target.closest('.standkarte'); if (!karte) return;
   if (ev.target.classList.contains('stand-save')) {
