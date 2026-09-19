@@ -15,6 +15,12 @@ All notable changes to this project are documented here, following
   der Schreinerei baust Du eigene Möbel, auch ohne in einer Wohnung zu sein,
   bei «Wipfkea» siehst Du die ganze Möbelserie im Schaufenster, und wo später
   einmal die Aussichtsplattform steht, ist der Platz schon freigehalten (#51)
+- Du kannst jetzt in den Wipfelkratzer hineingehen: «Hineingehen» stellt
+  Dich mitten in eine Wohnung, und Du schaust Dich in Ruhe um — so gross
+  wie ein Biber, mit den Wänden um Dich herum. Über die Leiste unten
+  gehst Du ein Stockwerk höher oder tiefer, aufs Dach oder nach draussen
+  auf den Spielplatz. «Schluss» bringt Dich wieder dorthin zurück, wo Du
+  vorher warst (#44)
 
 ## [0.9.0] - 2026-09-18
 

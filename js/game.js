@@ -814,6 +814,11 @@ const $ = id => document.getElementById(id);
 (() => { const sb = $('selbar');
   const sync = () => document.documentElement.style.setProperty('--selbar-h', sb.offsetHeight + 'px');
   new ResizeObserver(sync).observe(sb); sync(); })();
+/* Dasselbe für die Besuchsleiste: sie steht auf derselben Höhe wie #selbar, und
+   ohne diese Zahl legen sich die Meldungen darüber (#44). */
+(() => { const bb = $('besuchbar');
+  const sync = () => document.documentElement.style.setProperty('--besuchbar-h', bb.offsetHeight + 'px');
+  new ResizeObserver(sync).observe(bb); sync(); })();
 /* --nav-h ist der Streifen am unteren Bildrand, den die Navileiste #game-nav aus
    der ai-instructions-Vorlage belegt (index.html, Ende der Datei): Höhe plus
    eigener Bodenabstand in einer Zahl, damit keine Zahl aus deren Inline-Style
@@ -1084,7 +1089,12 @@ function moveCam(pos, tgt, dur = 0.9) {
   tween(dur, k => { camera.position.lerpVectors(p0, pos, k); controls.target.lerpVectors(t0, tgt, k); });
 }
 function applyFronts() {
-  for (let j = 0; j <= MAXF; j++) if (floorGroups[j]) floorGroups[j].userData.front.visible = !state.cutaway && !(edit && edit.k === j);
+  /* Von innen gilt das Gegenteil von aussen: die Wand muss stehen, sonst sieht
+     man in einen offenen Setzkasten statt in ein Zimmer. state.cutaway selbst
+     bleibt unangetastet, damit die Aussenansicht nach dem Besuch unverändert
+     ist (#44). */
+  for (let j = 0; j <= MAXF; j++) if (floorGroups[j])
+    floorGroups[j].userData.front.visible = besuch ? true : (!state.cutaway && !(edit && edit.k === j));
   $('btn-cutaway').textContent = state.cutaway ? 'Wände hin' : 'Wände weg';
 }
 function fitDistance(halfWidth, halfHeight) {
@@ -1113,7 +1123,9 @@ function editCamFor(k) {
   return { eye: new THREE.Vector3(floorGroups[k].position.x, cy + 0.5, dist), tgt: new THREE.Vector3(floorGroups[k].position.x, cy, 0) };
 }
 function enterEdit(k) {
-  if (edit) return;
+  /* Einrichten und Besuch schliessen sich aus — sonst schrieben beide
+     gleichzeitig an Kamera und Sichtbarkeit (#44). */
+  if (edit || besuch) return;
   edit = { k };
   camSave = { p: camera.position.clone(), t: controls.target.clone() };
   const { eye, tgt } = editCamFor(k);
@@ -1155,6 +1167,132 @@ function exitEdit() {
   $('catalog').classList.remove('open');
   updateHUD();
 }
+
+/* ---------- Besuchsmodus (#44) ---------- */
+/* Standpunkte statt Laufen: die Kamera steht in Augenhöhe im Raum, das
+   Blickziel liegt in dessen Mitte. Gedreht wird um dieses Ziel, was sich
+   von innen wie Umsehen anfühlt — ohne Kollision, Schwerkraft oder ein
+   zweites Steuerungssystem. */
+const AUGE = 1.5;
+let besuch = null, besuchSave = null;
+
+function besuchCamFor(k) {
+  if (k === 'garten') {
+    return { eye: new THREE.Vector3(GARDEN_POS.x, AUGE, GARDEN_POS.z + GARDEN_D / 2 - 0.6),
+             tgt: new THREE.Vector3(GARDEN_POS.x, AUGE, GARDEN_POS.z) };
+  }
+  if (k === 'roof') {
+    const y = topY() + AUGE;
+    return { eye: new THREE.Vector3(0, y, ROOF_D / 2 - 0.6), tgt: new THREE.Vector3(0, y, 0) };
+  }
+  const y = floorY(k) + AUGE;
+  const x = floorGroups[k] ? floorGroups[k].position.x : 0;
+  return { eye: new THREE.Vector3(x, y, -dims(k).d / 2 + 0.5), tgt: new THREE.Vector3(x, y, 0) };
+}
+
+/* OrbitControls neigt die Kamera nicht, es dreht sie um das Blickziel: wer nach
+   oben schaut, hebt sie mit. Bei 1.5 m Augenhöhe in einem 2 m hohen Zimmer
+   stösst sie darum schon nach wenigen Grad durch die Decke — feste Polargrenzen
+   können das nicht leisten, weil Raumhöhe und Bahnradius von Stockwerk zu
+   Stockwerk verschieden sind. Draussen, auf Dach und Spielplatz, gibt es keine
+   Decke; dort bleibt der grosszügige Bereich. */
+const BESUCH_LUFT = 0.15;
+const BESUCH_POLAR_FREI = { minP: 0.35, maxP: 2.4 };
+function besuchPolar(k, bahn) {
+  if (typeof k !== 'number') return BESUCH_POLAR_FREI;
+  const nachOben = Math.max(0, H(k) - AUGE - BESUCH_LUFT);
+  const nachUnten = Math.max(0, AUGE - BESUCH_LUFT);
+  return { minP: Math.acos(Math.min(1, nachOben / bahn)),
+           maxP: Math.acos(-Math.min(1, nachUnten / bahn)) };
+}
+
+function stelleBesuchKamera(k) {
+  const { eye, tgt } = besuchCamFor(k);
+  const { minP, maxP } = besuchPolar(k, eye.distanceTo(tgt));
+  controls.minPolarAngle = minP;
+  controls.maxPolarAngle = maxP;
+  moveCam(eye, tgt);
+}
+
+function enterBesuch(k) {
+  if (edit || besuch) return;
+  besuch = { k };
+  camSave = { p: camera.position.clone(), t: controls.target.clone() };
+  /* Die heutigen Grenzen sind für die Aussenansicht gemacht: minDistance 4 bei
+     rund 1.5 m Abstand im Raum würde die Kamera beim ersten update() durch die
+     Wand nach aussen schieben (js/game.js:164). Gesichert statt neu
+     hingeschrieben — ein zweiter Ort mit denselben Zahlen läuft auseinander. */
+  besuchSave = { min: controls.minDistance, max: controls.maxDistance,
+                 minP: controls.minPolarAngle, maxP: controls.maxPolarAngle,
+                 zoom: controls.enableZoom };
+  controls.minDistance = 0.4;
+  controls.maxDistance = 6;
+  controls.enableZoom = false;
+  stelleBesuchKamera(k);
+  /* Die Decke ist die Lichtquelle des Raums — mit ihr wird es dunkel und trüb.
+     Dieselbe bewusste Unehrlichkeit, die enterEdit schon trifft. Höhere
+     Stockwerke bleiben dagegen stehen: beim Blick aus dem Fenster fehlte sonst
+     der halbe Turm. */
+  if (typeof k === 'number' && floorGroups[k]) floorGroups[k].userData.ceil.visible = false;
+  applyFronts();
+  renderBesuchbar();
+  sfx.whoosh();
+}
+
+function exitBesuch() {
+  if (!besuch) return;
+  Object.assign(controls, { minDistance: besuchSave.min, maxDistance: besuchSave.max,
+    minPolarAngle: besuchSave.minP, maxPolarAngle: besuchSave.maxP,
+    enableZoom: besuchSave.zoom });
+  besuch = null; besuchSave = null;
+  /* Erst jetzt, mit besuch === null, stellt applyFronts den Aussenzustand
+     her — vorher hielte es alle Wände sichtbar. */
+  for (let j = 0; j <= MAXF; j++) if (floorGroups[j]) floorGroups[j].userData.ceil.visible = true;
+  applyFronts();
+  moveCam(camSave.p, camSave.t);
+  renderBesuchbar();
+  sfx.whoosh();
+}
+
+/* Gesperrt statt versteckt: ein Knopf, der verschwindet, verwirrt mehr als
+   einer, der grau ist (#44). Nur «Draussen» fehlt ganz, solange es keinen
+   Spielplatz gibt — dort wäre auch grau eine Lüge. */
+function renderBesuchbar() {
+  $('besuchbar').classList.toggle('on', !!besuch);
+  if (!besuch) return;
+  const k = besuch.k;
+  const zahl = typeof k === 'number';
+  $('besuch-titel').textContent = k === 'roof' ? 'Dachterrasse'
+    : k === 'garten' ? 'Spielplatz'
+    : `${flLabel(k)} — ${tenantIn(k) ? (tenantOf(k).unit || tenantOf(k).name) : 'noch niemand'}`;
+  $('btn-besuch-runter').disabled = !zahl || k <= 0;
+  $('btn-besuch-hoch').disabled = !zahl || k >= state.floors;
+  $('btn-besuch-dach').disabled = k === 'roof';
+  $('btn-besuch-garten').classList.toggle('hidden', !state.garden);
+  $('btn-besuch-garten').disabled = k === 'garten';
+}
+
+/* Der Wechsel ist ein neuer Standpunkt, kein neuer Besuch: camSave und die
+   gesicherten Grenzen bleiben, damit «Schluss» auch nach fünf Wechseln
+   dorthin zurückführt, wo man angefangen hat. */
+function wechsleBesuch(k) {
+  if (!besuch) return;
+  besuch.k = k;
+  if (typeof k === 'number' && floorGroups[k]) floorGroups[k].userData.ceil.visible = false;
+  stelleBesuchKamera(k);
+  renderBesuchbar();
+  sfx.pop();
+}
+
+/* Beginnt beim untersten gebauten Stockwerk — das Erdgeschoss ist immer da,
+   auch in einem frisch begonnenen Turm. */
+$('btn-besuch').onclick = () => { if (besuch) exitBesuch(); else enterBesuch(0); };
+$('btn-besuch-runter').onclick = () => { if (besuch && typeof besuch.k === 'number' && besuch.k > 0) wechsleBesuch(besuch.k - 1); };
+$('btn-besuch-hoch').onclick = () => { if (besuch && typeof besuch.k === 'number' && besuch.k < state.floors) wechsleBesuch(besuch.k + 1); };
+$('btn-besuch-dach').onclick = () => wechsleBesuch('roof');
+$('btn-besuch-garten').onclick = () => { if (state.garden) wechsleBesuch('garten'); };
+$('btn-besuch-zu').onclick = exitBesuch;
+
 function deselect() { if (selHelper) { scene.remove(selHelper); selHelper = null; } selected = null;
   $('colorpick').classList.remove('open'); $('selbar').classList.remove('on'); }
 function select(pick) { deselect(); selected = pick;
@@ -2563,6 +2701,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   MAXF, tenantOf, topY, floorGroup, catalogIds: CATALOG.map(c => c.id),
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
+  enterBesuch, exitBesuch, besuchCamFor, get besuch() { return besuch; }, floorYOf: floorY,
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
   ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, get clip() { return clip; },
   ziehtGerade: () => !!ziehen, zugBlockiert: () => !!(ziehen && ziehen.blockiert),

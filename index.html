@@ -83,6 +83,13 @@
   #editbar { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 6; display: none; align-items: center; gap: 10px; padding: 8px 10px 8px 16px; max-width: 92vw; }
   #editbar.on { display: flex; }
   #edit-title { font-size: 16px; font-weight: 700; }
+  /* Besuchsleiste — wie #editbar aufgebaut, aber unten, damit sie auf dem
+     Tablet unter dem Daumen liegt. */
+  #besuchbar { position: fixed; bottom: calc(var(--toolbar-h, 60px) + 16px); left: 50%; transform: translateX(-50%); z-index: 6; display: none; align-items: center; gap: 8px; padding: 8px 10px 8px 16px; max-width: 92vw; flex-wrap: wrap; justify-content: center; }
+  #besuchbar.on { display: flex; }
+  #besuch-titel { font-size: 16px; font-weight: 700; }
+  #besuchbar button { min-height: 44px; min-width: 44px; }
+  #besuchbar button:disabled { opacity: .45; }
   /* Selection bar */
   #selbar { position: fixed; bottom: calc(var(--toolbar-h, 60px) + 16px); left: 50%; transform: translateX(-50%); z-index: 6; display: none; gap: 8px; padding: 8px; align-items: center; }
   #selbar.on { display: flex; }
@@ -253,7 +260,10 @@
   /* Über der Turm-Übersicht (z-index 25): Meldungen beim Einlesen entstehen,
      während die Übersicht offen ist — darunter wären sie abgedunkelt und
      liessen sich nicht wegtippen. */
-  #toast-stack { position: fixed; bottom: calc(var(--toolbar-h, 60px) + 16px + var(--selbar-h, 0px) + 10px); left: 50%; transform: translateX(-50%); z-index: 26;
+  /* --besuchbar-h steht neben --selbar-h, weil beide Leisten denselben Platz über
+     der Werkzeugleiste belegen; sie sind nie gleichzeitig offen, also ist genau
+     eine der beiden Zahlen von null verschieden (#44). */
+  #toast-stack { position: fixed; bottom: calc(var(--toolbar-h, 60px) + 16px + var(--selbar-h, 0px) + var(--besuchbar-h, 0px) + 10px); left: 50%; transform: translateX(-50%); z-index: 26;
     display: flex; flex-direction: column-reverse; align-items: center; gap: 8px; width: max-content; max-width: 90vw; max-height: 60vh; overflow-y: auto; pointer-events: none; }
   .toast-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 16px; font-size: 16px; font-weight: 700; cursor: pointer; animation: toast-in .3s; pointer-events: auto; }
   .toast-close { min-width: 44px; min-height: 44px; padding: 0; border-radius: 50%; font-size: 20px; line-height: 1; flex-shrink: 0; }
@@ -299,6 +309,7 @@
   <button id="btn-night">Nacht</button>
   <button id="btn-season">Sommer</button>
   <button id="btn-cutaway">Wände weg</button>
+  <button id="btn-besuch">Hineingehen</button>
   <button id="btn-photo">Foto</button>
   <button id="btn-music">Musik aus</button>
 </div>
@@ -319,6 +330,15 @@
   <button id="btn-roompaste" class="hidden">Raum einfügen</button>
   <button id="btn-tip">Tipp</button>
   <button id="btn-done" class="primary">Fertig</button>
+</div>
+
+<div id="besuchbar" class="panel">
+  <span id="besuch-titel"></span>
+  <button id="btn-besuch-runter" title="ein Stockwerk tiefer">▼</button>
+  <button id="btn-besuch-hoch" title="ein Stockwerk höher">▲</button>
+  <button id="btn-besuch-dach">Dach</button>
+  <button id="btn-besuch-garten">Draussen</button>
+  <button id="btn-besuch-zu" class="primary">Schluss</button>
 </div>
 
 <div id="selbar" class="panel">
