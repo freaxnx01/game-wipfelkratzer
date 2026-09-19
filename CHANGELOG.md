@@ -6,6 +6,16 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added
+
+- «Meine Türme» ist jetzt eine Waldkarte: Statt einer Liste siehst Du vier
+  Lichtungen im Wald, auf jeder steht einer Deiner Türme — und wo noch keiner
+  steht, wartet ein Bauplatz, den Du antippen kannst. Umbenennen, Sichern,
+  Löschen und Weiterbauen gehen wie bisher. Dazu liegen drei Orte im Wald: in
+  der Schreinerei baust Du eigene Möbel, auch ohne in einer Wohnung zu sein,
+  bei «Wipfkea» siehst Du die ganze Möbelserie im Schaufenster, und wo später
+  einmal die Aussichtsplattform steht, ist der Platz schon freigehalten (#51)
+
 ## [0.9.0] - 2026-09-18
 
 ### Added

@@ -2231,28 +2231,53 @@ $('gallery').onclick = e => { if (e.target === $('gallery')) $('gallery').classL
 /* ---------- Turm-Übersicht ---------- */
 function renderStaende() {
   const idx = staende.ladeIndex(), grid = $('stand-grid');
+  grid.classList.add('waldkarte');
   grid.innerHTML = '';
-  idx.staende.forEach(e => {
-    const info = staende.standInfo(e), hier = e.id === idx.aktiv;
-    const gr = exportGroesse(e);
-    const d = document.createElement('div');
-    d.className = 'standkarte' + (hier ? ' aktiv' : '');
-    d.dataset.id = e.id;
-    const bild = e.bild
-      ? `<img class="stand-bild" src="${e.bild}" alt="">`
-      : '<div class="stand-bild leer"></div>';
-    d.innerHTML = `${bild}
-      <input class="stand-name" maxlength="40" value="${String(e.name).replace(/"/g, '&quot;')}">
-      <div class="stand-info">${info.floors} Stockwerke · ${info.möbel} Möbel</div>
-      <div class="zeile">${hier ? '<span class="stand-hier">Hier bist du</span>'
-        : '<button class="stand-hin primary">Weiterbauen</button>'}
-        <button class="stand-save">Sichern</button>
-        <button class="stand-weg danger">Löschen</button></div>
-      <div class="stand-save-zeile hidden">
-        <button class="stand-save-mit">Mit Fotos (${gr.mit})</button>
-        <button class="stand-save-ohne">Ohne Fotos (${gr.ohne})</button>
-      </div>`;
-    grid.appendChild(d);
+  /* Vier Plätze, fest: MAX_STAENDE ist 4. Belegte tragen ihre Karte, freie
+     einen Bauplatz — die Anordnung ist reine Darstellung, die Reihenfolge
+     kommt weiter aus dem Index. */
+  for (let i = 0; i < staende.MAX_STAENDE; i++) {
+    const platz = document.createElement('div');
+    platz.className = 'lichtung';
+    const e = idx.staende[i];
+    if (e) {
+      const info = staende.standInfo(e), hier = e.id === idx.aktiv;
+      const gr = exportGroesse(e);
+      const d = document.createElement('div');
+      d.className = 'standkarte' + (hier ? ' aktiv' : '');
+      d.dataset.id = e.id;
+      const bild = e.bild
+        ? `<img class="stand-bild" src="${e.bild}" alt="">`
+        : '<div class="stand-bild leer"></div>';
+      d.innerHTML = `${bild}
+        <input class="stand-name" maxlength="40" value="${String(e.name).replace(/"/g, '&quot;')}">
+        <div class="stand-info">${info.floors} Stockwerke · ${info.möbel} Möbel</div>
+        <div class="zeile">${hier ? '<span class="stand-hier">Hier bist du</span>'
+          : '<button class="stand-hin primary">Weiterbauen</button>'}
+          <button class="stand-save">Sichern</button>
+          <button class="stand-weg danger">Löschen</button></div>
+        <div class="stand-save-zeile hidden">
+          <button class="stand-save-mit">Mit Fotos (${gr.mit})</button>
+          <button class="stand-save-ohne">Ohne Fotos (${gr.ohne})</button>
+        </div>`;
+      platz.appendChild(d);
+    } else {
+      const b = document.createElement('button');
+      b.className = 'bauplatz';
+      b.textContent = 'Hier ist Platz für einen Turm';
+      platz.appendChild(b);
+    }
+    grid.appendChild(platz);
+  }
+  /* Drei Orte neben den Lichtungen. Sie hängen im selben Container, aber
+     ausserhalb jeder .standkarte — die bestehenden Handler steigen bei ihnen
+     über ihr closest('.standkarte') von selbst aus. */
+  [['ort-schreinerei', 'Schreinerei'],
+   ['ort-wipfkea', 'Wipfkea'],
+   ['ort-aussicht', 'Aussicht']].forEach(([id, label]) => {
+    const b = document.createElement('button');
+    b.id = id; b.className = 'ort ' + id.slice(4); b.textContent = label;
+    grid.appendChild(b);
   });
   const voll = idx.staende.length >= staende.MAX_STAENDE;
   $('btn-stand-neu').disabled = voll;
@@ -2373,11 +2398,40 @@ function wechsleZu(id) {
   if (!staende.wähleStand(id)) { toast('Dieser Turm ist nicht mehr da.'); renderStaende(); return; }
   location.reload();
 }
-$('btn-stand-neu').onclick = () => {
+function legeTurmAn() {
   const e = staende.neuerStand();
   if (!e) { toast('Mehr als vier Türme passen nicht — lösche zuerst einen.'); renderStaende(); return; }
   wechsleZu(e.id);
-};
+}
+$('btn-stand-neu').onclick = legeTurmAn;
+/* Ein leerer Bauplatz auf der Karte tut dasselbe wie «Neuer Turm» — der Knopf
+   bleibt, weil er auf der Schmalansicht schneller zu treffen ist. */
+$('stand-grid').addEventListener('click', ev => {
+  if (ev.target.classList.contains('bauplatz')) { legeTurmAn(); return; }
+  /* Die Werkstatt braucht keine Wohnung: openWorkshop baut an wsBuild und legt
+     fertige Entwürfe in state.designs. Von der Karte aus ist sie deshalb ein
+     echter Ort, kein Schaufenster. */
+  if (ev.target.id === 'ort-schreinerei') { openWorkshop(); return; }
+  if (ev.target.id === 'ort-wipfkea') { zeigeSchaufenster(); return; }
+  if (ev.target.id === 'ort-aussicht') {
+    toast('Hier soll einmal eine Aussichtsplattform stehen — die gibt es noch nicht.');
+  }
+});
+
+/* Schaufenster: die Wipfkea-Serie zum Anschauen. Platzieren braucht eine
+   Wohnung und wäre von der Karte aus sinnlos — deshalb gibt es hier bewusst
+   keinen Platzieren-Knopf. */
+function zeigeSchaufenster() {
+  const wrap = $('schaufenster-items'); wrap.innerHTML = '';
+  CATALOG.filter(it => it.id.startsWith('wk_')).forEach(it => {
+    const d = document.createElement('div'); d.className = 'item';
+    d.innerHTML = `<img src="${thumbs[it.id] || ''}" alt=""><span>${it.name}</span>`;
+    wrap.appendChild(d);
+  });
+  $('schaufenster').classList.add('open');
+}
+$('btn-schaufenster-zu').onclick = () => $('schaufenster').classList.remove('open');
+$('schaufenster').onclick = e => { if (e.target === $('schaufenster')) $('schaufenster').classList.remove('open'); };
 $('stand-grid').addEventListener('click', ev => {
   const karte = ev.target.closest('.standkarte'); if (!karte) return;
   if (ev.target.classList.contains('stand-save')) {
