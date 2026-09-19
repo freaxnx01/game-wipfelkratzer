@@ -2231,29 +2231,44 @@ $('gallery').onclick = e => { if (e.target === $('gallery')) $('gallery').classL
 /* ---------- Turm-Übersicht ---------- */
 function renderStaende() {
   const idx = staende.ladeIndex(), grid = $('stand-grid');
+  grid.classList.add('waldkarte');
   grid.innerHTML = '';
-  idx.staende.forEach(e => {
-    const info = staende.standInfo(e), hier = e.id === idx.aktiv;
-    const gr = exportGroesse(e);
-    const d = document.createElement('div');
-    d.className = 'standkarte' + (hier ? ' aktiv' : '');
-    d.dataset.id = e.id;
-    const bild = e.bild
-      ? `<img class="stand-bild" src="${e.bild}" alt="">`
-      : '<div class="stand-bild leer"></div>';
-    d.innerHTML = `${bild}
-      <input class="stand-name" maxlength="40" value="${String(e.name).replace(/"/g, '&quot;')}">
-      <div class="stand-info">${info.floors} Stockwerke · ${info.möbel} Möbel</div>
-      <div class="zeile">${hier ? '<span class="stand-hier">Hier bist du</span>'
-        : '<button class="stand-hin primary">Weiterbauen</button>'}
-        <button class="stand-save">Sichern</button>
-        <button class="stand-weg danger">Löschen</button></div>
-      <div class="stand-save-zeile hidden">
-        <button class="stand-save-mit">Mit Fotos (${gr.mit})</button>
-        <button class="stand-save-ohne">Ohne Fotos (${gr.ohne})</button>
-      </div>`;
-    grid.appendChild(d);
-  });
+  /* Vier Plätze, fest: MAX_STAENDE ist 4. Belegte tragen ihre Karte, freie
+     einen Bauplatz — die Anordnung ist reine Darstellung, die Reihenfolge
+     kommt weiter aus dem Index. */
+  for (let i = 0; i < staende.MAX_STAENDE; i++) {
+    const platz = document.createElement('div');
+    platz.className = 'lichtung';
+    const e = idx.staende[i];
+    if (e) {
+      const info = staende.standInfo(e), hier = e.id === idx.aktiv;
+      const gr = exportGroesse(e);
+      const d = document.createElement('div');
+      d.className = 'standkarte' + (hier ? ' aktiv' : '');
+      d.dataset.id = e.id;
+      const bild = e.bild
+        ? `<img class="stand-bild" src="${e.bild}" alt="">`
+        : '<div class="stand-bild leer"></div>';
+      d.innerHTML = `${bild}
+        <input class="stand-name" maxlength="40" value="${String(e.name).replace(/"/g, '&quot;')}">
+        <div class="stand-info">${info.floors} Stockwerke · ${info.möbel} Möbel</div>
+        <div class="zeile">${hier ? '<span class="stand-hier">Hier bist du</span>'
+          : '<button class="stand-hin primary">Weiterbauen</button>'}
+          <button class="stand-save">Sichern</button>
+          <button class="stand-weg danger">Löschen</button></div>
+        <div class="stand-save-zeile hidden">
+          <button class="stand-save-mit">Mit Fotos (${gr.mit})</button>
+          <button class="stand-save-ohne">Ohne Fotos (${gr.ohne})</button>
+        </div>`;
+      platz.appendChild(d);
+    } else {
+      const b = document.createElement('button');
+      b.className = 'bauplatz';
+      b.textContent = 'Hier ist Platz für einen Turm';
+      platz.appendChild(b);
+    }
+    grid.appendChild(platz);
+  }
   const voll = idx.staende.length >= staende.MAX_STAENDE;
   $('btn-stand-neu').disabled = voll;
   $('stand-voll').classList.toggle('hidden', !voll);
