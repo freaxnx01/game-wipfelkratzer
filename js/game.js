@@ -248,7 +248,13 @@ const bridge = makeBridge(5.6); bridge.position.set(8.7, 0.08, riverZ(8.7)); bri
 /* Abseits des Turms am Waldrand, in der baumfreien Lichtung vor dem Bach: von
    hier sieht man den Wipfelkratzer ganz — das ist der eine Blick, den die
    Dachterrasse nicht bietet (#82). */
-const AUSSICHT_POS = new THREE.Vector3(-15, 0, 13);
+/* Jenseits des Bachs: von hier blickt man über das Wasser zurück auf den
+   Turm, und Biberburg und Móki liegen mit im Bild. Gemessen gegen (-15, 13):
+   der Bach ist im Trefferraster von 7 auf 41 Punkte gewachsen, Turm und Dach
+   bleiben bestimmend. Die Brücke liegt bauartbedingt unter dem Bildrand — sie
+   steht auf Bodenhöhe keine neun Einheiten entfernt — und ist mit einem Blick
+   nach unten erreichbar (#82). */
+const AUSSICHT_POS = new THREE.Vector3(9, 0, 20);
 const aussicht = makeAussicht();
 aussicht.position.copy(AUSSICHT_POS);
 aussicht.rotation.y = 0.5;
