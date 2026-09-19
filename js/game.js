@@ -880,6 +880,7 @@ function updateHUD() { $('nuts').textContent = state.nuts; $('floors').textConte
   $('btn-build').textContent = state.floors >= MAXF ? 'Fertig gebaut!' : `Stockwerk bauen (${state.floors + 1}/${MAXF})`;
   $('btn-build').disabled = state.floors >= MAXF || !!edit;
   $('btn-party').classList.toggle('hidden', !(state.floors === MAXF && tenantIn(MAXF)));
+  beschrifteExtras();
 }
 
 /* ---------- Katalog ---------- */
@@ -1712,19 +1713,49 @@ function buildFloor() {
 }
 
 /* ---------- Extras ---------- */
+/* Was die Welt kostet (#83). Möbel bleiben gratis: Nüsse verdient man nur
+   durch Aufstellen des Wunschmöbels (checkWishes), ein Preis darauf wäre eine
+   Sackgasse, weil ein Kind ohne Nüsse dann keine verdienen könnte. Bezahlt
+   wird, was die Welt verändert, und davon gibt es genau zwei. */
+const EXTRA_PREIS = { bridge: 9, garden: 15 };
+
+/* Zieht den Preis ab, oder erklärt, wie viele Nüsse fehlen. Ein zu teures
+   Extra ändert gar nichts — kein Zustand, kein save(). Der Knopf bleibt
+   bedienbar: ein graues Feld sagt einem Kind nichts, ein Tipp, der die
+   Spielregel erklärt, bringt sie ihm bei. */
+function bezahle(key) {
+  const preis = EXTRA_PREIS[key];
+  if (state.nuts >= preis) { state.nuts -= preis; return true; }
+  const fehlt = preis - state.nuts;
+  toast(`Dafür brauchst Du noch ${fehlt} ${fehlt === 1 ? 'Haselnuss' : 'Haselnüsse'} — erfülle noch einen Wunsch!`);
+  sfx.knock();
+  return false;
+}
+
+/* Der Preis steht auf dem Knopf, solange das Extra fehlt. Danach der gewohnte
+   Text — bezahlt wird nur einmal. */
+function beschrifteExtras() {
+  $('btn-bridge').textContent = state.bridge
+    ? 'Brücke bauen' : `Brücke bauen — ${EXTRA_PREIS.bridge} 🌰`;
+  $('btn-garden').textContent = state.garden
+    ? 'Garten & Spielplatz' : `Garten & Spielplatz — ${EXTRA_PREIS.garden} 🌰`;
+}
+
 $('btn-bridge').onclick = () => { $('extras-menu').classList.remove('open');
   if (state.bridge) { toast('Die Brücke steht schon!'); return; }
+  if (!bezahle('bridge')) return;
   state.bridge = true; bridge.visible = true; bridge.scale.setScalar(0.01);
   tween(0.6, q => bridge.scale.setScalar(0.01 + 0.99 * q));
-  sfx.knock(); toast('Willi baut eine Brücke über den Fluss!'); save(); };
+  sfx.knock(); toast('Willi baut eine Brücke über den Fluss!'); updateHUD(); save(); };
 $('btn-garden').onclick = () => { $('extras-menu').classList.remove('open');
   if (state.garden) { enterEdit('garten'); return; }
+  if (!bezahle('garden')) return;
   state.garden = true;
   state.rooms.garten = GARDEN_DEFAULT.map(e => ({ ...e }));
   roomOf('garten').forEach(e => { const m = placeItemMesh('garten', e); clampEntry('garten', m, e); });
   gartenG.visible = true; gartenG.scale.setScalar(0.01);
   tween(0.6, q => gartenG.scale.setScalar(0.01 + 0.99 * q));
-  sfx.pop(); toast('Spielplatz, Beete und Blumen — fertig!'); save();
+  sfx.pop(); toast('Spielplatz, Beete und Blumen — fertig!'); updateHUD(); save();
   enterEdit('garten'); };
 $('btn-sign').onclick = () => { $('extras-menu').classList.remove('open'); renderResidents(); $('residents').classList.add('open'); };
 function renderAnimals() {
@@ -2699,6 +2730,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
      ist, statt auf eine Bildrate zu wetten. */
   tweenCount: () => tweens.length,
   MAXF, tenantOf, topY, floorGroup, catalogIds: CATALOG.map(c => c.id),
+  EXTRA_PREIS, updateHUD,
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
   enterBesuch, exitBesuch, besuchCamFor, get besuch() { return besuch; }, floorYOf: floorY,
