@@ -1113,7 +1113,9 @@ function editCamFor(k) {
   return { eye: new THREE.Vector3(floorGroups[k].position.x, cy + 0.5, dist), tgt: new THREE.Vector3(floorGroups[k].position.x, cy, 0) };
 }
 function enterEdit(k) {
-  if (edit) return;
+  /* Einrichten und Besuch schliessen sich aus — sonst schrieben beide
+     gleichzeitig an Kamera und Sichtbarkeit (#44). */
+  if (edit || besuch) return;
   edit = { k };
   camSave = { p: camera.position.clone(), t: controls.target.clone() };
   const { eye, tgt } = editCamFor(k);
@@ -1155,6 +1157,64 @@ function exitEdit() {
   $('catalog').classList.remove('open');
   updateHUD();
 }
+
+/* ---------- Besuchsmodus (#44) ---------- */
+/* Standpunkte statt Laufen: die Kamera steht in Augenhöhe im Raum, das
+   Blickziel liegt in dessen Mitte. Gedreht wird um dieses Ziel, was sich
+   von innen wie Umsehen anfühlt — ohne Kollision, Schwerkraft oder ein
+   zweites Steuerungssystem. */
+const AUGE = 1.5;
+let besuch = null, besuchSave = null;
+
+function besuchCamFor(k) {
+  if (k === 'garten') {
+    return { eye: new THREE.Vector3(GARDEN_POS.x, AUGE, GARDEN_POS.z + GARDEN_D / 2 - 0.6),
+             tgt: new THREE.Vector3(GARDEN_POS.x, AUGE, GARDEN_POS.z) };
+  }
+  if (k === 'roof') {
+    const y = topY() + AUGE;
+    return { eye: new THREE.Vector3(0, y, ROOF_D / 2 - 0.6), tgt: new THREE.Vector3(0, y, 0) };
+  }
+  const y = floorY(k) + AUGE;
+  const x = floorGroups[k] ? floorGroups[k].position.x : 0;
+  return { eye: new THREE.Vector3(x, y, -dims(k).d / 2 + 0.5), tgt: new THREE.Vector3(x, y, 0) };
+}
+
+function enterBesuch(k) {
+  if (edit || besuch) return;
+  besuch = { k };
+  camSave = { p: camera.position.clone(), t: controls.target.clone() };
+  /* Die heutigen Grenzen sind für die Aussenansicht gemacht: minDistance 4 bei
+     rund 1.5 m Abstand im Raum würde die Kamera beim ersten update() durch die
+     Wand nach aussen schieben (js/game.js:164). Gesichert statt neu
+     hingeschrieben — ein zweiter Ort mit denselben Zahlen läuft auseinander. */
+  besuchSave = { min: controls.minDistance, max: controls.maxDistance,
+                 minP: controls.minPolarAngle, maxP: controls.maxPolarAngle,
+                 zoom: controls.enableZoom };
+  controls.minDistance = 0.4;
+  controls.maxDistance = 6;
+  controls.minPolarAngle = 0.35;
+  controls.maxPolarAngle = 2.4;
+  controls.enableZoom = false;
+  const { eye, tgt } = besuchCamFor(k);
+  moveCam(eye, tgt);
+  sfx.whoosh();
+}
+
+function exitBesuch() {
+  if (!besuch) return;
+  Object.assign(controls, { minDistance: besuchSave.min, maxDistance: besuchSave.max,
+    minPolarAngle: besuchSave.minP, maxPolarAngle: besuchSave.maxP,
+    enableZoom: besuchSave.zoom });
+  besuch = null; besuchSave = null;
+  moveCam(camSave.p, camSave.t);
+  sfx.whoosh();
+}
+
+/* Beginnt beim untersten gebauten Stockwerk — das Erdgeschoss ist immer da,
+   auch in einem frisch begonnenen Turm. */
+$('btn-besuch').onclick = () => { if (besuch) exitBesuch(); else enterBesuch(0); };
+
 function deselect() { if (selHelper) { scene.remove(selHelper); selHelper = null; } selected = null;
   $('colorpick').classList.remove('open'); $('selbar').classList.remove('on'); }
 function select(pick) { deselect(); selected = pick;
@@ -2563,6 +2623,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   MAXF, tenantOf, topY, floorGroup, catalogIds: CATALOG.map(c => c.id),
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
+  enterBesuch, exitBesuch, besuchCamFor, get besuch() { return besuch; }, floorYOf: floorY,
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
   ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, get clip() { return clip; },
   ziehtGerade: () => !!ziehen, zugBlockiert: () => !!(ziehen && ziehen.blockiert),
