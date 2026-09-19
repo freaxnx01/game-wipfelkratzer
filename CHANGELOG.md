@@ -6,6 +6,15 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added
+
+- Die Haselnüsse sind jetzt zu etwas gut: Für neun baut Willi die Brücke
+  über den Fluss, für fünfzehn entstehen Garten und Spielplatz. Nüsse
+  bekommst Du wie bisher, wenn Du einem Bewohner seinen Wunsch erfüllst
+  — drei Stück pro Wunsch. Möbel kosten weiterhin nichts, und wer
+  Brücke oder Spielplatz schon hat, behält sie natürlich. Fehlen noch
+  welche, sagt Dir das Spiel, wie viele (#83)
+
 ## [0.10.0] - 2026-09-19
 
 ### Added
