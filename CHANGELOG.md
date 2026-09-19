@@ -8,6 +8,12 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- Im Wald steht jetzt eine Aussichtsplattform. Über die Waldkarte gehst Du
+  hinauf und schaust Dich um — von dort siehst Du Deinen ganzen
+  Wipfelkratzer, was von der Dachterrasse aus nicht geht. Und wenn Du etwas
+  antippst, erzählt Willi Dir davon: wie hoch Dein Turm schon ist, was Else
+  Elster treibt, wozu die Brücke da ist. Auch die Biberburg, Móki und der
+  Bach erzählen von dort oben (#82)
 - Die Haselnüsse sind jetzt zu etwas gut: Für neun baut Willi die Brücke
   über den Fluss, für fünfzehn entstehen Garten und Spielplatz. Nüsse
   bekommst Du wie bisher, wenn Du einem Bewohner seinen Wunsch erfüllst
