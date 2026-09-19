@@ -3,7 +3,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MAT, SEASONS, LEAVES, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, TINTABLE,
   BUILD_SHAPES, BUILD_WIDTHS, BUILD_MAX, BUILD_MAX_H, DESIGN_MAX, normalizeBuild,
   makeCustomFurniture, lookCanvas, lookTexture, makeFurniture, makeAnimal, makeWilli,
-  makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge } from './models.js';
+  makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge,
+  makeAussicht, AUSSICHT_DECK } from './models.js';
 import { zipStore } from './zip.js';
 import * as staende from './staende.js';
 import { baueDatei, dateiName, pruefeDatei, MAX_DATEI } from './standdatei.js';
@@ -243,6 +244,16 @@ const SCOOP = { x: -3.4, y: 0.75, cruiseY: 3.2 };
 let magPhase = 'kreis', magT = 0, magCurve = null, magFrom = null, magTarget = null;
 let magOffset = 0, magToast = false, magPoured = false;
 const bridge = makeBridge(5.6); bridge.position.set(8.7, 0.08, riverZ(8.7)); bridge.rotation.y = Math.PI / 2; bridge.visible = state.bridge; scene.add(bridge);
+
+/* Abseits des Turms am Waldrand, in der baumfreien Lichtung vor dem Bach: von
+   hier sieht man den Wipfelkratzer ganz — das ist der eine Blick, den die
+   Dachterrasse nicht bietet (#82). */
+const AUSSICHT_POS = new THREE.Vector3(-15, 0, 13);
+const aussicht = makeAussicht();
+aussicht.position.copy(AUSSICHT_POS);
+aussicht.rotation.y = 0.5;
+aussicht.userData.type = 'aussicht';
+scene.add(aussicht);
 
 /* Plattform + Stämme */
 { const g = new THREE.Group(); scene.add(g);
@@ -2739,6 +2750,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   ziehtGerade: () => !!ziehen, zugBlockiert: () => !!(ziehen && ziehen.blockiert),
   poolEntries: () => roomOf('roof').filter(e => e.id === 'pool'),
   get magpiePhase() { return magPhase; }, MAGPIE_DUR, magpie,
+  aussicht, AUSSICHT_POS, AUSSICHT_DECK, bruecke: bridge,
   photoTools: { photoFilename, uniquePhotoNames, dataUrlToBytes, photoZipFilename },
   staende, stand: STAND, speichern: schreibeStand, speichernFotos: savePhotos, get fotos() { return photos; },
   standBild, merkeStandBild, renderStaende, standDatei, exportiereStand, importiereText,
