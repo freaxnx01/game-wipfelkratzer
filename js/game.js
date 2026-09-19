@@ -1084,7 +1084,12 @@ function moveCam(pos, tgt, dur = 0.9) {
   tween(dur, k => { camera.position.lerpVectors(p0, pos, k); controls.target.lerpVectors(t0, tgt, k); });
 }
 function applyFronts() {
-  for (let j = 0; j <= MAXF; j++) if (floorGroups[j]) floorGroups[j].userData.front.visible = !state.cutaway && !(edit && edit.k === j);
+  /* Von innen gilt das Gegenteil von aussen: die Wand muss stehen, sonst sieht
+     man in einen offenen Setzkasten statt in ein Zimmer. state.cutaway selbst
+     bleibt unangetastet, damit die Aussenansicht nach dem Besuch unverändert
+     ist (#44). */
+  for (let j = 0; j <= MAXF; j++) if (floorGroups[j])
+    floorGroups[j].userData.front.visible = besuch ? true : (!state.cutaway && !(edit && edit.k === j));
   $('btn-cutaway').textContent = state.cutaway ? 'Wände hin' : 'Wände weg';
 }
 function fitDistance(halfWidth, halfHeight) {
@@ -1198,6 +1203,12 @@ function enterBesuch(k) {
   controls.enableZoom = false;
   const { eye, tgt } = besuchCamFor(k);
   moveCam(eye, tgt);
+  /* Die Decke ist die Lichtquelle des Raums — mit ihr wird es dunkel und trüb.
+     Dieselbe bewusste Unehrlichkeit, die enterEdit schon trifft. Höhere
+     Stockwerke bleiben dagegen stehen: beim Blick aus dem Fenster fehlte sonst
+     der halbe Turm. */
+  if (typeof k === 'number' && floorGroups[k]) floorGroups[k].userData.ceil.visible = false;
+  applyFronts();
   sfx.whoosh();
 }
 
@@ -1207,6 +1218,10 @@ function exitBesuch() {
     minPolarAngle: besuchSave.minP, maxPolarAngle: besuchSave.maxP,
     enableZoom: besuchSave.zoom });
   besuch = null; besuchSave = null;
+  /* Erst jetzt, mit besuch === null, stellt applyFronts den Aussenzustand
+     her — vorher hielte es alle Wände sichtbar. */
+  for (let j = 0; j <= MAXF; j++) if (floorGroups[j]) floorGroups[j].userData.ceil.visible = true;
+  applyFronts();
   moveCam(camSave.p, camSave.t);
   sfx.whoosh();
 }
