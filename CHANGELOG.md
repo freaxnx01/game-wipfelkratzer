@@ -6,6 +6,8 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-19
+
 ### Added
 
 - Im Wald steht jetzt eine Aussichtsplattform. Über die Waldkarte gehst Du
