@@ -814,6 +814,11 @@ const $ = id => document.getElementById(id);
 (() => { const sb = $('selbar');
   const sync = () => document.documentElement.style.setProperty('--selbar-h', sb.offsetHeight + 'px');
   new ResizeObserver(sync).observe(sb); sync(); })();
+/* Dasselbe für die Besuchsleiste: sie steht auf derselben Höhe wie #selbar, und
+   ohne diese Zahl legen sich die Meldungen darüber (#44). */
+(() => { const bb = $('besuchbar');
+  const sync = () => document.documentElement.style.setProperty('--besuchbar-h', bb.offsetHeight + 'px');
+  new ResizeObserver(sync).observe(bb); sync(); })();
 /* --nav-h ist der Streifen am unteren Bildrand, den die Navileiste #game-nav aus
    der ai-instructions-Vorlage belegt (index.html, Ende der Datei): Höhe plus
    eigener Bodenabstand in einer Zahl, damit keine Zahl aus deren Inline-Style
@@ -1185,6 +1190,32 @@ function besuchCamFor(k) {
   return { eye: new THREE.Vector3(x, y, -dims(k).d / 2 + 0.5), tgt: new THREE.Vector3(x, y, 0) };
 }
 
+/* OrbitControls neigt die Kamera nicht, es dreht sie um das Blickziel: wer nach
+   oben schaut, hebt sie mit. Bei 1.5 m Augenhöhe in einem 2 m hohen Zimmer
+   stösst sie darum schon nach wenigen Grad durch die Decke — feste Polargrenzen
+   können das nicht leisten, weil Raumhöhe und Bahnradius von Stockwerk zu
+   Stockwerk verschieden sind. Draussen, auf Dach und Spielplatz, gibt es keine
+   Decke; dort bleibt der grosszügige Bereich. */
+const BESUCH_LUFT = 0.15;
+const BESUCH_POLAR_FREI = { minP: 0.35, maxP: 2.4 };
+function besuchPolar(k) {
+  if (typeof k !== 'number') return BESUCH_POLAR_FREI;
+  const { eye, tgt } = besuchCamFor(k);
+  const bahn = eye.distanceTo(tgt);
+  const nachOben = Math.max(0, H(k) - AUGE - BESUCH_LUFT);
+  const nachUnten = Math.max(0, AUGE - BESUCH_LUFT);
+  return { minP: Math.acos(Math.min(1, nachOben / bahn)),
+           maxP: Math.acos(-Math.min(1, nachUnten / bahn)) };
+}
+
+function stelleBesuchKamera(k) {
+  const { minP, maxP } = besuchPolar(k);
+  controls.minPolarAngle = minP;
+  controls.maxPolarAngle = maxP;
+  const { eye, tgt } = besuchCamFor(k);
+  moveCam(eye, tgt);
+}
+
 function enterBesuch(k) {
   if (edit || besuch) return;
   besuch = { k };
@@ -1198,11 +1229,8 @@ function enterBesuch(k) {
                  zoom: controls.enableZoom };
   controls.minDistance = 0.4;
   controls.maxDistance = 6;
-  controls.minPolarAngle = 0.35;
-  controls.maxPolarAngle = 2.4;
   controls.enableZoom = false;
-  const { eye, tgt } = besuchCamFor(k);
-  moveCam(eye, tgt);
+  stelleBesuchKamera(k);
   /* Die Decke ist die Lichtquelle des Raums — mit ihr wird es dunkel und trüb.
      Dieselbe bewusste Unehrlichkeit, die enterEdit schon trifft. Höhere
      Stockwerke bleiben dagegen stehen: beim Blick aus dem Fenster fehlte sonst
@@ -1253,8 +1281,7 @@ function wechsleBesuch(k) {
   if (!besuch) return;
   besuch.k = k;
   if (typeof k === 'number' && floorGroups[k]) floorGroups[k].userData.ceil.visible = false;
-  const { eye, tgt } = besuchCamFor(k);
-  moveCam(eye, tgt);
+  stelleBesuchKamera(k);
   renderBesuchbar();
   sfx.pop();
 }
