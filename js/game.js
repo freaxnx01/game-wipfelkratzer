@@ -1189,6 +1189,16 @@ const AUGE = 1.5;
 let besuch = null, besuchSave = null;
 
 function besuchCamFor(k) {
+  if (k === 'aussicht') {
+    /* Auf dem Deck, Blick zur Turmmitte — von hier ist der ganze
+       Wipfelkratzer im Bild (#82). Das Blickziel liegt drei Meter voraus und
+       nicht in der Kamera selbst, damit OrbitControls um einen sinnvollen
+       Punkt dreht. */
+    const y = AUSSICHT_DECK + AUGE;
+    const hin = new THREE.Vector3(0, 0, 0).sub(AUSSICHT_POS).setY(0).normalize();
+    return { eye: new THREE.Vector3(AUSSICHT_POS.x, y, AUSSICHT_POS.z),
+             tgt: new THREE.Vector3(AUSSICHT_POS.x + hin.x * 3, y, AUSSICHT_POS.z + hin.z * 3) };
+  }
   if (k === 'garten') {
     return { eye: new THREE.Vector3(GARDEN_POS.x, AUGE, GARDEN_POS.z + GARDEN_D / 2 - 0.6),
              tgt: new THREE.Vector3(GARDEN_POS.x, AUGE, GARDEN_POS.z) };
@@ -1276,12 +1286,14 @@ function renderBesuchbar() {
   const zahl = typeof k === 'number';
   $('besuch-titel').textContent = k === 'roof' ? 'Dachterrasse'
     : k === 'garten' ? 'Spielplatz'
+    : k === 'aussicht' ? 'Aussichtsplattform'
     : `${flLabel(k)} — ${tenantIn(k) ? (tenantOf(k).unit || tenantOf(k).name) : 'noch niemand'}`;
   $('btn-besuch-runter').disabled = !zahl || k <= 0;
   $('btn-besuch-hoch').disabled = !zahl || k >= state.floors;
   $('btn-besuch-dach').disabled = k === 'roof';
   $('btn-besuch-garten').classList.toggle('hidden', !state.garden);
   $('btn-besuch-garten').disabled = k === 'garten';
+  $('btn-besuch-aussicht').disabled = k === 'aussicht';
 }
 
 /* Der Wechsel ist ein neuer Standpunkt, kein neuer Besuch: camSave und die
@@ -1303,6 +1315,7 @@ $('btn-besuch-runter').onclick = () => { if (besuch && typeof besuch.k === 'numb
 $('btn-besuch-hoch').onclick = () => { if (besuch && typeof besuch.k === 'number' && besuch.k < state.floors) wechsleBesuch(besuch.k + 1); };
 $('btn-besuch-dach').onclick = () => wechsleBesuch('roof');
 $('btn-besuch-garten').onclick = () => { if (state.garden) wechsleBesuch('garten'); };
+$('btn-besuch-aussicht').onclick = () => wechsleBesuch('aussicht');
 $('btn-besuch-zu').onclick = exitBesuch;
 
 function deselect() { if (selHelper) { scene.remove(selHelper); selHelper = null; } selected = null;
@@ -2594,7 +2607,9 @@ $('stand-grid').addEventListener('click', ev => {
   if (ev.target.id === 'ort-schreinerei') { openWorkshop(); return; }
   if (ev.target.id === 'ort-wipfkea') { zeigeSchaufenster(); return; }
   if (ev.target.id === 'ort-aussicht') {
-    toast('Hier soll einmal eine Aussichtsplattform stehen — die gibt es noch nicht.');
+    $('staende').classList.remove('open');
+    enterBesuch('aussicht');
+    return;
   }
 });
 
