@@ -238,12 +238,12 @@ const willi = makeWilli(); willi.position.set(-3.8, 0, 4.8); willi.rotation.y = 
 const moki = makeAnimal('eichhoernchen'); moki.scale.setScalar(1.3); moki.position.set(6, 0, 6); moki.userData.type = 'moki'; scene.add(moki);
 const MOKI_WP = [new THREE.Vector3(6, 0, 6), new THREE.Vector3(-6.5, 0, 6.5), new THREE.Vector3(-7.5, 0, -5), new THREE.Vector3(7.5, 0, -5.5)];
 let mokiI = 0, mokiWait = 1.5;
-const magpie = new THREE.Group(); const magInner = makeMagpie(); magInner.rotation.y = -Math.PI / 2; magpie.add(magInner); scene.add(magpie);
+const magpie = new THREE.Group(); const magInner = makeMagpie(); magInner.rotation.y = -Math.PI / 2; magpie.add(magInner); magpie.userData.type = 'elster'; scene.add(magpie);
 const MAGPIE_DUR = { holen: 3.2, schoepfen: 1.0, bringen: 3.6, giessen: 1.2 };
 const SCOOP = { x: -3.4, y: 0.75, cruiseY: 3.2 };
 let magPhase = 'kreis', magT = 0, magCurve = null, magFrom = null, magTarget = null;
 let magOffset = 0, magToast = false, magPoured = false;
-const bridge = makeBridge(5.6); bridge.position.set(8.7, 0.08, riverZ(8.7)); bridge.rotation.y = Math.PI / 2; bridge.visible = state.bridge; scene.add(bridge);
+const bridge = makeBridge(5.6); bridge.position.set(8.7, 0.08, riverZ(8.7)); bridge.rotation.y = Math.PI / 2; bridge.visible = state.bridge; bridge.userData.type = 'bruecke'; scene.add(bridge);
 
 /* Abseits des Turms am Waldrand, in der baumfreien Lichtung vor dem Bach: von
    hier sieht man den Wipfelkratzer ganz — das ist der eine Blick, den die
@@ -2027,6 +2027,11 @@ function pickWall() {
   const hits = ray.intersectObjects(panels, false);
   return hits.length ? hits[0].object.userData.wallKey : null;
 }
+/* Die Trefferliste des Tipp-Handlers. Als Funktion, weil hitboxes mit jedem
+   neuen Stockwerk wächst — und an einer Stelle, weil die Debug-Trefferprobe
+   pickAt (#46) genau dieselbe Liste braucht und sonst auseinanderläuft. */
+const tippZiele = () => [...hitboxes, sign, willi, dam, moki, river, magpie, bridge, aussicht];
+
 let downX = 0, downY = 0, downT = 0;
 renderer.domElement.addEventListener('pointerdown', e => { downX = e.clientX; downY = e.clientY; downT = Date.now(); });
 renderer.domElement.addEventListener('pointerup', e => {
@@ -2062,10 +2067,36 @@ renderer.domElement.addEventListener('pointerup', e => {
     if (th.length) { let o = th[0].object; while (o && !(o.userData && o.userData.type === 'tenant')) o = o.parent;
       if (o) { tenantTalk(o.userData.floor); return; } }
   }
-  const hits = ray.intersectObjects([...hitboxes, sign, willi, dam, moki, river], true);
+  const hits = ray.intersectObjects(tippZiele(), true);
+  /* Die eigene Brüstung steht zwischen dem Auge und allem, was tiefer liegt —
+     der Spielplatz sitzt vom Deck aus genau hinter dem Holm. Sie darf deshalb
+     keinen Tipp schlucken: der Blick auf die Plattform selbst ist die Antwort
+     für einen Tipp, hinter dem nichts weiter liegt, und wird erst nach der
+     Schleife gegeben (#82). */
+  let plattformGetroffen = false;
   for (const h of hits) {
     let o = h.object; while (o && !(o.userData && o.userData.type)) o = o.parent;
     if (!o) continue; const u = o.userData;
+    /* Das Fernrohr (#82): im Besuch erzählt ein Tipp, statt etwas zu öffnen —
+       dasselbe Ereignis, eine andere Antwort. Draussen bleibt alles, wie es
+       war. Willi, Biberburg, Móki und das Schild fehlen hier mit Absicht: sie
+       erzählen ohnehin schon, und das Schild zeigt die Bewohner. */
+    if (besuch) {
+      if (u.type === 'floor' || u.type === 'roof') {
+        erzaehle(towerG, `Das ist Dein Wipfelkratzer — ${state.floors} ${state.floors === 1 ? 'Stockwerk' : 'Stockwerke'} hoch.`, topY() * 0.6); return; }
+      if (u.type === 'elster') { erzaehle(magpie, FERNROHR.elster, 0.6); return; }
+      if (u.type === 'bruecke') { if (!state.bridge) continue;
+        erzaehle(bridge, FERNROHR.bruecke, 0.8); return; }
+      if (u.type === 'garten') { if (!state.garden) continue;
+        erzaehle(gartenG, FERNROHR.garten, 1.4); return; }
+      if (u.type === 'aussicht') { plattformGetroffen = true; continue; }
+      /* Der Bach MUSS hier abgefangen werden: draussen führt er zu
+         «Splashdown!» (#46), also aus dem Spiel heraus. Ein Kind, das von der
+         Plattform aufs Wasser tippt, wollte nicht das Spiel wechseln — es
+         wollte wissen, was da unten fliesst. */
+      if (u.type === 'bach') { bachMerker.position.copy(h.point);
+        erzaehle(bachMerker, FERNROHR.bach, 0.4); return; }
+    }
     if (u.type === 'sign') { renderResidents(); $('residents').classList.add('open'); return; }
     if (u.type === 'willi') { williTalk(); return; }
     if (u.type === 'dam') { damTalk(); return; }
@@ -2075,6 +2106,7 @@ renderer.domElement.addEventListener('pointerup', e => {
     if (u.type === 'garten') { if (state.garden) { enterEdit('garten'); return; } continue; }
     if (u.type === 'floor') { if (u.floor <= state.floors) { enterEdit(u.floor); return; } continue; }
   }
+  if (plattformGetroffen) erzaehle(aussicht, FERNROHR.aussicht, AUSSICHT_DECK + 1.2);
 });
 
 /* ---------- Objekt ziehen (#64) ---------- */
@@ -2312,6 +2344,28 @@ function mokiTalk() {
   bubbleEl.innerHTML = `<img src="${mokiThumb}" alt="Móki"><span><b>Móki</b><br>${MOKI_TEXTS[mokiI2++ % MOKI_TEXTS.length]}</span>`;
   bubbleEl.classList.add('show');
   bubbleUntil = clock.elapsedTime + 4.5;
+  sfx.pop();
+}
+
+/* Was die Aussichtsplattform über den Wald zu erzählen weiss (#82). Der Turm
+   bekommt seinen Text zur Laufzeit — er hängt von der Stockwerkzahl ab. */
+const FERNROHR = {
+  elster: 'Das ist Else Elster. Sie sammelt alles, was glänzt — und holt Wasser für den Pool.',
+  bruecke: 'Über diese Brücke kommt Willi trockenen Fusses auf die andere Seite.',
+  garten: 'Der Spielplatz! Schaukel, Rutsche und Sandkasten — dort ist immer etwas los.',
+  aussicht: 'Von hier oben siehst Du den ganzen Wald. Tippe etwas an, dann erzähle ich davon.',
+  bach: 'Der Bach kommt aus den Bergen und fliesst am Wipfelkratzer vorbei.',
+};
+/* Der Bach ist ein Band quer durch die ganze Szene — sein Mittelpunkt läge
+   mitten im Turm. Die Blase hängt deshalb an einem Merker auf dem getippten
+   Stück Wasser statt am Band selbst. */
+const bachMerker = new THREE.Object3D();
+
+function erzaehle(ziel, text, hoehe) {
+  bubbleTarget = ziel; bubbleH = hoehe;
+  bubbleEl.innerHTML = `<span>${text}</span>`;
+  bubbleEl.classList.add('show');
+  bubbleUntil = clock.elapsedTime + 5;
   sfx.pop();
 }
 
@@ -2773,7 +2827,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
      Objektliste wie der pointerup-Handler nehmen, ohne eine Aktion auszulösen. */
   pickAt(nx, ny) {
     ray.setFromCamera(new THREE.Vector2(nx, ny), camera);
-    const hs = ray.intersectObjects([...hitboxes, sign, willi, dam, moki, river], true);
+    const hs = ray.intersectObjects(tippZiele(), true);
     for (const h of hs) { let o = h.object; while (o && !(o.userData && o.userData.type)) o = o.parent;
       if (o) return o.userData.type; }
     return null;
