@@ -6,6 +6,8 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-19
+
 ### Added
 
 - «Meine Türme» ist jetzt eine Waldkarte: Statt einer Liste siehst Du vier
