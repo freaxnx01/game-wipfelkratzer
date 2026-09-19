@@ -246,6 +246,18 @@ Commit and push the branch **before** starting verification, not after. Then a
 run that dies mid-check still leaves the work recoverable instead of taking it
 down with the runner.
 
+### Animated cameras: wait for **arrival**, not stillness
+
+The loop clamps each frame (`dt = Math.min(clock.getDelta(), 0.05)`) and a
+headless renderer draws under 1 fps — a 0.9 s camera tween then takes ~25 s.
+Measure earlier and the camera sits mid-flight, clamped to `maxDistance`,
+reading like a defect; waiting for it to stop is no better, since
+`enableDamping` decays asymptotically. Poll the end state: animation
+queue empty **and** camera at its target (`tweenCount() === 0` plus
+`camera.position.distanceTo(eye) < 0.2`, `timeout=120000`). Export both on
+the debug hook. Re-run a red camera check against `main` first — identical
+numbers mean the renderer, not the change.
+
 ---
 
 ## Localization (i18n)
