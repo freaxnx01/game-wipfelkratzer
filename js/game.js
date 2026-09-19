@@ -1198,10 +1198,8 @@ function besuchCamFor(k) {
    Decke; dort bleibt der grosszügige Bereich. */
 const BESUCH_LUFT = 0.15;
 const BESUCH_POLAR_FREI = { minP: 0.35, maxP: 2.4 };
-function besuchPolar(k) {
+function besuchPolar(k, bahn) {
   if (typeof k !== 'number') return BESUCH_POLAR_FREI;
-  const { eye, tgt } = besuchCamFor(k);
-  const bahn = eye.distanceTo(tgt);
   const nachOben = Math.max(0, H(k) - AUGE - BESUCH_LUFT);
   const nachUnten = Math.max(0, AUGE - BESUCH_LUFT);
   return { minP: Math.acos(Math.min(1, nachOben / bahn)),
@@ -1209,10 +1207,10 @@ function besuchPolar(k) {
 }
 
 function stelleBesuchKamera(k) {
-  const { minP, maxP } = besuchPolar(k);
+  const { eye, tgt } = besuchCamFor(k);
+  const { minP, maxP } = besuchPolar(k, eye.distanceTo(tgt));
   controls.minPolarAngle = minP;
   controls.maxPolarAngle = maxP;
-  const { eye, tgt } = besuchCamFor(k);
   moveCam(eye, tgt);
 }
 
