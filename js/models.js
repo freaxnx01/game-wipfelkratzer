@@ -911,3 +911,28 @@ export function makeBridge(len = 5) {
     r.rotation.z = Math.atan2(y1 - y0, x1 - x0); } });
   return g;
 }
+
+/* Aussichtsplattform: vier Stämme, ein Deck, ein Geländer, eine Leiter.
+   Klobige Primitive wie der übrige Wald — die Leiter ist Geometrie, kein
+   Weg (#82). */
+export const AUSSICHT_DECK = 5.2;
+export function makeAussicht() {
+  const g = G();
+  const halb = 1.1;
+  const ecken = [[-halb, -halb], [halb, -halb], [-halb, halb], [halb, halb]];
+  ecken.forEach(([x, z]) => cyl(g, 0.16, 0.2, AUSSICHT_DECK, MAT.woodD, x, AUSSICHT_DECK / 2, z, 10));
+  box(g, halb * 2 + 0.5, 0.18, halb * 2 + 0.5, MAT.woodL, 0, AUSSICHT_DECK, 0);
+  /* Geländer: vier Pfosten und ein umlaufender Holm */
+  ecken.forEach(([x, z]) => cyl(g, 0.06, 0.06, 0.9, MAT.wood, x, AUSSICHT_DECK + 0.54, z, 8));
+  [[0, -halb, 0], [0, halb, 0], [-halb, 0, Math.PI / 2], [halb, 0, Math.PI / 2]].forEach(([x, z, ry]) => {
+    const holm = box(g, halb * 2 + 0.5, 0.1, 0.1, MAT.wood, x, AUSSICHT_DECK + 0.92, z);
+    holm.rotation.y = ry;
+  });
+  /* Leiter an der Südseite */
+  const leiter = G(); g.add(leiter); leiter.position.set(0, 0, halb + 0.3);
+  [-0.28, 0.28].forEach(x => cyl(leiter, 0.05, 0.05, AUSSICHT_DECK, MAT.wood, x, AUSSICHT_DECK / 2, 0, 8));
+  for (let y = 0.45; y < AUSSICHT_DECK; y += 0.45) {
+    box(leiter, 0.62, 0.06, 0.06, MAT.woodD, 0, y, 0).castShadow = false;
+  }
+  return g;
+}
