@@ -6,6 +6,8 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-09-20
+
 ### Changed
 
 - Die Aussichtsplattform steht jetzt auf der anderen Seite des Bachs. Von dort
