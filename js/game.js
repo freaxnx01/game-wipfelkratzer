@@ -861,12 +861,52 @@ function applyFenster(m, on, q) {
   s.rotation.x = SASH_OPEN * (on ? q : 1 - q);
 }
 
+/* ---------- Bewegungsbausteine für Klick-Animationen (#93) ---------- */
+/* Jeder Baustein ist eine Fabrik und liefert eine Schrittfunktion (mesh, q)
+   mit q von 0 nach 1 (Smoothstep kommt aus tween).
+   EISERNE REGEL: bei q === 1 schreibt jeder Baustein exakt die Ruhelage.
+   Eine Klick-Animation hinterlässt nichts — weder am Mesh noch im
+   Spielstand. mesh.rotation.y ist tabu, sie trägt en.rot aus dem Platzieren. */
+const ANIM = {
+  /* Gedämpfte Schwingung: sin() * (1 - q) endet von selbst auf 0. */
+  wippen: (achse, winkel, schwingungen = 3) => (m, q) => {
+    m.rotation[achse] = q >= 1 ? 0
+      : winkel * Math.sin(q * schwingungen * 2 * Math.PI) * (1 - q);
+  },
+  /* Immer kleinere Sprünge über der Ruhehöhe. Die Ruhehöhe wird beim ersten
+     Schritt gemerkt, weil en.y je nach Abstellfläche variiert (surfaceYAt
+     für Deko-Objekte). */
+  huepfen: (hoehe, spruenge = 3) => (m, q) => {
+    if (m.userData.ruheY === undefined) m.userData.ruheY = m.position.y;
+    m.position.y = m.userData.ruheY + (q >= 1 ? 0
+      : Math.abs(Math.sin(q * spruenge * Math.PI)) * hoehe * (1 - q));
+  },
+  /* Einmal zusammendrücken und zurückfedern — Schlag, Anstoss. */
+  stauchen: (tiefe) => (m, q) => {
+    m.scale.y = q >= 1 ? 1 : 1 - tiefe * Math.sin(q * Math.PI);
+  },
+  /* Reihum eintauchen, für eine Teileliste in userData (Klaviertasten). */
+  reihum: (griff, tiefe) => (m, q) => {
+    const teile = m.userData[griff]; if (!teile) return;
+    teile.forEach((t, i) => {
+      if (t.userData.ruheY === undefined) t.userData.ruheY = t.position.y;
+      const p = q * teile.length - i;
+      t.position.y = t.userData.ruheY
+        - (q >= 1 || p < 0 || p > 1 ? 0 : Math.sin(p * Math.PI) * tiefe);
+    });
+  },
+  /* Mehrere Bausteine gleichzeitig auf demselben Mesh. */
+  zusammen: (...schritte) => (m, q) => schritte.forEach(f => f(m, q)),
+};
+
 /* Registry der Objekte, die etwas tun.
    - Eintrag MIT `apply` trägt einen Zustand (Feld `on` im Spielstand).
    - Eintrag OHNE `apply`, nur mit `label` + `sound`, ist ein reiner Auslöser.
      Das ist der Fall, den die Instrumente aus Issue #36 brauchen: Tipp -> Ton,
      kein Zustand, kein save(). Ein Instrument kostet dann genau eine Zeile
-     hier plus einen sfx-Effekt. */
+     hier plus einen sfx-Effekt.
+   - Eintrag MIT `play` ist eine einmalige Bewegung (#93): startet über
+     ANIM, schreibt ebenfalls nichts in den Spielstand. */
 const ACTIONS = {
   lampe:     { doOn: 'Licht an',     doOff: 'Licht aus',    apply: applyLampe,   sound: () => sfx.click() },
   fenster:   { doOn: 'Fenster auf',  doOff: 'Fenster zu',   apply: applyFenster, sound: () => sfx.creak() },
@@ -3221,7 +3261,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   fensterSchichten,
   wechsleBesuch, fensterSchichten, fensterAuf, fensterZu,
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
-  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, clearRoom, spinnerCount: () => spinners.length, raumLeeren, updateRoomButtons, ZUFALL_REZEPT, zieheEinrichtung, zufallEinrichten, DECO_IDS: [...DECO], WALL_IDS: [...WALL_ITEMS], get clip() { return clip; },
+  ACTIONS, ANIM, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, clearRoom, spinnerCount: () => spinners.length, raumLeeren, updateRoomButtons, ZUFALL_REZEPT, zieheEinrichtung, zufallEinrichten, DECO_IDS: [...DECO], WALL_IDS: [...WALL_ITEMS], get clip() { return clip; },
   ziehtGerade: () => !!ziehen, zugBlockiert: () => !!(ziehen && ziehen.blockiert),
   poolEntries: () => roomOf('roof').filter(e => e.id === 'pool'),
   get magpiePhase() { return magPhase; }, MAGPIE_DUR, magpie,
