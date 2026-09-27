@@ -48,6 +48,11 @@ All notable changes to this project are documented here, following
   oben zwischen Wand und Decke eine Lücke, durch die man in den Himmel
   schaute — besonders im Erdgeschoss. Damit es drinnen trotzdem hell bleibt,
   brennt während des Besuchs eine Lampe im Raum (#96)
+### Added
+
+- Beim «Hineingehen» sind die Fenster jetzt echte Öffnungen: Du schaust
+  aus der Wohnung hinaus auf Wald, Bach und den Rest Deines Turms.
+  Sobald Du wieder draussen bist, ist die Fassade wie vorher (#102)
 
 ## [0.11.1] - 2026-09-20
 
