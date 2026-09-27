@@ -749,8 +749,14 @@ function noise(c, col) { c.fillStyle = col; let s = 7; for (let i = 0; i < 260; 
    der Textur, die sich alle Wände teilen. */
 export const WALL_TILE = 1.2;
 const kacheln = meter => Math.max(1, Math.round(meter / WALL_TILE));
+/* Die Raumhöhe gibt das Mass vor, waagrecht wird nachgezogen: senkrecht ist nur
+   Platz für zwei Kachelreihen (2.4 m im Erdgeschoss, 2.0 m darüber), also liegt
+   die Kachelkante dort fest. Würde man waagrecht unabhängig davon auf 1.2 m
+   runden, wären die Punkte in den oberen Etagen bis zu 39 % gestaucht — so
+   bleiben sie auf jeder Wand fast quadratisch. */
 export function tapeziereUV(geo, breite, hoehe) {
-  const uv = geo.attributes.uv, u = kacheln(breite), v = kacheln(hoehe);
+  const uv = geo.attributes.uv, v = kacheln(hoehe), kante = hoehe / v;
+  const u = Math.max(1, Math.round(breite / kante));
   for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * u, uv.getY(i) * v);
   uv.needsUpdate = true;
   return geo;
