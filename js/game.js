@@ -1792,18 +1792,22 @@ function updateActionBtn() {
   b.classList.toggle('hidden', !label);
   if (label) b.textContent = label;
 }
-/* Antippen bleibt mit Auswählen belegt (js/game.js:1003-1005) — geschaltet
-   wird über diesen Knopf. Ein Eintrag ohne `apply` (Instrumente, Issue #36)
-   spielt nur seinen Ton und schreibt nichts in den Spielstand. */
-function toggleAction() {
-  if (!selected) return;
-  const en = selected.entry, a = ACTIONS[en.id];
+/* Ein Pfad für beide Auslöser — den Knopf #btn-action und den Tipp auf ein
+   bereits ausgewähltes Objekt (#93). Deshalb nimmt die Funktion den Pick als
+   Argument entgegen, statt selected zu lesen.
+   - Eintrag mit `apply`: schaltbarer Zustand, en.on wird gespeichert.
+   - Eintrag mit `play`:  einmalige Bewegung, NICHTS wird gespeichert.
+   - Eintrag nur mit `sound`: nur der Ton. */
+function spieleAktion(pick) {
+  if (!pick) return;
+  const en = pick.entry, a = ACTIONS[en.id];
   if (!a) return;
+  if (a.play) { starteAnimation(pick, a); return; }
   if (!a.apply) { a.sound(true); return; }
   const next = !isOn(en);
   en.on = next;
   a.sound(next);
-  const mesh = selected.mesh;
+  const mesh = pick.mesh;
   tween(0.7, q => a.apply(mesh, next, q));
   updateActionBtn();
   /* Die Fassade hängt an den Lampenzuständen (applyNight) — ohne dieses
@@ -1811,7 +1815,27 @@ function toggleAction() {
   if (en.id === 'lampe') applyNight(nightK);
   save();
 }
-$('btn-action').onclick = toggleAction;
+/* Einmalige Bewegung. Ein zweiter Tipp während des Laufs wird ignoriert: ein
+   Neustart auf einer ausgelenkten Lage sähe aus wie ein Ruckler und könnte
+   die in ANIM gemerkte Ruhelage verfälschen. Der Merker sitzt am Mesh und
+   wird im done-Rückruf von tween gelöscht — nicht per Zeitrechnung. */
+function starteAnimation(pick, a) {
+  /* `griff` erlaubt einen eigenen Drehpunkt (Schaukelstuhl-Kufen). Fehlt er
+     am Modell, läuft die Bewegung auf dem ganzen Objekt statt an undefined
+     zu scheitern. */
+  const ziel = (a.griff && pick.mesh.userData[a.griff]) || pick.mesh;
+  if (ziel.userData.spielt) return;
+  ziel.userData.spielt = true;
+  a.sound(true);
+  tween(a.dauer || 1.5, q => a.play(ziel, q),
+        () => { a.play(ziel, 1); ziel.userData.spielt = false; });
+}
+function laeuftAnimation(pick) {
+  const a = ACTIONS[pick.entry.id]; if (!a || !a.play) return false;
+  const ziel = (a.griff && pick.mesh.userData[a.griff]) || pick.mesh;
+  return !!ziel.userData.spielt;
+}
+$('btn-action').onclick = () => spieleAktion(selected);
 
 /* Die Stelle an einer Wand, die von allen schon dort hängenden Objekten
    am weitesten entfernt ist. Abgetastet in 0.4er-Schritten — fein genug
@@ -3258,10 +3282,9 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
     }
     return frei;
   },
-  fensterSchichten,
   wechsleBesuch, fensterSchichten, fensterAuf, fensterZu,
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
-  ACTIONS, ANIM, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, clearRoom, spinnerCount: () => spinners.length, raumLeeren, updateRoomButtons, ZUFALL_REZEPT, zieheEinrichtung, zufallEinrichten, DECO_IDS: [...DECO], WALL_IDS: [...WALL_ITEMS], get clip() { return clip; },
+  ACTIONS, ANIM, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, clearRoom, spinnerCount: () => spinners.length, raumLeeren, updateRoomButtons, ZUFALL_REZEPT, zieheEinrichtung, zufallEinrichten, DECO_IDS: [...DECO], WALL_IDS: [...WALL_ITEMS], get clip() { return clip; }, spieleAktion, laeuftAnimation,
   ziehtGerade: () => !!ziehen, zugBlockiert: () => !!(ziehen && ziehen.blockiert),
   poolEntries: () => roomOf('roof').filter(e => e.id === 'pool'),
   get magpiePhase() { return magPhase; }, MAGPIE_DUR, magpie,
