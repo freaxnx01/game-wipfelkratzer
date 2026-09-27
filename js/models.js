@@ -352,21 +352,62 @@ const FURN = {
     return g; },
   /* Instrumente */
   harfe() { const g = G();
-    /* Seitenprofil in der x-y-Ebene: Säule vorne senkrecht, Resonanzkörper schräg
-       nach hinten-unten, Hals dazwischen, Saiten spannen als Fächer darüber.
+    /* Seitenprofil in der x-y-Ebene (z ist die Tiefe), Nullpunkt am Boden,
+       um x = 0 zentriert. Drei gerade Seiten: der Korpus lehnt nach hinten,
+       die Säule steht senkrecht vorne, der Hals spannt oben zwischen beiden.
+       Entscheidend ist der Winkel am Knoten Korpus/Hals — er betrug 158°,
+       und bei 158° gibt es schlicht keine Fläche, über die Saiten spannen
+       könnten: sie lagen deshalb im Resonanzkörper drin und waren unsichtbar
+       (#101). Jetzt sind es 114°.
        bar() spannt einen Quader von Punkt a nach Punkt b (beide [x, y]). */
     const bar = (a, b, w, d, mat, ext = 0) => { const dx = b[0] - a[0], dy = b[1] - a[1];
       const m = box(g, w, Math.hypot(dx, dy) + ext, d, mat, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0);
       m.rotation.z = -Math.atan2(dx, dy); return m; };
-    const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-    box(g, 0.44, 0.08, 0.28, MAT.woodD, 0, 0.04);
-    cyl(g, 0.045, 0.05, 1.12, MAT.wood, 0.22, 0.64, 0, 10);
-    bar([-0.18, 0.08], [0.05, 0.95], 0.15, 0.22, MAT.woodL, 0.06);
-    bar([-0.16, 0.10], [0.06, 0.93], 0.03, 0.16, MAT.woodD);
-    bar([0.06, 0.97], [0.22, 1.15], 0.10, 0.16, MAT.woodD, 0.05);
-    sph(g, 0.06, MAT.gold, 0.22, 1.20, 0);
-    for (let i = 0; i < 7; i++) { const t = i / 6;
-      bar(lerp([-0.09, 0.36], [0.03, 0.82], t), lerp([0.07, 0.99], [0.21, 1.14], t), 0.014, 0.014, MAT.gold); }
+    /* Die drei Eckpunkte sind die einzigen frei gewählten Zahlen des Rahmens.
+       Richtungen, Normalen und alle vierzehn Saitenenden folgen daraus —
+       wer die Proportionen ändert, ändert hier drei Punkte, nicht die
+       Saiten einzeln. */
+    const FUSS = [-0.06, 0.10], KNOTEN = [-0.18, 1.00], KOPF = [0.18, 1.22];
+    const richtung = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
+      return [dx / L, dy / L]; };
+    const kAb = richtung(KNOTEN, FUSS);        /* Korpus, vom Knoten nach unten */
+    const hAb = richtung(KNOTEN, KOPF);        /* Hals, vom Knoten zur Säule */
+    const kN = [-kAb[1], kAb[0]];              /* neben dem Korpus, zur Säule hin */
+    const hN = [hAb[1], -hAb[0]];              /* unter dem Hals, ins Innere */
+    const versetzt = (p, n, s) => [p[0] + n[0] * s, p[1] + n[1] * s];
+    const entlang = (p, r, s) => [p[0] + r[0] * s, p[1] + r[1] * s];
+
+    box(g, 0.44, 0.08, 0.30, MAT.woodD, 0, 0.04).userData.teil = 'fuss';
+    /* Korpus und Hals greifen am Knoten übereinander (ext), damit die Ecke
+       ohne Kerbe zugeht — aber nur so weit, dass die Stirnflächen nahe
+       beieinander bleiben. */
+    bar(FUSS, KNOTEN, 0.16, 0.24, MAT.woodL, 0.04).userData.teil = 'korpus';
+    /* Saitenhalter: die schmale Leiste auf der Korpusvorderkante, in der die
+       Saitenfüsse stecken. Sie liegt knapp unter dem Versatz der Füsse. */
+    bar(versetzt(FUSS, kN, 0.095), versetzt(KNOTEN, kN, 0.095), 0.035, 0.16, MAT.woodD)
+      .userData.teil = 'leiste';
+    bar(KNOTEN, KOPF, 0.10, 0.16, MAT.woodD, 0.03).userData.teil = 'hals';
+    cyl(g, 0.045, 0.05, 1.12, MAT.wood, KOPF[0], 0.66, 0, 10).userData.teil = 'saeule';
+    sph(g, 0.06, MAT.gold, KOPF[0], KOPF[1] + 0.02, 0).userData.teil = 'knauf';
+
+    /* Harfenregel: Saite i hängt am Hals im Abstand a vom Knoten und am
+       Korpus im Abstand FAKTOR · a. Bei konstantem Faktor stehen alle
+       Saiten nahezu parallel zueinander und werden gleichmässig länger, je
+       weiter sie zur Säule wandern — genau das Bild einer Harfe. Die Füsse
+       sitzen 0.10 neben der Korpusachse (Halbbreite 0.08 plus Luft), die
+       Köpfe 0.045 unter der Halsachse: so tritt keine Saite in einen
+       Körper ein.
+       Der Fächer beginnt erst 0.18 vom Knoten weg: näher am Knoten sind die
+       Versätze so gross wie die Armlängen selbst, dann läuft die kürzeste
+       Saite fast parallel zur Leiste und verschwindet hinter ihr (genau der
+       Fehler, den #101 meldet). Ab 0.18 weicht sie um 14° ab und liegt frei. */
+    const SAITEN = 7, FAKTOR = 1.70, K_VERSATZ = 0.10, H_VERSATZ = 0.045;
+    for (let i = 0; i < SAITEN; i++) {
+      const a = 0.18 + (0.40 - 0.18) * i / (SAITEN - 1);
+      const fuss = versetzt(entlang(KNOTEN, kAb, FAKTOR * a), kN, K_VERSATZ);
+      const kopf = versetzt(entlang(KNOTEN, hAb, a), hN, H_VERSATZ);
+      bar(fuss, kopf, 0.014, 0.014, MAT.gold).userData.saite = i;
+    }
     return g; },
   schlagzeug() { const g = G();
     /* Kompaktes Set: grosse Trommel liegend (Achse entlang z), Tom obenauf,
