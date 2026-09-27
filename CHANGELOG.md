@@ -6,6 +6,37 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added
+
+- Beim «Hineingehen» sind die Fenster jetzt echte Öffnungen: Du schaust
+  aus der Wohnung hinaus auf Wald, Bach und den Rest Deines Turms.
+  Sobald Du wieder draussen bist, ist die Fassade wie vorher (#102)
+- Beim Einrichten gibt es zwei neue Knöpfe: «Alles weg» räumt die ganze
+  Wohnung auf einmal leer (es fragt vorher nach, damit nichts aus
+  Versehen verschwindet), und «Zufall einrichten» stellt Dir mit einem
+  Tippen eine ganze Einrichtung hin — mit zwei Fenstern, damit es hell
+  wird. Umbauen kannst Du danach alles wie immer (#97)
+- Viele Sachen bewegen sich jetzt, wenn Du sie antippst: Der Schaukelstuhl
+  wippt, der Ball und das Kuscheltier hüpfen, die Pflanze wackelt — und beim
+  Klavier tanzen die Tasten, während es klimpert. Blockflöte, Harfe und
+  Schlagzeug spielen ebenfalls auf. Erst antippen zum Auswählen, dann
+  nochmal tippen — oder den Knopf unten drücken, der Dir sagt, was passiert
+  (#93)
+- Du kannst Deinen Wohnungen jetzt eigene Namen geben: Tippe ein Stockwerk an
+  und schreib «Musikzimmer», «Werkstatt» oder was Du magst in das Feld oben in
+  der Leiste. Der Name steht danach auch beim Hineingehen und auf dem
+  Bewohner-Schild — neben dem Tier, das dort wohnt — und er wird mit dem Turm
+  gesichert. Leer machen nimmt den Namen wieder weg (#103)
+- Möbel lassen sich jetzt in drei Grössen aufstellen: normal, gross (1,5×) und
+  riesig (2×). Tippe ein Möbel an und drücke «Grösse» — ein Riesen-Sofa für die
+  weite Wohnung im Erdgeschoss, ein normaler Tisch für die kleine Dachkammer.
+  Was nicht mehr unter die Decke passt oder einem Bewohner den Platz wegnimmt,
+  bleibt wie es war, und Willi sagt Dir warum (#99)
+- Möbel lassen sich jetzt in die Länge ziehen und wieder kürzen: Möbel
+  antippen, «Strecken» wählen, dann «Länger» oder «Kürzer». Aus dem Tisch
+  wird eine lange Tafel, aus dem Sofa eine Bank für die ganze Familie. Passt
+  das Möbel nicht mehr ins Zimmer, geht es nicht weiter (#100)
+
 ### Changed
 
 - Die Waldkarte hat jetzt einen eigenen Knopf in der Leiste unten: Du
@@ -17,6 +48,7 @@ All notable changes to this project are documented here, following
   Plätschern mit aufsteigenden Blasen, wenn sie ihn ins Becken kippt.
   Vorher rauschte es dort, als würde die Kamera schwenken, und der
   Guss klang wie ein dumpfer Plumps (#105)
+
 ### Fixed
 
 - «Sichern mit Fotos» hat auf dem Tablet manchmal nichts getan: Wenn das
@@ -24,8 +56,6 @@ All notable changes to this project are documented here, following
   gesichert. Jetzt wird er in so einem Fall als Datei heruntergeladen — und
   wenn wirklich etwas schiefgeht, steht es als Hinweis auf dem Bildschirm
   (#94)
-### Fixed
-
 - Die Harfe sieht endlich aus wie eine Harfe: Du siehst jetzt ihre sieben
   goldenen Saiten, und sie werden nach vorne hin länger. Vorher steckten
   sie im Holz und waren gar nicht zu sehen (#101)
@@ -34,73 +64,24 @@ All notable changes to this project are documented here, following
   das × in der Blase, dann ist sie sofort weg. Das gilt überall: bei
   Willi, bei der Biberburg, bei Móki, bei den Tieren im Turm und bei
   den Texten, die Du von der Aussichtsplattform aus hörst (#104)
-### Fixed
-
 - «Wände weg» wirkt jetzt auch, wenn Du drinnen stehst: Im Besuch nimmt
   der Knopf die Vorderwände weg, und Du schaust aus der Wohnung hinaus
   auf den Wald, den Bach und den Rest Deines Turms. Ein zweiter Druck
   stellt sie wieder hin. Beim nächsten «Hineingehen» stehen die Wände
   wieder, und die Aussenansicht bleibt genau so, wie Du sie verlassen
   hast (#95)
-### Fixed
-
 - Beim Hineingehen hat Dein Zimmer jetzt eine richtige Decke. Vorher klaffte
   oben zwischen Wand und Decke eine Lücke, durch die man in den Himmel
   schaute — besonders im Erdgeschoss. Damit es drinnen trotzdem hell bleibt,
   brennt während des Besuchs eine Lampe im Raum (#96)
-### Added
-
-- Beim «Hineingehen» sind die Fenster jetzt echte Öffnungen: Du schaust
-  aus der Wohnung hinaus auf Wald, Bach und den Rest Deines Turms.
-  Sobald Du wieder draussen bist, ist die Fassade wie vorher (#102)
-### Fixed
-
 - Die Tapete läuft jetzt durchgängig um das Zimmer. Vorher waren die Punkte
   auf der breiten Rückwand deutlich grösser als auf den Seitenwänden, das
   Muster brach in jeder Ecke ab und an der Decke war die oberste Reihe
   angeschnitten. Jetzt sind die Punkte auf allen vier Wänden gleich gross,
   in jedem Stockwerk — und das Muster endet an Ecke, Boden und Decke sauber
   am Rand einer Kachel (#98)
-### Added
-
-- Beim Einrichten gibt es zwei neue Knöpfe: «Alles weg» räumt die ganze
-  Wohnung auf einmal leer (es fragt vorher nach, damit nichts aus
-  Versehen verschwindet), und «Zufall einrichten» stellt Dir mit einem
-  Tippen eine ganze Einrichtung hin — mit zwei Fenstern, damit es hell
-  wird. Umbauen kannst Du danach alles wie immer (#97)
-
-### Fixed
-
 - Ein weggeräumtes Hamsterrad drehte sich unsichtbar weiter. Jetzt
   hört es auf (#97)
-### Added
-
-- Viele Sachen bewegen sich jetzt, wenn Du sie antippst: Der Schaukelstuhl
-  wippt, der Ball und das Kuscheltier hüpfen, die Pflanze wackelt — und beim
-  Klavier tanzen die Tasten, während es klimpert. Blockflöte, Harfe und
-  Schlagzeug spielen ebenfalls auf. Erst antippen zum Auswählen, dann
-  nochmal tippen — oder den Knopf unten drücken, der Dir sagt, was passiert
-  (#93)
-### Added
-
-- Du kannst Deinen Wohnungen jetzt eigene Namen geben: Tippe ein Stockwerk an
-  und schreib «Musikzimmer», «Werkstatt» oder was Du magst in das Feld oben in
-  der Leiste. Der Name steht danach auch beim Hineingehen und auf dem
-  Bewohner-Schild — neben dem Tier, das dort wohnt — und er wird mit dem Turm
-  gesichert. Leer machen nimmt den Namen wieder weg (#103)
-### Added
-
-- Möbel lassen sich jetzt in drei Grössen aufstellen: normal, gross (1,5×) und
-  riesig (2×). Tippe ein Möbel an und drücke «Grösse» — ein Riesen-Sofa für die
-  weite Wohnung im Erdgeschoss, ein normaler Tisch für die kleine Dachkammer.
-  Was nicht mehr unter die Decke passt oder einem Bewohner den Platz wegnimmt,
-  bleibt wie es war, und Willi sagt Dir warum (#99)
-### Added
-
-- Möbel lassen sich jetzt in die Länge ziehen und wieder kürzen: Möbel
-  antippen, «Strecken» wählen, dann «Länger» oder «Kürzer». Aus dem Tisch
-  wird eine lange Tafel, aus dem Sofa eine Bank für die ganze Familie. Passt
-  das Möbel nicht mehr ins Zimmer, geht es nicht weiter (#100)
 
 ## [0.11.1] - 2026-09-20
 
