@@ -1722,7 +1722,10 @@ $('paste-replace').onclick = () => { const k = pasteTarget; closePasteAsk(); if 
    window.confirm() sieht auf dem iPad fremd aus und lässt sich nicht
    kindgerecht formulieren. Geleert wird nur die Möbelliste — Tapete und
    Boden sind der Raum selbst, nicht seine Einrichtung. */
-const raumName = k => k === 'roof' ? 'der Dachterrasse'
+/* Die Ortsangabe im Dativ, für Sätze wie «in ... steht jetzt nichts mehr».
+   Bewusst NICHT raumName(): das ist seit #103 der vom Kind vergebene Name
+   der Wohnung, und beide Begriffe kommen in denselben Zeilen vor. */
+const raumBezeichnung = k => k === 'roof' ? 'der Dachterrasse'
   : k === 'garten' ? 'dem Spielplatz' : `Stockwerk ${flLabel(k)}`;
 
 function raumLeeren(k) {
@@ -1730,7 +1733,7 @@ function raumLeeren(k) {
   deselect();
   renderWishes(); renderResidents();
   sfx.knock();
-  toast(`Aufgeräumt — in ${raumName(k)} steht jetzt nichts mehr.`);
+  toast(`Aufgeräumt — in ${raumBezeichnung(k)} steht jetzt nichts mehr.`);
   save(); updateHUD(); updateRoomButtons();
 }
 
@@ -1740,7 +1743,7 @@ function fragNachLeeren() {
   const n = roomOf(k).length;
   if (!n) return;
   $('clearask-text').textContent =
-    `In ${raumName(k)} stehen ${n} Sachen. Sie sind dann alle weg.`;
+    `In ${raumBezeichnung(k)} stehen ${n} Sachen. Sie sind dann alle weg.`;
   $('clearask').classList.add('open');
 }
 function closeClearAsk() { $('clearask').classList.remove('open'); }
