@@ -1235,12 +1235,15 @@ function besuchCamFor(k) {
    stösst sie darum schon nach wenigen Grad durch die Decke — feste Polargrenzen
    können das nicht leisten, weil Raumhöhe und Bahnradius von Stockwerk zu
    Stockwerk verschieden sind. Draussen, auf Dach und Spielplatz, gibt es keine
-   Decke; dort bleibt der grosszügige Bereich. */
+   Decke; dort bleibt der grosszügige Bereich.
+   Gerechnet wird gegen die Deckenunterkante, nicht gegen die Raumhöhe — seit die
+   Decke im Besuch steht, führte die Raumhöhe die Kamera 3 cm zu weit hinauf,
+   mitten durch die Platte (#96). */
 const BESUCH_LUFT = 0.15;
 const BESUCH_POLAR_FREI = { minP: 0.35, maxP: 2.4 };
 function besuchPolar(k, bahn) {
   if (typeof k !== 'number') return BESUCH_POLAR_FREI;
-  const nachOben = Math.max(0, H(k) - AUGE - BESUCH_LUFT);
+  const nachOben = Math.max(0, deckeUnterY(k) - AUGE - BESUCH_LUFT);
   const nachUnten = Math.max(0, AUGE - BESUCH_LUFT);
   return { minP: Math.acos(Math.min(1, nachOben / bahn)),
            maxP: Math.acos(-Math.min(1, nachUnten / bahn)) };
