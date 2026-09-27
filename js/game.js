@@ -1879,6 +1879,40 @@ function setItemColor(colorId) {
   sfx.pop(); save();
 }
 
+/* clampEntry begrenzt nur x und z — ohne diese Probe stiesse ein doppelt so
+   hoher Schrank durch die Decke. Gemessen wird am echten Mesh, weil nur die
+   Box3 die wahre Höhe des Modells kennt; der Faktor wird sofort wieder auf
+   den alten Stand zurückgesetzt. Auf dem Dach und im Garten (k ist dort ein
+   String) entfällt die Probe, dort ist Himmel. */
+function paesstUnterDecke(k, mesh, entry, f) {
+  if (typeof k !== 'number') return true;
+  applyEntryScale(mesh, { id: entry.id, scale: f });
+  const bb = new THREE.Box3().setFromObject(mesh);
+  applyEntryScale(mesh, entry);
+  return bb.max.y - bb.min.y <= H(k) - 0.1;
+}
+/* Grösse setzen (Issue #99). Der Weg ist derselbe wie beim Drehen: die
+   Änderung läuft durch applyMove, das bei einer Ablehnung x/z/y/rot/scale
+   zurücknimmt und über replaceMesh auch das Mesh wieder herrichtet.
+   Rückgabe: true, wenn die Stufe Bestand hat. */
+function setItemSize(f) {
+  if (!selected || selected.tenant || WALL_ITEMS.has(selected.entry.id)) return false;
+  const en = selected.entry, mesh = selected.mesh;
+  if (sizeOf(en) === f) return true;
+  if (!paesstUnterDecke(selected.k, mesh, en, f)) {
+    blockGrund = 'So gross passt das nicht unter die Decke.';
+    meldeBlockade(); return false;
+  }
+  const ok = applyMove(selected, () => {
+    if (f === 1) delete en.scale; else en.scale = f;
+    applyEntryScale(mesh, en);
+    clampEntry(selected.k, mesh, en);
+  });
+  if (!ok) { meldeBlockade(); return false; }
+  selHelper.update(); sfx.pop(); save();
+  return true;
+}
+
 /* Der Aktionsknopf sagt, was der nächste Druck TUT — nicht, wie der Zustand
    gerade heisst. Er erscheint nur für Objekte, die in ACTIONS stehen. */
 function updateActionBtn() {
@@ -3403,7 +3437,7 @@ for (let i = 0; i <= MAXF; i++) if (floorGroups[i]) applyLook(i);
 if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
 window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, gartenG, gardenEdge, scene, camera, controls, WALL_KEYS, WALL_TILE, FURN_COLORS, TINTABLE,
-  FURN_SIZES, sizeOf, applyEntryScale, H,
+  FURN_SIZES, sizeOf, applyEntryScale, H, setItemSize,
   GARDEN: { pos: GARDEN_POS, w: GARDEN_W, d: GARDEN_D }, riverZ, river, placeItemMesh, clampEntry, removeItem,
   MAT, SEASONS, LEAVES, setSeason, setNight, ground,
   riverMats: { sand: riverSandMat, water: riverWaterMat, foam: riverFoamMat },
