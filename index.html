@@ -120,6 +120,14 @@
   #colorpick.open { display: flex; }
   #colorpick button { min-width: 44px; min-height: 44px; padding: 0; border-radius: 50%; font-size: 13px; }
   #colorpick button.on { outline: 3px solid var(--wood); outline-offset: 2px; }
+  /* Grössenreihe (#99) — selbe Machart und selber Platz wie die Farbreihe.
+     Die beiden sind nie gleichzeitig offen, siehe js/game.js. */
+  #sizepick { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    display: none; gap: 6px; padding: 8px; background: var(--cream);
+    border: 3px solid var(--woodL); border-radius: 16px; box-shadow: 0 4px 14px rgba(74,58,36,.25); }
+  #sizepick.open { display: flex; }
+  #sizepick button { min-width: 52px; min-height: 44px; padding: 0; border-radius: 14px; font-size: 14px; }
+  #sizepick button.on { outline: 3px solid var(--wood); outline-offset: 2px; }
   /* Extras menu */
   #extras-menu { position: fixed; bottom: calc(var(--toolbar-h, 60px) + 16px); left: 50%; transform: translateX(-50%); z-index: 7; display: none; flex-direction: column; gap: 8px; padding: 12px; width: 260px; }
   #extras-menu.open { display: flex; }
@@ -378,6 +386,8 @@
   <button id="btn-action" class="hidden"></button>
   <button id="btn-color">Farbe</button>
   <div id="colorpick" aria-label="Farbe wählen"></div>
+  <button id="btn-size">Grösse</button>
+  <div id="sizepick" aria-label="Grösse wählen"></div>
   <button id="btn-del" class="danger">Weg damit</button>
 </div>
 

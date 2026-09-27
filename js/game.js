@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { MAT, SEASONS, LEAVES, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, TINTABLE,
+import { MAT, SEASONS, LEAVES, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, FURN_SIZES, TINTABLE,
   BUILD_SHAPES, BUILD_WIDTHS, BUILD_MAX, BUILD_MAX_H, DESIGN_MAX, normalizeBuild,
   makeCustomFurniture, lookCanvas, lookTexture, tapeziereUV, WALL_TILE, makeFurniture, makeAnimal, makeWilli,
   makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge,
@@ -678,6 +678,26 @@ function normalizeColor(en) {
   if (!en.color) return;
   if (!TINTABLE.has(en.id) || !FURN_COLORS.some(c => c.id === en.color)) { delete en.color; migrated = true; }
 }
+/* Grösse pro Möbel (Issue #99). Wie bei der Farbe heisst «kein Feld»
+   Standard — hier Faktor 1. Ein unbekannter Wert oder eine Grösse an einem
+   Wandobjekt wird still entfernt; der Faktor 1 wird ebenfalls entfernt, damit
+   ein Stand nicht pro Möbel um ein nutzloses Feld wächst. */
+const SIZE_FACTORS = FURN_SIZES.map(s => s.f);
+const sizeOf = en => (en && SIZE_FACTORS.includes(en.scale) ? en.scale : 1);
+function normalizeSize(en) {
+  if (en.scale === undefined) return;
+  if (!SIZE_FACTORS.includes(en.scale) || en.scale === 1 || WALL_ITEMS.has(en.id)) {
+    delete en.scale; migrated = true; }
+}
+/* Die einzige Stelle, die die Grösse eines Möbels ans Mesh bringt. Sie sitzt
+   auf dem Gruppenknoten, nie auf einem Kind: die Schaltzustände (Badewanne,
+   Pool, Fenster) rechnen in Kindern und dürfen davon nichts merken.
+   q ist der Fortschritt einer Einfahr-Animation (1 = fertig).
+   Issue #100 (in die Länge ziehen) erweitert genau diese eine Zeile zu
+   m.scale.set(f * laenge, f, f) — deshalb geht jeder Pfad hier durch. */
+function applyEntryScale(mesh, entry, q = 1) {
+  mesh.scale.setScalar(sizeOf(entry) * q);
+}
 /* Eigenbauten prüfen, bevor sie gebaut werden. Ein Bauplan ist Fremdeingabe:
    von Hand verändert, aus einer älteren Version, aus einer entfernten Form.
    Ungültige Einträge verschwinden still, gekürzte werden ersetzt — und der
@@ -823,6 +843,9 @@ function replaceMesh(pick) {
   if (pick.tenant) { pick.mesh.position.x = en.x; pick.mesh.position.z = en.z; }
   else pick.mesh.position.set(en.x, en.y ?? baseY(pick.k), en.z);
   pick.mesh.rotation.y = en.rot ?? 0;
+  /* Auch die Grösse gehört zurückgedreht — sonst bleibt nach einer
+     abgelehnten Stufe ein grosses Mesh an einem kleinen Eintrag hängen. */
+  if (!pick.tenant) applyEntryScale(pick.mesh, en);
   clampEntry(pick.k, pick.mesh, en);
   if (selHelper && selected === pick) selHelper.update();
 }
@@ -839,10 +862,12 @@ function meldeBlockade() {
    Rückgabe: true, wenn der Zug Bestand hat. */
 function applyMove(pick, mutate) {
   const en = pick.entry;
-  const snap = { x: en.x, z: en.z, y: en.y, rot: en.rot, wall: en.wall };
+  const snap = { x: en.x, z: en.z, y: en.y, rot: en.rot, wall: en.wall, scale: en.scale };
   mutate();
   const ok = pick.tenant ? resolveTenantMove(pick) : resolveItemMove(pick);
-  if (!ok) { Object.assign(en, snap); replaceMesh(pick); }
+  /* Object.assign schreibt ein fehlendes Feld als `scale: undefined` zurück
+     statt es zu löschen — «kein Feld» ist aber der Normalzustand (#99). */
+  if (!ok) { Object.assign(en, snap); if (en.scale === undefined) delete en.scale; replaceMesh(pick); }
   return ok;
 }
 function resolveTenantMove(pick) { return !tenantBlocked(pick); }
@@ -965,6 +990,7 @@ function applyItemState(m, animate) {
 
 function placeItemMesh(k, entry) {
   normalizeColor(entry);
+  normalizeSize(entry);
   if (entry.x === undefined) { const p = cellPos(k, entry.cell || 0); entry.x = p.x; entry.z = p.z; entry.rot = (entry.rot || 0) * Math.PI / 2; }
   /* Zwei Wege zu einem Möbel-Mesh: Katalog-id oder Bauplan (Schreinerei). */
   const m = entry.id === 'eigenbau' ? makeCustomFurniture(entry.build) : makeFurniture(entry.id, entry.color);
@@ -979,6 +1005,7 @@ function placeItemMesh(k, entry) {
     m.position.set(entry.x, entry.y ?? baseY(k), entry.z);
     m.rotation.y = entry.rot;
   }
+  applyEntryScale(m, entry);
   m.userData.pick = { k, entry, mesh: m };
   parentOf(k).add(m); itemMeshes[k].push(m);
   if (m.userData.wheel) spinners.push(m.userData.wheel);
@@ -1564,7 +1591,8 @@ $('btn-besuch-aussicht').onclick = () => wechsleBesuch('aussicht');
 $('btn-besuch-zu').onclick = exitBesuch;
 
 function deselect() { if (selHelper) { scene.remove(selHelper); selHelper = null; } selected = null;
-  $('colorpick').classList.remove('open'); $('selbar').classList.remove('on'); }
+  $('colorpick').classList.remove('open'); $('sizepick').classList.remove('open');
+  $('selbar').classList.remove('on'); }
 function select(pick) { deselect(); selected = pick;
   selHelper = new THREE.BoxHelper(pick.mesh, 0xc0432e); scene.add(selHelper);
   const wall = WALL_ITEMS.has(pick.entry.id);
@@ -1573,6 +1601,10 @@ function select(pick) { deselect(); selected = pick;
   $('wallpad').classList.toggle('hidden', !wall);
   $('btn-color').classList.toggle('hidden', !TINTABLE.has(pick.entry.id));
   renderColorPick();
+  /* Grösse gibt es nur für frei stehende Möbel: ein Wandobjekt wird über feste
+     Wandkonstanten platziert, ein Tier ist ein Bewohner und kein Möbel (#99). */
+  $('btn-size').classList.toggle('hidden', wall || !!pick.tenant);
+  renderSizePick();
   /* Ein Bewohner lässt sich nicht wegwerfen (#39). */
   $('btn-del').classList.toggle('hidden', !!pick.tenant);
   updateActionBtn();
@@ -1843,6 +1875,19 @@ function renderColorPick() {
   mk('standard', 'Standardfarbe', null);
   FURN_COLORS.forEach(c => mk(c.id, c.name, '#' + MAT[c.mat].color.getHexString()));
 }
+/* Die Reihe zeigt die drei Stufen aus FURN_SIZES; die aktive ist markiert.
+   Beschriftet wird mit dem Faktor in deutscher Schreibweise (1,5×). */
+function renderSizePick() {
+  const el = $('sizepick'); el.innerHTML = '';
+  if (!selected) return;
+  const cur = sizeOf(selected.entry);
+  FURN_SIZES.forEach(s => { const b = document.createElement('button');
+    b.dataset.size = String(s.f); b.textContent = String(s.f).replace('.', ',') + '×';
+    b.title = s.name; b.setAttribute('aria-label', s.name);
+    if (s.f === cur) b.className = 'on';
+    b.onclick = () => setItemSize(s.f);
+    el.appendChild(b); });
+}
 function setItemColor(colorId) {
   if (!selected) return;
   const en = selected.entry;
@@ -1850,6 +1895,40 @@ function setItemColor(colorId) {
   select(rebuildItemMesh(selected));
   $('colorpick').classList.add('open'); renderColorPick();
   sfx.pop(); save();
+}
+
+/* clampEntry begrenzt nur x und z — ohne diese Probe stiesse ein doppelt so
+   hoher Schrank durch die Decke. Gemessen wird am echten Mesh, weil nur die
+   Box3 die wahre Höhe des Modells kennt; der Faktor wird sofort wieder auf
+   den alten Stand zurückgesetzt. Auf dem Dach und im Garten (k ist dort ein
+   String) entfällt die Probe, dort ist Himmel. */
+function paesstUnterDecke(k, mesh, entry, f) {
+  if (typeof k !== 'number') return true;
+  applyEntryScale(mesh, { id: entry.id, scale: f });
+  const bb = new THREE.Box3().setFromObject(mesh);
+  applyEntryScale(mesh, entry);
+  return bb.max.y - bb.min.y <= H(k) - 0.1;
+}
+/* Grösse setzen (Issue #99). Der Weg ist derselbe wie beim Drehen: die
+   Änderung läuft durch applyMove, das bei einer Ablehnung x/z/y/rot/scale
+   zurücknimmt und über replaceMesh auch das Mesh wieder herrichtet.
+   Rückgabe: true, wenn die Stufe Bestand hat. */
+function setItemSize(f) {
+  if (!selected || selected.tenant || WALL_ITEMS.has(selected.entry.id)) return false;
+  const en = selected.entry, mesh = selected.mesh;
+  if (sizeOf(en) === f) return true;
+  if (!paesstUnterDecke(selected.k, mesh, en, f)) {
+    blockGrund = 'So gross passt das nicht unter die Decke.';
+    meldeBlockade(); return false;
+  }
+  const ok = applyMove(selected, () => {
+    if (f === 1) delete en.scale; else en.scale = f;
+    applyEntryScale(mesh, en);
+    clampEntry(selected.k, mesh, en);
+  });
+  if (!ok) { meldeBlockade(); renderSizePick(); return false; }
+  selHelper.update(); sfx.pop(); save(); renderSizePick();
+  return true;
 }
 
 /* Der Aktionsknopf sagt, was der nächste Druck TUT — nicht, wie der Zustand
@@ -1953,8 +2032,8 @@ function addItem(id, build) {
     const mi = itemMeshes[k].indexOf(m); if (mi >= 0) itemMeshes[k].splice(mi, 1);
     meldeBlockade(); save(); return;
   }
-  m.scale.setScalar(0.01);
-  tween(0.35, q => { m.scale.setScalar(0.01 + 0.99 * q); if (selHelper) selHelper.update(); });
+  applyEntryScale(m, entry, 0.01);
+  tween(0.35, q => { applyEntryScale(m, entry, 0.01 + 0.99 * q); if (selHelper) selHelper.update(); });
   select(m.userData.pick);
   sfx.pop();
   checkTenant(k); checkWishes(id, k);
@@ -2788,8 +2867,14 @@ $('btn-rot').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.id
     clampEntry(selected.k, selected.mesh, en); })) { meldeBlockade(); return; }
   if (selected.tenant) setTenantPos(selected.tenant.floor, selected.tenant.idx, en); else save();
   selHelper.update(); sfx.pop(); };
+/* Die beiden Reihen teilen sich den Platz über der Leiste und schliessen
+   einander darum aus (#99). */
 $('btn-color').onclick = () => { if (!selected || !TINTABLE.has(selected.entry.id)) return;
+  $('sizepick').classList.remove('open');
   $('colorpick').classList.toggle('open'); renderColorPick(); };
+$('btn-size').onclick = () => { if (!selected || selected.tenant || WALL_ITEMS.has(selected.entry.id)) return;
+  $('colorpick').classList.remove('open');
+  $('sizepick').classList.toggle('open'); renderSizePick(); };
 $('btn-del').onclick = () => { if (selected && !selected.tenant) removeItem(selected); };
 
 /* Wandobjekt verschieben: dx entlang der Wand, dy in der Höhe — von Tastatur und Touch-Pad geteilt */
@@ -3376,6 +3461,7 @@ for (let i = 0; i <= MAXF; i++) if (floorGroups[i]) applyLook(i);
 if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
 window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, gartenG, gardenEdge, scene, camera, controls, WALL_KEYS, WALL_TILE, FURN_COLORS, TINTABLE,
+  FURN_SIZES, sizeOf, applyEntryScale, H, setItemSize,
   GARDEN: { pos: GARDEN_POS, w: GARDEN_W, d: GARDEN_D }, riverZ, river, placeItemMesh, clampEntry, removeItem,
   MAT, SEASONS, LEAVES, setSeason, setNight, ground,
   riverMats: { sand: riverSandMat, water: riverWaterMat, foam: riverFoamMat },

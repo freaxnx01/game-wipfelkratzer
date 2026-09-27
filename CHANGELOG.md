@@ -88,6 +88,13 @@ All notable changes to this project are documented here, following
   der Leiste. Der Name steht danach auch beim Hineingehen und auf dem
   Bewohner-Schild — neben dem Tier, das dort wohnt — und er wird mit dem Turm
   gesichert. Leer machen nimmt den Namen wieder weg (#103)
+### Added
+
+- Möbel lassen sich jetzt in drei Grössen aufstellen: normal, gross (1,5×) und
+  riesig (2×). Tippe ein Möbel an und drücke «Grösse» — ein Riesen-Sofa für die
+  weite Wohnung im Erdgeschoss, ein normaler Tisch für die kleine Dachkammer.
+  Was nicht mehr unter die Decke passt oder einem Bewohner den Platz wegnimmt,
+  bleibt wie es war, und Willi sagt Dir warum (#99)
 
 ## [0.11.1] - 2026-09-20
 

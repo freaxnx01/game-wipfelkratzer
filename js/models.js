@@ -55,6 +55,17 @@ export const FURN_COLORS = [
   { id: 'rosa', name: 'Rosa', mat: 'pink' },
   { id: 'creme', name: 'Creme', mat: 'cream' },
 ];
+/* Grössenstufen für frei stehende Möbel (Issue #99). Drei feste Faktoren
+   statt eines Schiebereglers: mit dem Finger treffbar, und «zurück auf
+   normal» ist ein Knopf statt einer Zielsuche. Der Faktor 1 ist die Vorgabe
+   und wird im Spielstand nicht gespeichert.
+   Die Längsachse aus Issue #100 kommt hier NICHT dazu — sie ist ein zweites,
+   unabhängiges Feld am Eintrag. */
+export const FURN_SIZES = [
+  { f: 1, name: 'Normal' },
+  { f: 1.5, name: 'Gross' },
+  { f: 2, name: 'Riesig' },
+];
 /* Möbel mit einer einfärbbaren Korpusfläche (Stoff/Korpuston, kein Holz,
    kein Beschlag, kein Effekt). Siehe Spec «Korpusregel». */
 export const TINTABLE = new Set(['sofa', 'bett', 'etagenbett', 'teppich', 'lampe', 'badewanne', 'pflanze', 'liegestuhl']);
