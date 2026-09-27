@@ -1609,6 +1609,117 @@ $('clear-cancel').onclick = closeClearAsk;
 $('clearask').onclick = e => { if (e.target === $('clearask')) closeClearAsk(); };
 $('clear-ok').onclick = () => { const k = edit && edit.k; closeClearAsk(); if (k != null) raumLeeren(k); };
 
+/* ---------- Zufall einrichten (#97) ----------
+   Ein festes Rezept statt einer freien Ziehung aus CATALOG: frei
+   gezogen kämen drei Betten und kein Fenster heraus, und CATALOG
+   enthält auch Dach- und Spielplatzobjekte, die in einer Wohnung
+   nichts zu suchen haben. Wer ein neues Möbelstück in den Zufall
+   aufnehmen will, trägt es hier ein — an genau einer Stelle. */
+/* Die min/max-Summe je Rolle ist bewusst auf 9-12 Stück insgesamt
+   austariert (7 feste Rollen plus Fenster, dazu drei Rollen mit
+   Spielraum) — nicht frei gewählt, siehe AK «9-12 Gegenstände». */
+const ZUFALL_REZEPT = [
+  { rolle: 'Schlafen',   ids: ['bett', 'etagenbett'],                                          min: 1, max: 1 },
+  { rolle: 'Tisch',      ids: ['tisch', 'wk_tisch'],                                           min: 1, max: 1 },
+  { rolle: 'Sitzen',     ids: ['stuhl', 'wk_stuhl', 'sofa', 'wk_sofa', 'schaukelstuhl'],       min: 1, max: 2 },
+  { rolle: 'Verstauen',  ids: ['schrank', 'regal', 'wk_regal', 'kommode'],                     min: 1, max: 1 },
+  { rolle: 'Gemütlich',  ids: ['teppich', 'lampe', 'ofen', 'pflanze', 'badewanne'],            min: 1, max: 1 },
+  { rolle: 'Spass',      ids: ['hamsterrad', 'klavier', 'ball', 'kuscheltier', 'harfe', 'tischkicker'], min: 0, max: 1 },
+  { rolle: 'Deko',       ids: ['vase', 'teekanne', 'kerze', 'buecher', 'nussschale'],          min: 1, max: 2 },
+  { rolle: 'Fenster',    ids: ['fenster'],                                                     min: 2, max: 2 },
+  { rolle: 'Wandschmuck', ids: ['poster_wald', 'poster_mond', 'poster_willi', 'uhr', 'spiegel'], min: 1, max: 1 },
+];
+
+/* Je Rolle ohne Zurücklegen ziehen — kein zweites Bett, aber sehr wohl
+   zwei Fenster, denn dort ist die Kandidatenliste selbst einelementig
+   und min === max === 2. */
+function zieheAusRolle(rolle) {
+  const anzahl = rolle.min + Math.floor(Math.random() * (rolle.max - rolle.min + 1));
+  if (rolle.ids.length === 1) return Array(anzahl).fill(rolle.ids[0]);
+  const topf = rolle.ids.slice();
+  const raus = [];
+  for (let n = 0; n < anzahl && topf.length; n++) {
+    const i = Math.floor(Math.random() * topf.length);
+    raus.push(topf.splice(i, 1)[0]);
+  }
+  return raus;
+}
+
+function zieheEinrichtung() {
+  const bekannt = new Set(CATALOG.map(c => c.id));
+  return ZUFALL_REZEPT.flatMap(zieheAusRolle).filter(id => bekannt.has(id));
+}
+
+/* Aufgestellt wird über pasteEntries — dieselbe Mechanik wie «Raum
+   einfügen», samt der Reihenfolge Möbel-vor-Deko, die dafür sorgt, dass
+   surfaceYAt die Vase auf den Tisch legt. Eine Schleife um addItem wäre
+   falsch: die würde je Gegenstand auswählen, animieren, klingen und
+   speichern. */
+const ZUFALL_WAENDE = ['back', 'left', 'right'];
+
+function zufallsEintraege(k) {
+  const ids = zieheEinrichtung();
+  const eintraege = [];
+  let naechsteZelle = 0;
+  /* Belegte Wandplätze aus dem, was schon hängt — und aus dem, was
+     dieser Lauf gerade dazuhängt. */
+  const belegt = {};
+  ZUFALL_WAENDE.forEach(w => {
+    belegt[w] = roomOf(k).filter(e => WALL_ITEMS.has(e.id) && (e.wall || 'back') === w).map(e => e.x);
+  });
+  let wandZeiger = Math.floor(Math.random() * ZUFALL_WAENDE.length);
+
+  ids.forEach(id => {
+    if (WALL_ITEMS.has(id)) {
+      const wall = ZUFALL_WAENDE[wandZeiger % ZUFALL_WAENDE.length];
+      wandZeiger++;
+      const x = wallSlotX(k, wall, belegt[wall]);
+      belegt[wall].push(x);
+      eintraege.push({ id, cell: 0, x, y: id === 'fenster' ? 1.05 : 1.2, z: 0, rot: 0, wall });
+      return;
+    }
+    if (DECO.has(id)) {
+      /* Deko bekommt keine eigene Zelle: pasteEntries legt sie über
+         surfaceYAt auf die Oberfläche unter ihr. x/z kommen von der
+         Mitte des Raums, clampEntry rückt sie hinein. */
+      eintraege.push({ id, cell: 0, x: (Math.random() - 0.5) * 0.6, y: 0, z: (Math.random() - 0.5) * 0.6, rot: 0 });
+      return;
+    }
+    const cell = freeCell(k, naechsteZelle);
+    if (cell < 0) return;               // voll — der Rest fällt weg
+    naechsteZelle = cell + 1;
+    const p = cellPos(k, cell);
+    /* Die Zelle muss sofort als belegt gelten, sonst gibt freeCell sie
+       beim nächsten Stück noch einmal aus: roomOf(k) wächst erst in
+       pasteEntries. Deshalb wird hier vorgemerkt und die Marke in
+       pasteEntries mitgezählt. */
+    eintraege.push({ id, cell, x: p.x, y: 0, z: p.z, rot: 0 });
+    roomOf(k).push({ id: '__platzhalter', cell, x: p.x, y: 0, z: p.z, rot: 0 });
+  });
+  /* Platzhalter wieder heraus — sie waren nur für freeCell da. */
+  const arr = roomOf(k);
+  for (let i = arr.length - 1; i >= 0; i--) if (arr[i].id === '__platzhalter') arr.splice(i, 1);
+  return eintraege;
+}
+
+function zufallEinrichten(k) {
+  const eintraege = zufallsEintraege(k);
+  if (!eintraege.length) { toast('Hier ist kein Platz mehr frei.'); return; }
+  const ids = pasteEntries(k, eintraege);
+  /* Dieselbe Reihenfolge wie doPaste: erst der eigene Wunsch, dann der
+     Einzug — sonst sieht renderWishes den Wunschgegenstand schon im
+     Raum liegen und hakt ihn still ab, ohne die drei Haselnüsse zu
+     zahlen (siehe den Kommentar in doPaste). */
+  const t = tenantOf(k);
+  if (!t.roofWish) { const wunschId = ids.find(id => wishKey(id) === t.wish); if (wunschId) checkWishes(wunschId, k); }
+  checkTenant(k);
+  renderWishes(); renderResidents();
+  deselect(); sfx.chime();
+  toast(`${ids.length} Sachen hingestellt — bau ruhig um, wie es Dir gefällt!`);
+  save(); updateHUD(); updateRoomButtons();
+}
+$('btn-roomrandom').onclick = () => { if (edit && edit.k !== 'roof' && edit.k !== 'garten') zufallEinrichten(edit.k); };
+
 /* Die Reihe zeigt «Standard» plus die Palette; die Punkte tragen den Farbwert
    der MAT-Instanz, damit kein zweiter Ort eine Farbe festlegt. */
 function renderColorPick() {
@@ -3110,7 +3221,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   fensterSchichten,
   wechsleBesuch, fensterSchichten, fensterAuf, fensterZu,
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
-  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, clearRoom, spinnerCount: () => spinners.length, get clip() { return clip; },
+  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, clearRoom, spinnerCount: () => spinners.length, raumLeeren, updateRoomButtons, ZUFALL_REZEPT, zieheEinrichtung, zufallEinrichten, DECO_IDS: [...DECO], WALL_IDS: [...WALL_ITEMS], get clip() { return clip; },
   ziehtGerade: () => !!ziehen, zugBlockiert: () => !!(ziehen && ziehen.blockiert),
   poolEntries: () => roomOf('roof').filter(e => e.id === 'pool'),
   get magpiePhase() { return magPhase; }, MAGPIE_DUR, magpie,
