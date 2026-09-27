@@ -2741,10 +2741,15 @@ $('stand-grid').addEventListener('click', ev => {
        Fotos dauert das einen Moment, und ein zweiter Tipp gäbe eine zweite
        Datei. */
     const knopf = ev.target; knopf.disabled = true;
-    exportiereStand(eintrag, mit).finally(() => {
-      knopf.disabled = false;
-      karte.querySelector('.stand-save-zeile').classList.add('hidden');
-    });
+    exportiereStand(eintrag, mit)
+      /* Ohne dieses catch endet ein Fehler beim Bauen der Datei im Nichts:
+         die Zeile klappt ein, der Knopf wird frei, und niemand erfährt
+         etwas (#94). */
+      .catch(() => toast('Das Sichern hat nicht geklappt — versuche es ohne Fotos.'))
+      .finally(() => {
+        knopf.disabled = false;
+        karte.querySelector('.stand-save-zeile').classList.add('hidden');
+      });
     return;
   }
   if (ev.target.classList.contains('stand-hin')) wechsleZu(karte.dataset.id);

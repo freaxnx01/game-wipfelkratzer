@@ -17,6 +17,13 @@ All notable changes to this project are documented here, following
   Plätschern mit aufsteigenden Blasen, wenn sie ihn ins Becken kippt.
   Vorher rauschte es dort, als würde die Kamera schwenken, und der
   Guss klang wie ein dumpfer Plumps (#105)
+### Fixed
+
+- «Sichern mit Fotos» hat auf dem Tablet manchmal nichts getan: Wenn das
+  Teilen-Fenster die grosse Datei nicht annahm, war der Turm weg statt
+  gesichert. Jetzt wird er in so einem Fall als Datei heruntergeladen — und
+  wenn wirklich etwas schiefgeht, steht es als Hinweis auf dem Bildschirm
+  (#94)
 
 ## [0.11.1] - 2026-09-20
 
