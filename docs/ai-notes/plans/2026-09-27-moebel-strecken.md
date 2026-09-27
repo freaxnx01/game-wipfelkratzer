@@ -31,11 +31,11 @@ kein Build-Schritt, kein Test-Runner. Abnahme: Playwright im Vordergrund.
   Debug-Objekt `window.wipfelkratzer` (`js/game.js:2810`).
 - **Deutsche UI-Texte mit echten Umlauten**, `Du`/`Dein` gross, wenn jemand
   angesprochen wird. `ss` statt `ß` (Schweizer Schreibung, wie im ganzen Repo).
-- **Höhe wird nie gedehnt** (Spec E1): `mesh.scale.y` trägt nur `groesse`.
+- **Höhe wird nie gedehnt** (Spec E1): `mesh.scale.y` trägt nur `en.scale`.
 - **Schrittliste ist verbindlich:** `STRETCH_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2]`
   (Spec E9).
-- **`en.groesse` gehört Issue #99** und wird hier nur gelesen
-  (`en.groesse ?? 1`), nie geschrieben (Spec E5).
+- **`en.scale` gehört Issue #99** und wird hier nur gelesen
+  (`en.scale ?? 1`), nie geschrieben (Spec E5).
 - **Nicht dehnbar:** `WALL_ITEMS` und Bewohner (`pick.tenant`) (Spec E10).
 - **Conventional Commits**, Commit-Fuss:
   `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`
@@ -267,11 +267,11 @@ const dehnungOf = en => (en.dehnung ? { x: en.dehnung.x, z: en.dehnung.z } : { x
 function setDehnung(en, d) {
   if (d.x === 1 && d.z === 1) delete en.dehnung; else en.dehnung = { x: d.x, z: d.z };
 }
-/* Der einzige Ort, an dem mesh.scale eines Möbels gesetzt wird. `groesse`
+/* Der einzige Ort, an dem mesh.scale eines Möbels gesetzt wird. `en.scale`
    gehört Issue #99 (gleichmässiges Vergrössern) und wird hier nur gelesen;
    `q` ist der Faktor der Aufpopp-Animation. */
 function applyEntryScale(mesh, en, q = 1) {
-  const d = dehnungOf(en), g = (en.groesse ?? 1) * q;
+  const d = dehnungOf(en), g = (en.scale ?? 1) * q;
   mesh.scale.set(g * d.x, g, g * d.z);
 }
 /* Ungedehnte Grundmasse des Modells, einmal pro Bauform gemessen. Ein frisch
@@ -579,7 +579,7 @@ const dehnbar = pick => !!pick && !pick.tenant && !WALL_ITEMS.has(pick.entry.id)
    längere Kante gegen die kürzere Raumseite — das gilt unabhängig davon, wie
    das Möbel gerade gedreht ist. */
 function passtInRaum(pick, achse, faktor) {
-  const en = pick.entry, mass = modellMass(en), g = en.groesse ?? 1;
+  const en = pick.entry, mass = modellMass(en), g = en.scale ?? 1;
   const d = dehnungOf(en); d[achse] = faktor;
   const grenze = raumGrenzen(pick.k);
   return Math.max(mass.w * g * d.x, mass.d * g * d.z) <= 2 * Math.min(grenze.x, grenze.z);
@@ -847,7 +847,7 @@ def teil4_kollision(page):
       const w = window.wipfelkratzer;
       const en = w.roomOf(0)[0], m = w.itemMeshes[0][0];
       const d = w.dehnungOf(en);
-      return Math.abs(m.scale.x - d.x * (en.groesse ?? 1)) < 0.01;
+      return Math.abs(m.scale.x - d.x * (en.scale ?? 1)) < 0.01;
     }""")
     check(stimmig, "Nach jedem Versuch passen Eintrag und Mesh zusammen (vorher %s)" % vorher)
     frei = page.evaluate("""() => {

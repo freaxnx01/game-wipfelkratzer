@@ -72,7 +72,7 @@ dabei, damit sie widerlegbar ist.
 
 - **E5 — Ein gemeinsamer Anwendungspunkt für alle Skalierungen:
   `applyEntryScale(mesh, entry, q = 1)`.** Er rechnet
-  `groesse × dehnung × q` und setzt `mesh.scale`. `groesse` ist das Feld, das
+  `scale × dehnung × q` und setzt `mesh.scale`. `scale` ist das Feld, das
   #99 einführen wird; fehlt es, gilt 1. `q` ist der Faktor der
   Aufpopp-Animation. Verworfen: `mesh.scale` an den fünf Stellen einzeln zu
   setzen, an denen es heute passiert. Genau daran scheitert die naive Fassung
@@ -207,7 +207,7 @@ Geprüft wird:
 
 - **#99 (Möbel um Faktoren vergrössern)** wird hier nicht umgesetzt. Diese
   Spec legt nur `applyEntryScale` als gemeinsamen Anwendungspunkt und
-  `en.groesse ?? 1` als erwartetes Feld an. Wer #99 zuerst implementiert,
+  `en.scale ?? 1` als erwartetes Feld an. Wer #99 zuerst implementiert,
   findet die Stelle vor; wer #100 zuerst implementiert, hinterlässt sie.
   Beide Felder sind unabhängig und multiplizieren sich.
 - **Höhe** bleibt aussen vor (E1).
