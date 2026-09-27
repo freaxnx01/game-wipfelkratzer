@@ -282,6 +282,66 @@ function makeArchGeo(w, h) { const s = new THREE.Shape();
   return new THREE.ExtrudeGeometry(s, { depth: 0.05, bevelEnabled: false }); }
 const matWin = new THREE.MeshLambertMaterial({ color: 0x6b4526 });
 
+/* ---------- Fensteröffnungen für den Besuch (#102) ----------
+   Die Fassadenfenster sind flache Bogenscheiben VOR der Wand (siehe
+   makeFloor); die Wand selbst hat kein Loch, drinnen steht man deshalb
+   in einem fensterlosen Kasten. Für den Besuch bekommen Wandkern und
+   Innenpanel je eine zweite Geometrie mit Bogenlöchern an genau den
+   Stellen der Scheiben. Gebaut wird sie beim ersten Besuch eines
+   Stockwerks und danach behalten — Etagen entstehen hier grundsätzlich
+   erst, wenn sie gebraucht werden (#47). */
+const WIN_W = 0.5, WIN_H = 0.8;
+const winY = h => h * 0.24;            /* Unterkante, wie in makeFloor */
+
+/* Dieselbe Kontur wie makeArchGeo, aber als Loch-Pfad. */
+function archPath(cx, cy, w, h) {
+  const r = w / 2, p = new THREE.Path();
+  p.moveTo(cx - r, cy); p.lineTo(cx - r, cy + h - r);
+  p.absarc(cx, cy + h - r, r, Math.PI, 0, true);
+  p.lineTo(cx + r, cy); p.closePath();
+  return p;
+}
+
+/* Wandscheibe w × h, Dicke t, mit je einem Bogenloch an den x aus xs.
+   Zwei Fallen: (1) ExtrudeGeometry legt die UV in Shape-Koordinaten an,
+   also in Metern — die Tapete ist aber eine geteilte Textur mit
+   repeat 5 × 1.6 (js/models.js:709-714) und kachelte sonst um ein
+   Vielfaches zu dicht. Deshalb werden die UV aus der Position neu
+   berechnet. (2) ExtrudeGeometry beginnt bei y = 0 und z = 0,
+   BoxGeometry ist mittig — die Verschiebung am Ende macht beide
+   austauschbar, ohne die Mesh-Position anzufassen. */
+function holedWallGeo(w, h, t, xs, y0) {
+  const s = new THREE.Shape();
+  s.moveTo(-w / 2, 0); s.lineTo(w / 2, 0); s.lineTo(w / 2, h); s.lineTo(-w / 2, h); s.closePath();
+  xs.forEach(x => s.holes.push(archPath(x, y0, WIN_W, WIN_H)));
+  const geo = new THREE.ExtrudeGeometry(s, { depth: t, bevelEnabled: false });
+  const pos = geo.attributes.position, uv = geo.attributes.uv;
+  for (let i = 0; i < uv.count; i++)
+    uv.setXY(i, (pos.getX(i) + w / 2) / w, pos.getY(i) / h);
+  uv.needsUpdate = true;
+  geo.translate(0, -h / 2, -t / 2);
+  return geo;
+}
+
+/* Abfrage: die beiden Wandschichten eines Stockwerks samt beider
+   Geometrien. Beim ersten Aufruf werden die gelochten Varianten gebaut
+   und gemerkt. */
+function fensterSchichten(i) {
+  const g = floorGroups[i];
+  if (!g || !g.userData.frontKern) return null;
+  const kern = g.userData.frontKern, panel = g.userData.wallPanels.front;
+  if (!g.userData.fensterGeo) {
+    const w = W(i) - 0.24, h = H(i), y0 = winY(H(i));
+    const xs = g.userData.wins.map(m => m.position.x);
+    g.userData.fensterGeo = {
+      kernZu: kern.geometry, panelZu: panel.geometry,
+      kernOffen: holedWallGeo(w, h, WALL_CORE, xs, y0),
+      panelOffen: holedWallGeo(w, h, WALL_PANEL, xs, y0),
+    };
+  }
+  return { kern, panel, wins: g.userData.wins, geo: g.userData.fensterGeo };
+}
+
 /* ---------- Aussentreppe ----------
    Jede Etage trägt einen eigenen Zufalls-Versatz und -Drehwinkel. Ein Lauf
    verbindet zwei Etagen und liegt damit zwischen zwei verschiedenen lokalen
@@ -417,7 +477,7 @@ function makeFloor(i) {
      schnitte sie durch die Innenpanele, die die Tapete tragen. */
   g.userData.ceil = mesh(new THREE.BoxGeometry(w - 2 * WALL_T, CEIL_T, d - 2 * WALL_T), MAT.plasterIn, 0, h - CEIL_DROP, 0, g); g.userData.ceil.castShadow = false;
   const front = new THREE.Group(); front.position.z = d / 2 - 0.06; g.add(front); g.userData.front = front;
-  mesh(new THREE.BoxGeometry(w - 0.24, h, WALL_CORE), MAT.plaster, 0, h / 2, 0.06 - WALL_CORE / 2, front);
+  g.userData.frontKern = mesh(new THREE.BoxGeometry(w - 0.24, h, WALL_CORE), MAT.plaster, 0, h / 2, 0.06 - WALL_CORE / 2, front);
   panel('front', new THREE.BoxGeometry(w - 0.24, h, WALL_PANEL), 0, h / 2, 0.06 - WALL_T + WALL_PANEL / 2, front);
   g.userData.wins = [];
   const nw = winCount(w);
@@ -2954,6 +3014,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
     }
     return frei;
   },
+  fensterSchichten,
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
   ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, get clip() { return clip; },
   ziehtGerade: () => !!ziehen, zugBlockiert: () => !!(ziehen && ziehen.blockiert),
