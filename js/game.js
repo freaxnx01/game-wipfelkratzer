@@ -2580,19 +2580,34 @@ function standDatei(eintrag, mitFotos) {
 /* Zwei Wege: Tablets bekommen das System-Sheet, alles andere eine Datei.
    Ein Blob statt einer Data-URL, weil iOS-Safari grosse Data-URLs in einem
    neuen Tab öffnet statt sie zu sichern. */
+
+/* Ein Abbruch im Sheet ist kein Fehler — das Kind hat es sich anders
+   überlegt, und ein zusätzlicher Download wäre erst recht verwirrend. iOS
+   meldet aber auch ein gescheitertes Teilen grosser Dateien als Abbruch
+   (#94), und das darf nicht folgenlos bleiben: mit zwanzig Fotos blieb so
+   beides aus, Sheet und Datei. Unterschieden wird an der Zeit — wer wirklich
+   abbricht, hatte das Sheet offen und hat darin getippt. */
+const ABBRUCH_MIN_MS = 400;
+
+/* Liefert true, wenn der Turm untergebracht ist (geteilt oder bewusst
+   abgebrochen) — dann ist nichts weiter zu tun. */
+async function teileStand(datei, titel) {
+  const start = Date.now();
+  try {
+    await navigator.share({ files: [datei], title: titel });
+    return true;
+  } catch (e) {
+    return !!(e && e.name === 'AbortError' && Date.now() - start >= ABBRUCH_MIN_MS);
+  }
+}
+
 async function exportiereStand(eintrag, mitFotos) {
   const { text, name } = standDatei(eintrag, mitFotos);
   const blob = new Blob([text], { type: 'application/json' });
   try {
     if (navigator.canShare && navigator.share) {
       const f = new File([blob], name, { type: 'application/json' });
-      if (navigator.canShare({ files: [f] })) {
-        /* Ein Abbruch im Sheet ist kein Fehler — das Kind hat es sich anders
-           überlegt, und ein zusätzlicher Download wäre erst recht verwirrend. */
-        try { await navigator.share({ files: [f], title: eintrag.name }); }
-        catch (e) { if (e && e.name !== 'AbortError') toast('Das Sichern hat nicht geklappt.'); }
-        return;
-      }
+      if (navigator.canShare({ files: [f] }) && await teileStand(f, eintrag.name)) return;
     }
   } catch (e) {}
   const url = URL.createObjectURL(blob);
@@ -2726,10 +2741,15 @@ $('stand-grid').addEventListener('click', ev => {
        Fotos dauert das einen Moment, und ein zweiter Tipp gäbe eine zweite
        Datei. */
     const knopf = ev.target; knopf.disabled = true;
-    exportiereStand(eintrag, mit).finally(() => {
-      knopf.disabled = false;
-      karte.querySelector('.stand-save-zeile').classList.add('hidden');
-    });
+    exportiereStand(eintrag, mit)
+      /* Ohne dieses catch endet ein Fehler beim Bauen der Datei im Nichts:
+         die Zeile klappt ein, der Knopf wird frei, und niemand erfährt
+         etwas (#94). */
+      .catch(() => toast('Das Sichern hat nicht geklappt — versuche es ohne Fotos.'))
+      .finally(() => {
+        knopf.disabled = false;
+        karte.querySelector('.stand-save-zeile').classList.add('hidden');
+      });
     return;
   }
   if (ev.target.classList.contains('stand-hin')) wechsleZu(karte.dataset.id);
