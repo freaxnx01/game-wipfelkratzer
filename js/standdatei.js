@@ -5,7 +5,7 @@
    weisses Bild.
    Die erlaubten Werte kommen alle aus models.js, damit ein neues Möbel oder
    eine neue Tapete nicht zusätzlich hier nachgetragen werden muss. */
-import { CATALOG, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, SEASONS,
+import { CATALOG, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, FURN_SIZES, SEASONS,
   DESIGN_MAX, normalizeBuild } from './models.js';
 
 export const DATEI_TYP = 'wipfelkratzer-stand';
@@ -27,6 +27,7 @@ const MOEBEL = new Set(CATALOG.map(c => c.id));
 const TAPETEN = new Set(WALLS.map(w => w.id));
 const BOEDEN = new Set(FLOORS.map(f => f.id));
 const FARBEN = new Set(FURN_COLORS.map(c => c.id));
+const GROESSEN = new Set(FURN_SIZES.map(s => s.f));
 const JAHRESZEITEN = new Set(SEASONS.map(s => s.id));
 /* Dach und Spielplatz sind Räume wie die Stockwerke (js/game.js:517). */
 const RAUM_KEYS = new Set(['roof', 'garten', ...Array.from({ length: MAXF + 1 }, (_, i) => String(i))]);
@@ -146,7 +147,7 @@ export function bereinigeStand(roh) {
   return out;
 }
 
-/* Ein Möbeleintrag hat die Form { id, cell, x, y, z, rot, wall?, color?, build?, fill? }
+/* Ein Möbeleintrag hat die Form { id, cell, x, y, z, rot, wall?, color?, scale?, build?, fill? }
    (js/game.js:1325, js/game.js:775). Eigenbau-Möbel führen ihren Bauplan mit
    sich; er geht durch dieselbe Prüfung wie beim Laden (js/game.js:556-561). */
 function bereinigeMoebel(e) {
@@ -172,6 +173,7 @@ function bereinigeMoebel(e) {
     eintrag.wall = WALL_KEYS.includes(e.wall) ? e.wall : 'back';
   }
   if (FARBEN.has(e.color)) eintrag.color = e.color;
+  if (GROESSEN.has(e.scale)) eintrag.scale = e.scale;
   if (e.fill !== undefined) eintrag.fill = ganz(e.fill, 0, 9, 0);
   return eintrag;
 }
