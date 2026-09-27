@@ -81,6 +81,13 @@ All notable changes to this project are documented here, following
   Schlagzeug spielen ebenfalls auf. Erst antippen zum Auswählen, dann
   nochmal tippen — oder den Knopf unten drücken, der Dir sagt, was passiert
   (#93)
+### Added
+
+- Du kannst Deinen Wohnungen jetzt eigene Namen geben: Tippe ein Stockwerk an
+  und schreib «Musikzimmer», «Werkstatt» oder was Du magst in das Feld oben in
+  der Leiste. Der Name steht danach auch beim Hineingehen und auf dem
+  Bewohner-Schild — neben dem Tier, das dort wohnt — und er wird mit dem Turm
+  gesichert. Leer machen nimmt den Namen wieder weg (#103)
 
 ## [0.11.1] - 2026-09-20
 
