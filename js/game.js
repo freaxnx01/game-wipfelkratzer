@@ -109,7 +109,8 @@ function tenantOf(i) {
 /* ---------- Zustand ---------- */
 /* tenantPos: von Hand gesetzte Tierplätze pro Stockwerk; fehlt der Eintrag,
    platziert tenantSpot automatisch (#14). */
-let state = { floors: 0, rooms: {}, nuts: 0, bridge: false, garden: false, night: false, season: 'sommer', cutaway: false, fulfilled: {}, wallpaper: {}, flooring: {}, tenantPos: {}, maxFloors: 10, designs: [] };
+/* roomNames: selbst vergebene Wohnungsnamen pro Raumschlüssel (#103). */
+let state = { floors: 0, rooms: {}, nuts: 0, bridge: false, garden: false, night: false, season: 'sommer', cutaway: false, fulfilled: {}, wallpaper: {}, flooring: {}, tenantPos: {}, roomNames: {}, maxFloors: 10, designs: [] };
 /* Welcher Turm gerade gespielt wird, entscheidet die Slot-Ebene. Ein Wechsel
    lädt die Seite neu, deshalb genügt es, den Eintrag einmal beim Start zu holen. */
 const STAND = staende.aktiverStand();
@@ -153,6 +154,24 @@ const save = () => { clearTimeout(saveT); saveT = setTimeout(schreibeStand, 300)
 addEventListener('pagehide', schreibeStand);
 const roomOf = k => (state.rooms[k] || (state.rooms[k] = []));
 const tenantIn = i => i <= state.floors && roomOf(i).length >= 3;
+
+/* ---------- Wohnungsnamen (#103) ---------- */
+/* Ein Spielstand aus localStorage darf hier alles stehen haben — eine Zahl, ein
+   Array, null. Einmal geradeziehen statt an jeder Lesestelle prüfen. */
+if (!state.roomNames || typeof state.roomNames !== 'object' || Array.isArray(state.roomNames)) state.roomNames = {};
+const RAUMNAME_MAX = 24;                /* wie MAX_RAUMNAME in js/standdatei.js */
+const raumName = k => {
+  const n = state.roomNames[k];
+  return typeof n === 'string' ? n : '';
+};
+/* Leer heisst: kein Eintrag. Ein gespeichertes '' wäre ein Eintrag, den jede
+   Abfrage zusätzlich auf Leerheit prüfen müsste. */
+function setzeRaumName(k, roh) {
+  const name = String(roh == null ? '' : roh).trim().slice(0, RAUMNAME_MAX);
+  if (name) state.roomNames[k] = name;
+  else delete state.roomNames[k];
+  save();
+}
 
 /* ---------- Szene ---------- */
 const holder = document.getElementById('scene');
@@ -1299,6 +1318,26 @@ function editCamFor(k) {
   const dist = D(k) / 2 + fitDistance(dims(k).w / 2 + 0.4, H(k) / 2 + 0.4) + 1.0;
   return { eye: new THREE.Vector3(floorGroups[k].position.x, cy + 0.5, dist), tgt: new THREE.Vector3(floorGroups[k].position.x, cy, 0) };
 }
+/* Die Aufschrift der Einrichte-Leiste hat drei Teile: feste Nummer, Namensfeld,
+   Bewohner. Dach und Spielplatz tragen nur einen festen Titel und kein Feld —
+   es gibt von ihnen je genau einen (#103). */
+function setzeEditLeiste(k) {
+  const nr = $('edit-nr'), feld = $('edit-name'), bewohner = $('edit-bewohner');
+  if (k === 'garten' || k === 'roof') {
+    nr.textContent = k === 'garten' ? 'Spielplatz einrichten' : 'Dachterrasse einrichten';
+    feld.classList.add('hidden');
+    bewohner.classList.add('hidden');
+    return;
+  }
+  nr.textContent = flLabel(k);
+  feld.classList.remove('hidden');
+  feld.value = raumName(k);
+  /* Der Bewohner trägt sein eigenes Trennzeichen, damit hinter der Nummer
+     keines allein stehen bleibt, solange niemand eingezogen ist. */
+  const t = tenantOf(k);
+  bewohner.textContent = tenantIn(k) ? `· ${t.unit || t.name}` : '';
+  bewohner.classList.toggle('hidden', !tenantIn(k));
+}
 function enterEdit(k) {
   /* Einrichten und Besuch schliessen sich aus — sonst schrieben beide
      gleichzeitig an Kamera und Sichtbarkeit (#44). */
@@ -1309,18 +1348,17 @@ function enterEdit(k) {
   if (k === 'garten') {
     moveCam(eye, tgt);
     gardenEdge.visible = true;
-    $('edit-title').textContent = 'Spielplatz einrichten';
+    setzeEditLeiste('garten');
   } else if (k === 'roof') {
     moveCam(eye, tgt);
-    $('edit-title').textContent = 'Dachterrasse einrichten';
+    setzeEditLeiste('roof');
   } else {
     for (let j = k + 1; j <= MAXF; j++) if (floorGroups[j]) floorGroups[j].visible = false;
     roofG.visible = false;
     applyFronts();
     floorGroups[k].userData.ceil.visible = false;
     moveCam(eye, tgt);
-    const t = tenantOf(k);
-    $('edit-title').textContent = `${flLabel(k)} — ${tenantIn(k) ? (t.unit || t.name) : 'Wohnung einrichten'}`;
+    setzeEditLeiste(k);
   }
   $('editbar').classList.add('on');
   wallTarget = 'alle';
@@ -1471,6 +1509,15 @@ function exitBesuch() {
   sfx.whoosh();
 }
 
+/* Aufschrift einer Wohnung: der selbst vergebene Name tritt neben den Bewohner,
+   er ersetzt ihn nicht (#103). «noch niemand» entfällt, sobald es eines von
+   beiden gibt. Der Spielertext wird nur über textContent gesetzt, nie als
+   HTML-Vorlage. */
+function wohnungAufschrift(k) {
+  const bewohner = tenantIn(k) ? (tenantOf(k).unit || tenantOf(k).name) : '';
+  const teile = [raumName(k), bewohner].filter(Boolean);
+  return `${flLabel(k)} — ${teile.join(' · ') || 'noch niemand'}`;
+}
 /* Gesperrt statt versteckt: ein Knopf, der verschwindet, verwirrt mehr als
    einer, der grau ist (#44). Nur «Draussen» fehlt ganz, solange es keinen
    Spielplatz gibt — dort wäre auch grau eine Lüge. */
@@ -1482,7 +1529,7 @@ function renderBesuchbar() {
   $('besuch-titel').textContent = k === 'roof' ? 'Dachterrasse'
     : k === 'garten' ? 'Spielplatz'
     : k === 'aussicht' ? 'Aussichtsplattform'
-    : `${flLabel(k)} — ${tenantIn(k) ? (tenantOf(k).unit || tenantOf(k).name) : 'noch niemand'}`;
+    : wohnungAufschrift(k);
   $('btn-besuch-runter').disabled = !zahl || k <= 0;
   $('btn-besuch-hoch').disabled = !zahl || k >= state.floors;
   $('btn-besuch-dach').disabled = k === 'roof';
@@ -2105,6 +2152,15 @@ function renderResidents() {
     const nm = !built ? '<span class="free">noch nicht gebaut</span>' : tenantIn(i) ? `<b>${tenantOf(i).unit || tenantOf(i).name}</b>` : '<span class="free">zurzeit frei</span>';
     const hint = i === 0 ? '<span class="hint">Erdgeschoss, war schon da</span>' : '';
     li.innerHTML = `<span class="fl">${flLabel(i)}</span><span>${nm}${hint}</span>`;
+    /* Der Wohnungsname kommt vom Kind und darf nie durch innerHTML gehen (#103)
+       — er wird als Textknoten an die Bewohnerspalte gehängt. */
+    const eigen = built ? raumName(i) : '';
+    if (eigen) {
+      const span = document.createElement('span');
+      span.className = 'raumname';
+      span.textContent = eigen;
+      li.lastElementChild.appendChild(span);
+    }
     ul.appendChild(li); }
 }
 
@@ -2172,6 +2228,10 @@ $('btn-garden').onclick = () => { $('extras-menu').classList.remove('open');
   sfx.pop(); toast('Spielplatz, Beete und Blumen — fertig!'); updateHUD(); save();
   enterEdit('garten'); };
 $('btn-sign').onclick = () => { $('extras-menu').classList.remove('open'); renderResidents(); $('residents').classList.add('open'); };
+/* Jeder Tastendruck schreibt — save() ist entprellt (js/game.js:144). Ein Kind,
+   das die Leiste zuklappt, ohne «Fertig» zu drücken, verliert seinen Namen
+   sonst (#103). */
+$('edit-name').oninput = e => { if (edit) setzeRaumName(edit.k, e.target.value); };
 function renderAnimals() {
   const grid = $('animal-grid'); grid.innerHTML = '';
   for (let i = 0; i <= MAXF; i++) { const t = tenantOf(i);
@@ -2745,6 +2805,10 @@ function moveWallItem(pick, dx, dy) {
 
 /* Tastatur: Pfeile verschieben, Bild-Tasten drehen */
 addEventListener('keydown', e => {
+  /* Wer in ein Textfeld tippt, steuert nicht das Spiel: die Pfeiltasten
+     verschieben sonst das ausgewählte Möbel statt den Schreibcursor (#103). */
+  const ziel = e.target;
+  if (ziel && (ziel.tagName === 'INPUT' || ziel.tagName === 'TEXTAREA')) return;
   if (!edit || !selected) return;
   const st = { ArrowLeft: [-0.12, 0], ArrowRight: [0.12, 0], ArrowUp: [0, -0.12], ArrowDown: [0, 0.12] }[e.key];
   const en = selected.entry;
@@ -3323,6 +3387,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   EXTRA_PREIS, updateHUD,
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, wallSlotX, get edit() { return edit; },
+  raumName, setzeRaumName,
   enterBesuch, exitBesuch, besuchCamFor, get besuch() { return besuch; }, floorYOf: floorY,
   deckeUnterY, WALL_MASSE: { w: W, d: D, t: WALL_T }, besuchLampe,
   /* Strahlenprobe für die Playwright-Checks (#96): vom Augpunkt des Besuchs

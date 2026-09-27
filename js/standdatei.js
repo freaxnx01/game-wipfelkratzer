@@ -21,6 +21,7 @@ const WALL_KEYS = ['back', 'left', 'right', 'front'];   /* wie js/game.js:21 */
 const MAX_FOTOS = 20;                   /* wie js/game.js:2135 */
 const MAX_TEXT = 500;
 const MAX_MOEBEL = 80;                  /* pro Raum; grosszügig über allem, was hineinpasst */
+const MAX_RAUMNAME = 24;                /* wie RAUMNAME_MAX in js/game.js */
 
 const MOEBEL = new Set(CATALOG.map(c => c.id));
 const TAPETEN = new Set(WALLS.map(w => w.id));
@@ -99,7 +100,7 @@ export function bereinigeStand(roh) {
     nuts: ganz(s.nuts, 0, 999999, 0),
     season: JAHRESZEITEN.has(s.season) ? s.season : 'sommer',
     bridge: !!s.bridge, garden: !!s.garden, night: !!s.night, cutaway: !!s.cutaway,
-    rooms: {}, wallpaper: {}, flooring: {}, fulfilled: {}, tenantPos: {},
+    rooms: {}, wallpaper: {}, flooring: {}, fulfilled: {}, tenantPos: {}, roomNames: {},
     designs: bereinigeDesigns(s.designs),
   };
   const raeume = objekt(s.rooms) || {};
@@ -126,6 +127,14 @@ export function bereinigeStand(roh) {
   }
   const bod = objekt(s.flooring) || {};
   for (const k of Object.keys(bod)) if (RAUM_KEYS.has(k) && BOEDEN.has(bod[k])) out.flooring[k] = bod[k];
+  /* Selbst vergebene Wohnungsnamen (#103). Freitext aus einer fremden Datei:
+     nur Strings, getrimmt, gekappt wie im Spiel — und nie ein leerer Eintrag. */
+  const namen = objekt(s.roomNames) || {};
+  for (const k of Object.keys(namen)) {
+    if (!RAUM_KEYS.has(k) || typeof namen[k] !== 'string') continue;
+    const name = namen[k].trim().slice(0, MAX_RAUMNAME);
+    if (name) out.roomNames[k] = name;
+  }
   const erf = objekt(s.fulfilled) || {};
   for (const k of Object.keys(erf)) if (RAUM_KEYS.has(k) && erf[k]) out.fulfilled[k] = true;
   const plaetze = objekt(s.tenantPos) || {};

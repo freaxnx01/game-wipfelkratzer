@@ -80,9 +80,21 @@
   .item.design .del { position: absolute; top: 2px; right: 2px; min-width: 44px; min-height: 44px;
     border-radius: 50%; padding: 0; font-size: 18px; line-height: 1; }
   /* Edit bar */
-  #editbar { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 6; display: none; align-items: center; gap: 10px; padding: 8px 10px 8px 16px; max-width: 92vw; }
+  /* flex-wrap wie bei #besuchbar: mit dem Namensfeld (#103) ist die Leiste auf
+     einem schmalen Gerät breiter als die 92vw, und ohne Umbruch schob der
+     Überhang «Fertig» über den rechten Bildschirmrand hinaus.
+     width: max-content muss dazu: durch left: 50% reicht der Platz bis zum
+     rechten Rand, die Leiste würde sonst schon bei 50vw umbrechen und in vier
+     Zeilen bis in die Anzeige oben links hinunterwachsen. */
+  #editbar { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 6; display: none; align-items: center; gap: 10px; padding: 8px 10px 8px 16px; width: max-content; max-width: 92vw; flex-wrap: wrap; justify-content: center; }
   #editbar.on { display: flex; }
-  #edit-title { font-size: 16px; font-weight: 700; }
+  #edit-nr { font-size: 16px; font-weight: 700; }
+  /* 13ch, nicht 24ch: die Leiste steht neben vier Knöpfen unter max-width: 92vw
+     und bricht nicht um (#103). Ein längerer Name scrollt im Feld. */
+  #edit-name { font: inherit; font-size: 15px; width: 13ch; min-height: 44px;
+    padding: 4px 8px; border: 2px solid var(--woodL); border-radius: 8px; background: #fff; color: var(--ink); }
+  #edit-name::placeholder { color: #a79772; }
+  #edit-bewohner { font-size: 13px; opacity: .8; }
   /* Besuchsleiste — wie #editbar aufgebaut, aber unten, damit sie auf dem
      Tablet unter dem Daumen liegt. */
   #besuchbar { position: fixed; bottom: calc(var(--toolbar-h, 60px) + 16px); left: 50%; transform: translateX(-50%); z-index: 6; display: none; align-items: center; gap: 8px; padding: 8px 10px 8px 16px; max-width: 92vw; flex-wrap: wrap; justify-content: center; }
@@ -254,6 +266,8 @@
   #resident-list .fl { font-weight: 700; width: 28px; color: var(--wood); }
   #resident-list .free { opacity: .55; font-style: italic; }
   #resident-list .hint { display: block; font-size: 12px; opacity: .6; }
+  /* Eigene Blockzeile, damit ein langer Name die Bewohnerspalte nicht sprengt (#103). */
+  #resident-list .raumname { display: block; font-size: 13px; color: var(--wood); }
   /* Toast — bleibt offen, bis er weggetippt wird; Stapel über Werkzeug- und
      Auswahlleiste, deren gemessene Höhen er wie #catalog mitrechnet. Der
      Container selbst ist klickdurchlässig, nur die Toasts fangen Tipps ab. */
@@ -330,7 +344,10 @@
 </div>
 
 <div id="editbar" class="panel">
-  <span id="edit-title"></span>
+  <span id="edit-nr"></span>
+  <input id="edit-name" type="text" maxlength="24" placeholder="Wohnung anschreiben"
+         title="Gib dieser Wohnung einen Namen" autocomplete="off">
+  <span id="edit-bewohner"></span>
   <button id="btn-roomclear" class="danger">Alles weg</button>
   <button id="btn-roomrandom" class="hidden">Zufall einrichten</button>
   <button id="btn-roomcopy" class="hidden">Raum kopieren</button>
