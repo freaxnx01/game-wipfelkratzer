@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MAT, SEASONS, LEAVES, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, FURN_SIZES, TINTABLE,
-  BUILD_SHAPES, BUILD_WIDTHS, BUILD_MAX, BUILD_MAX_H, DESIGN_MAX, normalizeBuild,
+  BUILD_SHAPES, BUILD_WIDTHS, BUILD_MAX, BUILD_MAX_H, DESIGN_MAX, STRETCH_STEPS, normalizeBuild,
   makeCustomFurniture, lookCanvas, lookTexture, tapeziereUV, WALL_TILE, makeFurniture, makeAnimal, makeWilli,
   makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge,
   makeAussicht, AUSSICHT_DECK } from './models.js';
@@ -689,14 +689,50 @@ function normalizeSize(en) {
   if (!SIZE_FACTORS.includes(en.scale) || en.scale === 1 || WALL_ITEMS.has(en.id)) {
     delete en.scale; migrated = true; }
 }
-/* Die einzige Stelle, die die Grösse eines Möbels ans Mesh bringt. Sie sitzt
-   auf dem Gruppenknoten, nie auf einem Kind: die Schaltzustände (Badewanne,
-   Pool, Fenster) rechnen in Kindern und dürfen davon nichts merken.
-   q ist der Fortschritt einer Einfahr-Animation (1 = fertig).
-   Issue #100 (in die Länge ziehen) erweitert genau diese eine Zeile zu
-   m.scale.set(f * laenge, f, f) — deshalb geht jeder Pfad hier durch. */
-function applyEntryScale(mesh, entry, q = 1) {
-  mesh.scale.setScalar(sizeOf(entry) * q);
+/* ---------- Dehnung (Issue #100) ---------- */
+/* Zwei Faktoren auf den lokalen Achsen des Modells. Fehlt das Feld, ist das
+   Möbel ungedehnt — ein alter Spielstand ist damit gültig, ohne Migration. */
+const dehnungOf = en => (en.dehnung ? { x: en.dehnung.x, z: en.dehnung.z } : { x: 1, z: 1 });
+function setDehnung(en, d) {
+  if (d.x === 1 && d.z === 1) delete en.dehnung; else en.dehnung = { x: d.x, z: d.z };
+}
+/* Die einzige Stelle, die mesh.scale eines Möbels setzt — der Punkt, den #99
+   angekündigt und #100 erweitert hat. Sie sitzt auf dem Gruppenknoten, nie auf
+   einem Kind: die Schaltzustände (Badewanne, Pool, Fenster) rechnen in Kindern
+   und dürfen davon nichts merken. `q` ist der Fortschritt der Aufpopp-
+   Animation (1 = fertig). Die Grösse läuft bewusst über sizeOf() statt über
+   `en.scale ?? 1`, damit ein von Hand verfälschter Faktor auch hier still auf
+   1 zurückfällt. */
+function applyEntryScale(mesh, en, q = 1) {
+  const d = dehnungOf(en), g = sizeOf(en) * q;
+  mesh.scale.set(g * d.x, g, g * d.z);
+}
+/* Ungedehnte Grundmasse des Modells, einmal pro Bauform gemessen. Ein frisch
+   gebautes Modell hängt an keinem Elternknoten, seine Weltmatrix ist also die
+   Einheitsmatrix — Box3 liefert damit lokale Masse, ungedreht und
+   unskaliert. */
+const massCache = new Map();
+function modellMass(en) {
+  const key = en.id === 'eigenbau' ? 'eigenbau:' + JSON.stringify(en.build) : en.id;
+  if (!massCache.has(key)) {
+    const probe = en.id === 'eigenbau' ? makeCustomFurniture(en.build) : makeFurniture(en.id);
+    probe.updateWorldMatrix(true, false);
+    const bb = new THREE.Box3().setFromObject(probe);
+    const w = bb.max.x - bb.min.x, d = bb.max.z - bb.min.z;
+    massCache.set(key, { achse: w >= d ? 'x' : 'z', w, d });
+  }
+  return massCache.get(key);
+}
+/* Eine Dehnung ist Fremdeingabe wie eine Farbe: unbekannte Werte verschwinden
+   still, 1/1 wird ganz entfernt, und der bereinigte Stand wird über das
+   bestehende migrated-Flag einmalig zurückgeschrieben. */
+function normalizeDehnung(en) {
+  if (en.dehnung === undefined) return;
+  const d = en.dehnung;
+  const gueltig = !!d && typeof d === 'object' && !WALL_ITEMS.has(en.id)
+    && STRETCH_STEPS.includes(d.x) && STRETCH_STEPS.includes(d.z);
+  if (!gueltig || (d.x === 1 && d.z === 1)) { delete en.dehnung; migrated = true; return; }
+  en.dehnung = { x: d.x, z: d.z };
 }
 /* Eigenbauten prüfen, bevor sie gebaut werden. Ein Bauplan ist Fremdeingabe:
    von Hand verändert, aus einer älteren Version, aus einer entfernten Form.
@@ -761,6 +797,13 @@ function surfaceYAt(k, x, z, exclude) {
   return top === null ? baseY(k) : top + 0.005;
 }
 const SURFACES = ['tisch', 'regal', 'schrank', 'klavier', 'nusskiste', 'kommode', 'wk_regal', 'wk_tisch'];
+/* Halbe nutzbare Kantenlängen eines Raums — geteilt von clampEntry und der
+   Dehnungsgrenze (Issue #100). */
+function raumGrenzen(k) {
+  if (k === 'roof') return { x: ROOF_W / 2 - 0.1, z: ROOF_D / 2 - 0.1 };
+  if (k === 'garten') return { x: GARDEN_W / 2, z: GARDEN_D / 2 };
+  return { x: W(k) / 2 - 0.13, z: D(k) / 2 - 0.13 };
+}
 function clampEntry(k, m, en) {
   if (WALL_ITEMS.has(en.id)) {
     en.wall = en.wall || 'back';
@@ -796,8 +839,7 @@ function clampEntry(k, m, en) {
     m.position.set(en.x, 0, en.z);
     return;
   }
-  const limX = k === 'roof' ? ROOF_W / 2 - 0.1 : W(k) / 2 - 0.13;
-  const limZ = k === 'roof' ? ROOF_D / 2 - 0.1 : D(k) / 2 - 0.13;
+  const { x: limX, z: limZ } = raumGrenzen(k);
   const bb = new THREE.Box3().setFromObject(m);
   const hx = Math.min((bb.max.x - bb.min.x) / 2, limX), hz = Math.min((bb.max.z - bb.min.z) / 2, limZ);
   en.x = Math.max(-(limX - hx), Math.min(limX - hx, en.x));
@@ -841,7 +883,7 @@ function tenantBlocked(pick) {
 function replaceMesh(pick) {
   const en = pick.entry;
   if (pick.tenant) { pick.mesh.position.x = en.x; pick.mesh.position.z = en.z; }
-  else pick.mesh.position.set(en.x, en.y ?? baseY(pick.k), en.z);
+  else { pick.mesh.position.set(en.x, en.y ?? baseY(pick.k), en.z); applyEntryScale(pick.mesh, en); }
   pick.mesh.rotation.y = en.rot ?? 0;
   /* Auch die Grösse gehört zurückgedreht — sonst bleibt nach einer
      abgelehnten Stufe ein grosses Mesh an einem kleinen Eintrag hängen. */
@@ -862,12 +904,18 @@ function meldeBlockade() {
    Rückgabe: true, wenn der Zug Bestand hat. */
 function applyMove(pick, mutate) {
   const en = pick.entry;
-  const snap = { x: en.x, z: en.z, y: en.y, rot: en.rot, wall: en.wall, scale: en.scale };
+  const snap = { x: en.x, z: en.z, y: en.y, rot: en.rot, wall: en.wall, scale: en.scale,
+    dehnung: en.dehnung && { ...en.dehnung } };
   mutate();
   const ok = pick.tenant ? resolveTenantMove(pick) : resolveItemMove(pick);
-  /* Object.assign schreibt ein fehlendes Feld als `scale: undefined` zurück
-     statt es zu löschen — «kein Feld» ist aber der Normalzustand (#99). */
-  if (!ok) { Object.assign(en, snap); if (en.scale === undefined) delete en.scale; replaceMesh(pick); }
+  /* Object.assign schreibt ein fehlendes Feld als `undefined` zurück statt es
+     zu löschen — «kein Feld» ist aber für beide der Normalzustand (#99/#100). */
+  if (!ok) {
+    Object.assign(en, snap);
+    if (en.scale === undefined) delete en.scale;
+    if (!snap.dehnung) delete en.dehnung;
+    replaceMesh(pick);
+  }
   return ok;
 }
 function resolveTenantMove(pick) { return !tenantBlocked(pick); }
@@ -991,6 +1039,7 @@ function applyItemState(m, animate) {
 function placeItemMesh(k, entry) {
   normalizeColor(entry);
   normalizeSize(entry);
+  normalizeDehnung(entry);
   if (entry.x === undefined) { const p = cellPos(k, entry.cell || 0); entry.x = p.x; entry.z = p.z; entry.rot = (entry.rot || 0) * Math.PI / 2; }
   /* Zwei Wege zu einem Möbel-Mesh: Katalog-id oder Bauplan (Schreinerei). */
   const m = entry.id === 'eigenbau' ? makeCustomFurniture(entry.build) : makeFurniture(entry.id, entry.color);
@@ -1007,6 +1056,7 @@ function placeItemMesh(k, entry) {
   }
   applyEntryScale(m, entry);
   m.userData.pick = { k, entry, mesh: m };
+  applyEntryScale(m, entry);
   parentOf(k).add(m); itemMeshes[k].push(m);
   if (m.userData.wheel) spinners.push(m.userData.wheel);
   if (m.userData.setFill) m.userData.setFill(poolFill(entry));
@@ -3466,6 +3516,7 @@ if (migrated) save();
 window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, gartenG, gardenEdge, scene, camera, controls, WALL_KEYS, WALL_TILE, FURN_COLORS, TINTABLE,
   FURN_SIZES, sizeOf, applyEntryScale, H, setItemSize,
   GARDEN: { pos: GARDEN_POS, w: GARDEN_W, d: GARDEN_D }, riverZ, river, placeItemMesh, clampEntry, removeItem,
+  STRETCH_STEPS, applyEntryScale, modellMass, raumGrenzen, dehnungOf,
   MAT, SEASONS, LEAVES, setSeason, setNight, ground,
   riverMats: { sand: riverSandMat, water: riverWaterMat, foam: riverFoamMat },
   leafColors: () => LEAVES.map(e => e.mat.color.getHexString()),
