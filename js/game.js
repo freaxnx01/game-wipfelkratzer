@@ -1264,7 +1264,7 @@ function enterEdit(k) {
   $('editbar').classList.add('on');
   wallTarget = 'alle';
   $('catalog').classList.add('open'); renderCatalog(); highlightWalls();
-  updateRoomClipButtons();
+  updateRoomButtons();
   updateHUD(); sfx.whoosh();
 }
 function exitEdit() {
@@ -1278,7 +1278,7 @@ function exitEdit() {
   edit = null;
   wallTarget = 'alle'; highlightWalls();
   applyFronts();
-  updateRoomClipButtons();
+  updateRoomButtons();
   $('editbar').classList.remove('on');
   $('catalog').classList.remove('open');
   updateHUD();
@@ -1477,17 +1477,24 @@ function select(pick) { deselect(); selected = pick;
    längst umgeräumt ist, wäre mehr Überraschung als Hilfe. */
 let clip = null;
 const deepCopy = v => JSON.parse(JSON.stringify(v));
-function updateRoomClipButtons() {
+/* Eine Stelle für alle vier Raum-Knöpfe. Kopieren und Einfügen gelten
+   nur für gewöhnliche Wohnungen; «Alles weg» gilt überall, ist aber im
+   leeren Raum ausgegraut statt versteckt — ein verschwindender Knopf
+   liesse die Leiste bei jedem Aufstellen springen. */
+function updateRoomButtons() {
   const normal = !!edit && edit.k !== 'roof' && edit.k !== 'garten';
   $('btn-roomcopy').classList.toggle('hidden', !normal);
   $('btn-roompaste').classList.toggle('hidden', !(normal && clip && clip.from !== edit.k));
+  $('btn-roomclear').disabled = !edit || roomOf(edit.k).length === 0;
+  $('btn-roomrandom').classList.toggle('hidden', !normal);
+  $('btn-roomrandom').disabled = !normal || freeCell(edit.k) < 0;
 }
 function copyRoom() {
   if (!edit || edit.k === 'roof' || edit.k === 'garten') return;
   const k = edit.k;
   clip = { from: k, items: deepCopy(roomOf(k)),
     wallpaper: deepCopy(wallpaperOf(k)), flooring: state.flooring[k] || null };
-  updateRoomClipButtons(); sfx.pop();
+  updateRoomButtons(); sfx.pop();
   toast(`Wohnung ${flLabel(k)} gemerkt — geh auf ein anderes Stockwerk und tippe auf «Raum einfügen».`);
 }
 $('btn-roomcopy').onclick = copyRoom;
@@ -1569,6 +1576,38 @@ $('paste-cancel').onclick = closePasteAsk;
 $('pasteask').onclick = e => { if (e.target === $('pasteask')) closePasteAsk(); };
 $('paste-add').onclick = () => { const k = pasteTarget; closePasteAsk(); if (k !== null) doPaste(k, false); };
 $('paste-replace').onclick = () => { const k = pasteTarget; closePasteAsk(); if (k !== null) doPaste(k, true); };
+
+/* ---------- Alles weg (#97) ----------
+   Die Rückfrage ist ein eigener Dialog nach dem Vorbild von #pasteask:
+   window.confirm() sieht auf dem iPad fremd aus und lässt sich nicht
+   kindgerecht formulieren. Geleert wird nur die Möbelliste — Tapete und
+   Boden sind der Raum selbst, nicht seine Einrichtung. */
+const raumName = k => k === 'roof' ? 'der Dachterrasse'
+  : k === 'garten' ? 'dem Spielplatz' : `Stockwerk ${flLabel(k)}`;
+
+function raumLeeren(k) {
+  clearRoom(k);
+  deselect();
+  renderWishes(); renderResidents();
+  sfx.knock();
+  toast(`Aufgeräumt — in ${raumName(k)} steht jetzt nichts mehr.`);
+  save(); updateHUD(); updateRoomButtons();
+}
+
+function fragNachLeeren() {
+  if (!edit) return;
+  const k = edit.k;
+  const n = roomOf(k).length;
+  if (!n) return;
+  $('clearask-text').textContent =
+    `In ${raumName(k)} stehen ${n} Sachen. Sie sind dann alle weg.`;
+  $('clearask').classList.add('open');
+}
+function closeClearAsk() { $('clearask').classList.remove('open'); }
+$('btn-roomclear').onclick = fragNachLeeren;
+$('clear-cancel').onclick = closeClearAsk;
+$('clearask').onclick = e => { if (e.target === $('clearask')) closeClearAsk(); };
+$('clear-ok').onclick = () => { const k = edit && edit.k; closeClearAsk(); if (k != null) raumLeeren(k); };
 
 /* Die Reihe zeigt «Standard» plus die Palette; die Punkte tragen den Farbwert
    der MAT-Instanz, damit kein zweiter Ort eine Farbe festlegt. */
@@ -1676,14 +1715,14 @@ function addItem(id, build) {
   select(m.userData.pick);
   sfx.pop();
   checkTenant(k); checkWishes(id, k);
-  save(); updateHUD();
+  save(); updateHUD(); updateRoomButtons();
 }
 function removeItem(pick) {
   const arr = roomOf(pick.k); const idx = arr.indexOf(pick.entry);
   if (idx >= 0) arr.splice(idx, 1);
   parentOf(pick.k).remove(pick.mesh);
   const mi = itemMeshes[pick.k].indexOf(pick.mesh); if (mi >= 0) itemMeshes[pick.k].splice(mi, 1);
-  deselect(); sfx.knock(); save(); renderWishes();
+  deselect(); sfx.knock(); save(); renderWishes(); updateRoomButtons();
 }
 /* Umfärben heisst: Mesh wegwerfen und über placeItemMesh neu bauen. Das ist
    der einzige Pfad, der Elternknoten, itemMeshes, spinners und userData.pick
