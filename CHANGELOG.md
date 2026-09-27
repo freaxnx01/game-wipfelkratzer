@@ -6,6 +6,8 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-28
+
 ### Added
 
 - Beim «Hineingehen» sind die Fenster jetzt echte Öffnungen: Du schaust
