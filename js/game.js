@@ -911,6 +911,27 @@ const ACTIONS = {
   lampe:     { doOn: 'Licht an',     doOff: 'Licht aus',    apply: applyLampe,   sound: () => sfx.click() },
   fenster:   { doOn: 'Fenster auf',  doOff: 'Fenster zu',   apply: applyFenster, sound: () => sfx.creak() },
   badewanne: { doOn: 'Wanne füllen', doOff: 'Wanne leeren', apply: applyWanne,   sound: on => on ? sfx.fill() : sfx.drain() },
+
+  /* Einmalige Bewegungen (#93). Eine Zeile pro Objekt — genau das ist der
+     Sinn der Bausteine. `griff` benennt eine Untergruppe im Modell, wenn die
+     Bewegung einen eigenen Drehpunkt braucht. */
+  schaukelstuhl: { label: 'Schaukeln', dauer: 2.4, griff: 'wippe',
+                   play: ANIM.wippen('x', 0.16, 3),   sound: () => sfx.wippe() },
+  klavier:       { label: 'Spielen',   dauer: 2.0,
+                   play: ANIM.reihum('tasten', 0.022), sound: () => sfx.klavier() },
+  blockfloete:   { label: 'Spielen',   dauer: 1.6,
+                   play: ANIM.zusammen(ANIM.huepfen(0.05, 2), ANIM.wippen('z', 0.10, 2)),
+                   sound: () => sfx.floete() },
+  harfe:         { label: 'Spielen',   dauer: 1.8,
+                   play: ANIM.wippen('z', 0.06, 2),    sound: () => sfx.harfe() },
+  schlagzeug:    { label: 'Spielen',   dauer: 1.2,
+                   play: ANIM.stauchen(0.10),          sound: () => sfx.trommel() },
+  ball:          { label: 'Hüpfen',    dauer: 1.4,
+                   play: ANIM.huepfen(0.45, 3),        sound: () => sfx.hops() },
+  kuscheltier:   { label: 'Hüpfen',    dauer: 1.2,
+                   play: ANIM.huepfen(0.18, 2),        sound: () => sfx.hops() },
+  pflanze:       { label: 'Wackeln',   dauer: 1.6,
+                   play: ANIM.wippen('z', 0.07, 3),    sound: () => sfx.rascheln() },
 };
 const actionLabel = en => { const a = ACTIONS[en.id]; if (!a) return null;
   return a.label || (isOn(en) ? a.doOff : a.doOn); };
@@ -2487,6 +2508,12 @@ renderer.domElement.addEventListener('pointerup', e => {
     }
     const hits = ray.intersectObjects(itemMeshes[edit.k], true);
     if (hits.length) { let o = hits[0].object; while (o && !(o.userData && o.userData.pick)) o = o.parent;
+      /* Ein Tipp auf das BEREITS ausgewählte Objekt löst seine Aktion aus
+         (#93) — der erste Tipp wählt aus und lässt #btn-action sagen, was
+         ein weiterer tut. Die 8-px-/400-ms-Schwelle oben trennt das schon
+         sauber vom Ziehen (#64), es kommt keine zweite Heuristik dazu. */
+      if (o && selected && selected.mesh === o && ACTIONS[o.userData.pick.entry.id]) {
+        spieleAktion(selected); return; }
       if (o) { select(o.userData.pick); sfx.pop(); return; } }
     const wallKey = pickWall();
     if (wallKey) { deselect();
