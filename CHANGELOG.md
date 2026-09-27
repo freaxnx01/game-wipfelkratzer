@@ -95,6 +95,12 @@ All notable changes to this project are documented here, following
   weite Wohnung im Erdgeschoss, ein normaler Tisch für die kleine Dachkammer.
   Was nicht mehr unter die Decke passt oder einem Bewohner den Platz wegnimmt,
   bleibt wie es war, und Willi sagt Dir warum (#99)
+### Added
+
+- Möbel lassen sich jetzt in die Länge ziehen und wieder kürzen: Möbel
+  antippen, «Strecken» wählen, dann «Länger» oder «Kürzer». Aus dem Tisch
+  wird eine lange Tafel, aus dem Sofa eine Bank für die ganze Familie. Passt
+  das Möbel nicht mehr ins Zimmer, geht es nicht weiter (#100)
 
 ## [0.11.1] - 2026-09-20
 

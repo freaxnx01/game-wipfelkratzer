@@ -97,6 +97,10 @@ export const BUILD_WIDTHS = [
 export const BUILD_MAX = 5;      /* Teile pro Möbel */
 export const BUILD_MAX_H = 1.5;  /* Gesamthöhe; darüber passt es nicht unter die Decke (FLOOR_H = 2.0) */
 export const DESIGN_MAX = 6;     /* gespeicherte Entwürfe */
+/* Dehnstufen für «in die Länge ziehen» (Issue #100). Geteilt mit
+   js/standdatei.js, damit die Positivliste beim Einlesen dieselbe Liste
+   prüft wie die Bedienung. */
+export const STRETCH_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 /* Macht aus einem beliebigen Objekt einen gültigen Bauplan oder null. Ein
    Spielstand ist Fremdeingabe: er kann von Hand verändert, aus einer
