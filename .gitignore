@@ -4,3 +4,4 @@
 # verify scripts, captured stdout). PR #21 carried all three into its diff.
 .superpowers/
 output.txt
+.claude/worktrees/

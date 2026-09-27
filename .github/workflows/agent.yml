@@ -7,6 +7,12 @@ permissions:            # a reusable workflow can't be granted more than its
   contents: write       # caller; the repo's default GITHUB_TOKEN is read-only,
   pull-requests: write  # so omitting this fails the run at startup_failure.
   issues: write
+  # Required since agent-workflow v2.0.7: agent-implement.yml's own job block
+  # requests `actions: write` for retry-dispatch. A called workflow may not
+  # request more than its caller grants, so without this line every
+  # `issues: labeled` event dies at startup_failure before any job runs —
+  # including ones the `if:` below would have skipped.
+  actions: write
 
 jobs:
   claude:
