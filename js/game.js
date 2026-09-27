@@ -1516,7 +1516,13 @@ function pasteEntries(k, items) {
    itemMeshes müssen zusammen aufgeräumt werden, sonst bleiben Möbel
    sichtbar stehen, die es im Spielstand nicht mehr gibt. */
 function clearRoom(k) {
-  itemMeshes[k].slice().forEach(m => parentOf(k).remove(m));
+  itemMeshes[k].slice().forEach(m => {
+    /* Dasselbe Aufräumen wie in rebuildItemMesh: ein Rad, das nur aus
+       der Szene fliegt, dreht sich in spinners weiter und wird nie
+       wieder eingesammelt. */
+    if (m.userData.wheel) { const si = spinners.indexOf(m.userData.wheel); if (si >= 0) spinners.splice(si, 1); }
+    parentOf(k).remove(m);
+  });
   itemMeshes[k].length = 0;
   roomOf(k).length = 0;
 }
@@ -3065,7 +3071,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   fensterSchichten,
   wechsleBesuch, fensterSchichten, fensterAuf, fensterZu,
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
-  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, get clip() { return clip; },
+  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, clearRoom, spinnerCount: () => spinners.length, get clip() { return clip; },
   ziehtGerade: () => !!ziehen, zugBlockiert: () => !!(ziehen && ziehen.blockiert),
   poolEntries: () => roomOf('roof').filter(e => e.id === 'pool'),
   get magpiePhase() { return magPhase; }, MAGPIE_DUR, magpie,
