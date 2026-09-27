@@ -126,6 +126,80 @@ def pruefe_feld(page):
     page.wait_for_timeout(300)
 
 
+def pruefe_besuch(page):
+    print("\n=== Name in der Besuchsleiste ===")
+    page.evaluate("() => wipfelkratzer.enterBesuch(1)")
+    page.wait_for_timeout(600)
+    titel = page.inner_text("#besuch-titel")
+    check("Musikzimmer" in titel, "Besuchsleiste zeigt den Namen", titel)
+    check("1" in titel, "Besuchsleiste zeigt weiter die Nummer", titel)
+    page.evaluate("() => wipfelkratzer.exitBesuch()")
+    page.wait_for_timeout(600)
+
+
+def raeume_toasts(page):
+    """Ein Toast bleibt offen, bis er weggetippt wird (js/game.js:887), und
+    liegt über dem Bewohner-Schild — er fängt sonst den Klick auf «Zu» ab."""
+    page.evaluate("() => document.querySelectorAll('#toast-stack .toast-item').forEach(el => el.click())")
+    page.wait_for_timeout(200)
+
+
+def oeffne_schild(page):
+    raeume_toasts(page)
+    page.click("#btn-extras")
+    page.wait_for_timeout(200)
+    page.click("#btn-sign")
+    page.wait_for_timeout(400)
+
+
+def schliesse_schild(page):
+    page.click("#btn-resclose")
+    page.wait_for_timeout(300)
+
+
+def pruefe_schild(page):
+    print("\n=== Name auf dem Bewohner-Schild ===")
+    oeffne_schild(page)
+    zeilen = page.inner_text("#resident-list")
+    check("Musikzimmer" in zeilen, "Bewohner-Schild zeigt den Namen")
+    check("1" in zeilen, "Bewohner-Schild zeigt weiter die Nummer")
+    schliesse_schild(page)
+
+
+# 20 Zeichen, passt also unter die Kappung bei 24 — eine Nutzlast, die erst
+# durch das Kürzen harmlos wird, würde nichts über die Ausgabe beweisen.
+BOESE = "<svg onload=ggXss()>"
+
+
+def pruefe_kein_html(page):
+    print("\n=== Ein Name, der wie HTML aussieht, bleibt Text ===")
+    page.evaluate("() => { window.__xss = undefined; window.ggXss = () => { window.__xss = 1; }; }")
+    setze_namen(page, 1, BOESE)
+    check(page.evaluate("() => wipfelkratzer.state.roomNames['1']") == BOESE,
+          "Die Nutzlast wird ungekürzt gespeichert")
+    oeffne_schild(page)
+    check(page.evaluate("() => window.__xss === undefined"),
+          "Bewohner-Schild: kein Skript ausgeführt")
+    check(page.evaluate("() => document.querySelectorAll('#resident-list svg').length === 0"),
+          "Bewohner-Schild: kein <svg> im Baum")
+    check(BOESE in page.evaluate("() => document.getElementById('resident-list').textContent"),
+          "Bewohner-Schild: der Text steht wörtlich da")
+    schliesse_schild(page)
+
+    page.evaluate("() => wipfelkratzer.enterBesuch(1)")
+    page.wait_for_timeout(600)
+    check(page.evaluate("() => document.querySelectorAll('#besuch-titel svg').length === 0"),
+          "Besuchsleiste: kein <svg> im Baum")
+    check(BOESE in page.evaluate("() => document.getElementById('besuch-titel').textContent"),
+          "Besuchsleiste: der Text steht wörtlich da")
+    page.evaluate("() => wipfelkratzer.exitBesuch()")
+    page.wait_for_timeout(600)
+    check(page.evaluate("() => window.__xss === undefined"), "Insgesamt kein Skript ausgeführt")
+
+    # Wieder auf den gutartigen Namen, damit die späteren Prüfungen ihn finden.
+    setze_namen(page, 1, "Musikzimmer")
+
+
 def pruefe_dach_und_spielplatz(page):
     print("\n=== Dach und Spielplatz haben kein Feld ===")
     for k, titel in [("roof", "Dachterrasse"), ("garten", "Spielplatz")]:
@@ -188,6 +262,9 @@ def main():
 
             page, errors = open_page(context, url)
             pruefe_feld(page)
+            pruefe_besuch(page)
+            pruefe_schild(page)
+            pruefe_kein_html(page)
             pruefe_dach_und_spielplatz(page)
             pruefe_tastatur(page)
             alle_fehler += errors

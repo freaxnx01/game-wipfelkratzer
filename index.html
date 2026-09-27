@@ -260,6 +260,8 @@
   #resident-list .fl { font-weight: 700; width: 28px; color: var(--wood); }
   #resident-list .free { opacity: .55; font-style: italic; }
   #resident-list .hint { display: block; font-size: 12px; opacity: .6; }
+  /* Eigene Blockzeile, damit ein langer Name die Bewohnerspalte nicht sprengt (#103). */
+  #resident-list .raumname { display: block; font-size: 13px; color: var(--wood); }
   /* Toast — bleibt offen, bis er weggetippt wird; Stapel über Werkzeug- und
      Auswahlleiste, deren gemessene Höhen er wie #catalog mitrechnet. Der
      Container selbst ist klickdurchlässig, nur die Toasts fangen Tipps ab. */

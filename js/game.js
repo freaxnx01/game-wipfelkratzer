@@ -1509,6 +1509,15 @@ function exitBesuch() {
   sfx.whoosh();
 }
 
+/* Aufschrift einer Wohnung: der selbst vergebene Name tritt neben den Bewohner,
+   er ersetzt ihn nicht (#103). «noch niemand» entfällt, sobald es eines von
+   beiden gibt. Der Spielertext wird nur über textContent gesetzt, nie als
+   HTML-Vorlage. */
+function wohnungAufschrift(k) {
+  const bewohner = tenantIn(k) ? (tenantOf(k).unit || tenantOf(k).name) : '';
+  const teile = [raumName(k), bewohner].filter(Boolean);
+  return `${flLabel(k)} — ${teile.join(' · ') || 'noch niemand'}`;
+}
 /* Gesperrt statt versteckt: ein Knopf, der verschwindet, verwirrt mehr als
    einer, der grau ist (#44). Nur «Draussen» fehlt ganz, solange es keinen
    Spielplatz gibt — dort wäre auch grau eine Lüge. */
@@ -1520,7 +1529,7 @@ function renderBesuchbar() {
   $('besuch-titel').textContent = k === 'roof' ? 'Dachterrasse'
     : k === 'garten' ? 'Spielplatz'
     : k === 'aussicht' ? 'Aussichtsplattform'
-    : `${flLabel(k)} — ${tenantIn(k) ? (tenantOf(k).unit || tenantOf(k).name) : 'noch niemand'}`;
+    : wohnungAufschrift(k);
   $('btn-besuch-runter').disabled = !zahl || k <= 0;
   $('btn-besuch-hoch').disabled = !zahl || k >= state.floors;
   $('btn-besuch-dach').disabled = k === 'roof';
@@ -2143,6 +2152,15 @@ function renderResidents() {
     const nm = !built ? '<span class="free">noch nicht gebaut</span>' : tenantIn(i) ? `<b>${tenantOf(i).unit || tenantOf(i).name}</b>` : '<span class="free">zurzeit frei</span>';
     const hint = i === 0 ? '<span class="hint">Erdgeschoss, war schon da</span>' : '';
     li.innerHTML = `<span class="fl">${flLabel(i)}</span><span>${nm}${hint}</span>`;
+    /* Der Wohnungsname kommt vom Kind und darf nie durch innerHTML gehen (#103)
+       — er wird als Textknoten an die Bewohnerspalte gehängt. */
+    const eigen = built ? raumName(i) : '';
+    if (eigen) {
+      const span = document.createElement('span');
+      span.className = 'raumname';
+      span.textContent = eigen;
+      li.lastElementChild.appendChild(span);
+    }
     ul.appendChild(li); }
 }
 
