@@ -1249,6 +1249,22 @@ function besuchPolar(k, bahn) {
            maxP: Math.acos(-Math.min(1, nachUnten / bahn)) };
 }
 
+/* Mit geschlossener Decke fällt kein Aussenlicht mehr von oben in den Raum
+   (#96). Eine einzige Lampe wandert mit dem Besuch mit statt einer pro Etage,
+   und Schatten wirft sie keine: die Szene hat sonst genau zwei Lichter
+   (js/game.js:167-168), ein drittes mit Schattenkarte wäre der teuerste Teil
+   dieser Änderung. */
+const besuchLampe = new THREE.PointLight(0xfff1d6, 3, 9, 2);
+besuchLampe.castShadow = false;
+/* Ein einziger Ort entscheidet, wo die Lampe hängt — zwei Stellen, die
+   unabhängig an- und abhängen, liefen auseinander. */
+function setzeBesuchLampe(k) {
+  if (besuchLampe.parent) besuchLampe.parent.remove(besuchLampe);
+  if (typeof k !== 'number' || !floorGroups[k]) return;
+  besuchLampe.position.set(0, H(k) - 0.5, 0);
+  floorGroups[k].add(besuchLampe);
+}
+
 function stelleBesuchKamera(k) {
   const { eye, tgt } = besuchCamFor(k);
   const { minP, maxP } = besuchPolar(k, eye.distanceTo(tgt));
@@ -1278,6 +1294,7 @@ function enterBesuch(k) {
      den Himmel: der Turm verjüngt sich nach oben, die Bodenplatte des
      Stockwerks darüber deckt den Raum also nicht, und über dem obersten
      Stockwerk liegt nur die schmalere Dachterrasse (#96). */
+  setzeBesuchLampe(k);
   applyFronts();
   renderBesuchbar();
   sfx.whoosh();
@@ -1289,6 +1306,7 @@ function exitBesuch() {
     minPolarAngle: besuchSave.minP, maxPolarAngle: besuchSave.maxP,
     enableZoom: besuchSave.zoom });
   besuch = null; besuchSave = null;
+  setzeBesuchLampe(null);
   /* Erst jetzt, mit besuch === null, stellt applyFronts den Aussenzustand
      her — vorher folgte es noch besuch.wandWeg. */
   for (let j = 0; j <= MAXF; j++) if (floorGroups[j]) floorGroups[j].userData.ceil.visible = true;
@@ -1324,6 +1342,7 @@ function renderBesuchbar() {
 function wechsleBesuch(k) {
   if (!besuch) return;
   besuch.k = k;
+  setzeBesuchLampe(k);
   stelleBesuchKamera(k);
   renderBesuchbar();
   sfx.pop();
@@ -2911,7 +2930,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
   enterBesuch, exitBesuch, besuchCamFor, get besuch() { return besuch; }, floorYOf: floorY,
-  deckeUnterY, WALL_MASSE: { w: W, d: D, t: WALL_T },
+  deckeUnterY, WALL_MASSE: { w: W, d: D, t: WALL_T }, besuchLampe,
   /* Strahlenprobe für die Playwright-Checks (#96): vom Augpunkt des Besuchs
      gerade nach oben und in die vier oberen Raumecken. Gezählt wird jede Probe,
      deren erstes Objekt nicht die Decke dieses Raums ist — 0 heisst, der Raum
