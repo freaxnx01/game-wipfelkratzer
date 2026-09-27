@@ -6,6 +6,13 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Changed
+
+- Die Waldkarte hat jetzt einen eigenen Knopf in der Leiste unten: Du
+  tippst auf «Waldkarte» und bist sofort im Wald bei Deinen Türmen.
+  Vorher musste man erst «Extras» öffnen und dort «Meine Türme» suchen
+  (#106)
+
 ## [0.11.1] - 2026-09-20
 
 ### Changed
