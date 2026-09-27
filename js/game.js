@@ -861,16 +861,77 @@ function applyFenster(m, on, q) {
   s.rotation.x = SASH_OPEN * (on ? q : 1 - q);
 }
 
+/* ---------- Bewegungsbausteine für Klick-Animationen (#93) ---------- */
+/* Jeder Baustein ist eine Fabrik und liefert eine Schrittfunktion (mesh, q)
+   mit q von 0 nach 1 (Smoothstep kommt aus tween).
+   EISERNE REGEL: bei q === 1 schreibt jeder Baustein exakt die Ruhelage.
+   Eine Klick-Animation hinterlässt nichts — weder am Mesh noch im
+   Spielstand. mesh.rotation.y ist tabu, sie trägt en.rot aus dem Platzieren. */
+const ANIM = {
+  /* Gedämpfte Schwingung: sin() * (1 - q) endet von selbst auf 0. */
+  wippen: (achse, winkel, schwingungen = 3) => (m, q) => {
+    m.rotation[achse] = q >= 1 ? 0
+      : winkel * Math.sin(q * schwingungen * 2 * Math.PI) * (1 - q);
+  },
+  /* Immer kleinere Sprünge über der Ruhehöhe. Die Ruhehöhe wird beim ersten
+     Schritt gemerkt, weil en.y je nach Abstellfläche variiert (surfaceYAt
+     für Deko-Objekte). */
+  huepfen: (hoehe, spruenge = 3) => (m, q) => {
+    if (m.userData.ruheY === undefined) m.userData.ruheY = m.position.y;
+    m.position.y = m.userData.ruheY + (q >= 1 ? 0
+      : Math.abs(Math.sin(q * spruenge * Math.PI)) * hoehe * (1 - q));
+  },
+  /* Einmal zusammendrücken und zurückfedern — Schlag, Anstoss. */
+  stauchen: (tiefe) => (m, q) => {
+    m.scale.y = q >= 1 ? 1 : 1 - tiefe * Math.sin(q * Math.PI);
+  },
+  /* Reihum eintauchen, für eine Teileliste in userData (Klaviertasten). */
+  reihum: (griff, tiefe) => (m, q) => {
+    const teile = m.userData[griff]; if (!teile) return;
+    teile.forEach((t, i) => {
+      if (t.userData.ruheY === undefined) t.userData.ruheY = t.position.y;
+      const p = q * teile.length - i;
+      t.position.y = t.userData.ruheY
+        - (q >= 1 || p < 0 || p > 1 ? 0 : Math.sin(p * Math.PI) * tiefe);
+    });
+  },
+  /* Mehrere Bausteine gleichzeitig auf demselben Mesh. */
+  zusammen: (...schritte) => (m, q) => schritte.forEach(f => f(m, q)),
+};
+
 /* Registry der Objekte, die etwas tun.
    - Eintrag MIT `apply` trägt einen Zustand (Feld `on` im Spielstand).
    - Eintrag OHNE `apply`, nur mit `label` + `sound`, ist ein reiner Auslöser.
      Das ist der Fall, den die Instrumente aus Issue #36 brauchen: Tipp -> Ton,
      kein Zustand, kein save(). Ein Instrument kostet dann genau eine Zeile
-     hier plus einen sfx-Effekt. */
+     hier plus einen sfx-Effekt.
+   - Eintrag MIT `play` ist eine einmalige Bewegung (#93): startet über
+     ANIM, schreibt ebenfalls nichts in den Spielstand. */
 const ACTIONS = {
   lampe:     { doOn: 'Licht an',     doOff: 'Licht aus',    apply: applyLampe,   sound: () => sfx.click() },
   fenster:   { doOn: 'Fenster auf',  doOff: 'Fenster zu',   apply: applyFenster, sound: () => sfx.creak() },
   badewanne: { doOn: 'Wanne füllen', doOff: 'Wanne leeren', apply: applyWanne,   sound: on => on ? sfx.fill() : sfx.drain() },
+
+  /* Einmalige Bewegungen (#93). Eine Zeile pro Objekt — genau das ist der
+     Sinn der Bausteine. `griff` benennt eine Untergruppe im Modell, wenn die
+     Bewegung einen eigenen Drehpunkt braucht. */
+  schaukelstuhl: { label: 'Schaukeln', dauer: 2.4, griff: 'wippe',
+                   play: ANIM.wippen('x', 0.16, 3),   sound: () => sfx.wippe() },
+  klavier:       { label: 'Spielen',   dauer: 2.0,
+                   play: ANIM.reihum('tasten', 0.022), sound: () => sfx.klavier() },
+  blockfloete:   { label: 'Spielen',   dauer: 1.6,
+                   play: ANIM.zusammen(ANIM.huepfen(0.05, 2), ANIM.wippen('z', 0.10, 2)),
+                   sound: () => sfx.floete() },
+  harfe:         { label: 'Spielen',   dauer: 1.8,
+                   play: ANIM.wippen('z', 0.06, 2),    sound: () => sfx.harfe() },
+  schlagzeug:    { label: 'Spielen',   dauer: 1.2,
+                   play: ANIM.stauchen(0.10),          sound: () => sfx.trommel() },
+  ball:          { label: 'Hüpfen',    dauer: 1.4,
+                   play: ANIM.huepfen(0.45, 3),        sound: () => sfx.hops() },
+  kuscheltier:   { label: 'Hüpfen',    dauer: 1.2,
+                   play: ANIM.huepfen(0.18, 2),        sound: () => sfx.hops() },
+  pflanze:       { label: 'Wackeln',   dauer: 1.6,
+                   play: ANIM.wippen('z', 0.07, 3),    sound: () => sfx.rascheln() },
 };
 const actionLabel = en => { const a = ACTIONS[en.id]; if (!a) return null;
   return a.label || (isOn(en) ? a.doOff : a.doOn); };
@@ -1752,18 +1813,22 @@ function updateActionBtn() {
   b.classList.toggle('hidden', !label);
   if (label) b.textContent = label;
 }
-/* Antippen bleibt mit Auswählen belegt (js/game.js:1003-1005) — geschaltet
-   wird über diesen Knopf. Ein Eintrag ohne `apply` (Instrumente, Issue #36)
-   spielt nur seinen Ton und schreibt nichts in den Spielstand. */
-function toggleAction() {
-  if (!selected) return;
-  const en = selected.entry, a = ACTIONS[en.id];
+/* Ein Pfad für beide Auslöser — den Knopf #btn-action und den Tipp auf ein
+   bereits ausgewähltes Objekt (#93). Deshalb nimmt die Funktion den Pick als
+   Argument entgegen, statt selected zu lesen.
+   - Eintrag mit `apply`: schaltbarer Zustand, en.on wird gespeichert.
+   - Eintrag mit `play`:  einmalige Bewegung, NICHTS wird gespeichert.
+   - Eintrag nur mit `sound`: nur der Ton. */
+function spieleAktion(pick) {
+  if (!pick) return;
+  const en = pick.entry, a = ACTIONS[en.id];
   if (!a) return;
+  if (a.play) { starteAnimation(pick, a); return; }
   if (!a.apply) { a.sound(true); return; }
   const next = !isOn(en);
   en.on = next;
   a.sound(next);
-  const mesh = selected.mesh;
+  const mesh = pick.mesh;
   tween(0.7, q => a.apply(mesh, next, q));
   updateActionBtn();
   /* Die Fassade hängt an den Lampenzuständen (applyNight) — ohne dieses
@@ -1771,7 +1836,27 @@ function toggleAction() {
   if (en.id === 'lampe') applyNight(nightK);
   save();
 }
-$('btn-action').onclick = toggleAction;
+/* Einmalige Bewegung. Ein zweiter Tipp während des Laufs wird ignoriert: ein
+   Neustart auf einer ausgelenkten Lage sähe aus wie ein Ruckler und könnte
+   die in ANIM gemerkte Ruhelage verfälschen. Der Merker sitzt am Mesh und
+   wird im done-Rückruf von tween gelöscht — nicht per Zeitrechnung. */
+function starteAnimation(pick, a) {
+  /* `griff` erlaubt einen eigenen Drehpunkt (Schaukelstuhl-Kufen). Fehlt er
+     am Modell, läuft die Bewegung auf dem ganzen Objekt statt an undefined
+     zu scheitern. */
+  const ziel = (a.griff && pick.mesh.userData[a.griff]) || pick.mesh;
+  if (ziel.userData.spielt) return;
+  ziel.userData.spielt = true;
+  a.sound(true);
+  tween(a.dauer || 1.5, q => a.play(ziel, q),
+        () => { a.play(ziel, 1); ziel.userData.spielt = false; });
+}
+function laeuftAnimation(pick) {
+  const a = ACTIONS[pick.entry.id]; if (!a || !a.play) return false;
+  const ziel = (a.griff && pick.mesh.userData[a.griff]) || pick.mesh;
+  return !!ziel.userData.spielt;
+}
+$('btn-action').onclick = () => spieleAktion(selected);
 
 /* Die Stelle an einer Wand, die von allen schon dort hängenden Objekten
    am weitesten entfernt ist. Abgetastet in 0.4er-Schritten — fein genug
@@ -2329,6 +2414,44 @@ const sfx = {
       const f = 420 + Math.random() * 380;
       bubble(t + 0.05 + Math.random() * 0.6, f, f * 1.7);
     } },
+  /* Klavier: fünf Töne einer C-Dur-Pentatonik nacheinander, jeder mit einer
+     leisen Oktave darunter — das gibt dem Klimpern Körper. */
+  klavier() { if (!AC) return; const t = AC.currentTime;
+    [60, 64, 67, 72, 76].forEach((n, i) => {
+      tone(midi2f(n), t + i * 0.12, 0.55, 'triangle', 0.10);
+      tone(midi2f(n - 12), t + i * 0.12, 0.45, 'sine', 0.04); }); },
+  /* Blockflöte: weicher Sinus mit Luftstoss davor. Das Vibrato ist ein
+     zweiter, ganz leiser Ton eine Idee daneben — eine Schwebung ist billiger
+     als ein LFO und klingt hier genauso. */
+  floete() { if (!AC) return; const t = AC.currentTime;
+    noiseBurst(t, 0.07, 3200, 1400, 0.05);
+    tone(midi2f(79), t + 0.02, 1.1, 'sine', 0.11);
+    tone(midi2f(79) * 1.004, t + 0.02, 1.1, 'sine', 0.05); },
+  /* Harfe: aufsteigendes Arpeggio, lange Ausklingzeit. */
+  harfe() { if (!AC) return; const t = AC.currentTime;
+    [60, 64, 67, 71, 74, 79].forEach((n, i) =>
+      tone(midi2f(n), t + i * 0.07, 0.9, 'triangle', 0.08)); },
+  /* Schlagzeug: Bassdrum (fallender Sinus) und gleich danach Snare
+     (Rauschstoss). */
+  trommel() { if (!AC) return; const t = AC.currentTime;
+    const o = tone(70, t, 0.35, 'sine', 0.28);
+    if (o) o.frequency.exponentialRampToValueAtTime(42, t + 0.25);
+    noiseBurst(t + 0.18, 0.12, 4200, 1200, 0.16);
+    noiseBurst(t + 0.34, 0.10, 3600, 1000, 0.10); },
+  /* Schaukelstuhl: zwei sehr leise Holzknarzer im Wipptakt — ein gedämpfter
+     Verwandter von creak(). */
+  wippe() { if (!AC) return; const t = AC.currentTime;
+    [0, 0.75].forEach(d => { const o = tone(120, t + d, 0.5, 'sawtooth', 0.035);
+      if (o) o.frequency.exponentialRampToValueAtTime(84, t + d + 0.45); }); },
+  /* Hüpfen: drei immer leisere Plopps, jeder steigt in der Tonhöhe. */
+  hops() { if (!AC) return; const t = AC.currentTime;
+    [[0, 0.16], [0.30, 0.10], [0.54, 0.06]].forEach(([d, g]) => {
+      const o = tone(260, t + d, 0.13, 'sine', g);
+      if (o) o.frequency.exponentialRampToValueAtTime(540, t + d + 0.1); }); },
+  /* Pflanze: drei kurze, hohe Rauschstösse — Blätter, die sich bewegen. */
+  rascheln() { if (!AC) return; const t = AC.currentTime;
+    [[0, 0.09], [0.16, 0.07], [0.34, 0.05]].forEach(([d, g]) =>
+      noiseBurst(t + d, 0.14, 5200, 2600, g)); },
 };
 $('btn-music').onclick = () => { musicOn = !musicOn; $('btn-music').textContent = musicOn ? 'Musik aus' : 'Musik an'; };
 
@@ -2385,6 +2508,12 @@ renderer.domElement.addEventListener('pointerup', e => {
     }
     const hits = ray.intersectObjects(itemMeshes[edit.k], true);
     if (hits.length) { let o = hits[0].object; while (o && !(o.userData && o.userData.pick)) o = o.parent;
+      /* Ein Tipp auf das BEREITS ausgewählte Objekt löst seine Aktion aus
+         (#93) — der erste Tipp wählt aus und lässt #btn-action sagen, was
+         ein weiterer tut. Die 8-px-/400-ms-Schwelle oben trennt das schon
+         sauber vom Ziehen (#64), es kommt keine zweite Heuristik dazu. */
+      if (o && selected && selected.mesh === o && ACTIONS[o.userData.pick.entry.id]) {
+        spieleAktion(selected); return; }
       if (o) { select(o.userData.pick); sfx.pop(); return; } }
     const wallKey = pickWall();
     if (wallKey) { deselect();
@@ -3218,10 +3347,9 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
     }
     return frei;
   },
-  fensterSchichten,
   wechsleBesuch, fensterSchichten, fensterAuf, fensterZu,
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
-  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, clearRoom, spinnerCount: () => spinners.length, raumLeeren, updateRoomButtons, ZUFALL_REZEPT, zieheEinrichtung, zufallEinrichten, DECO_IDS: [...DECO], WALL_IDS: [...WALL_ITEMS], get clip() { return clip; },
+  ACTIONS, ANIM, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, clearRoom, spinnerCount: () => spinners.length, raumLeeren, updateRoomButtons, ZUFALL_REZEPT, zieheEinrichtung, zufallEinrichten, DECO_IDS: [...DECO], WALL_IDS: [...WALL_ITEMS], get clip() { return clip; }, spieleAktion, laeuftAnimation,
   ziehtGerade: () => !!ziehen, zugBlockiert: () => !!(ziehen && ziehen.blockiert),
   poolEntries: () => roomOf('roof').filter(e => e.id === 'pool'),
   get magpiePhase() { return magPhase; }, MAGPIE_DUR, magpie,

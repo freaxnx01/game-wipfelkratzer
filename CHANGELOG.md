@@ -73,6 +73,14 @@ All notable changes to this project are documented here, following
 
 - Ein weggeräumtes Hamsterrad drehte sich unsichtbar weiter. Jetzt
   hört es auf (#97)
+### Added
+
+- Viele Sachen bewegen sich jetzt, wenn Du sie antippst: Der Schaukelstuhl
+  wippt, der Ball und das Kuscheltier hüpfen, die Pflanze wackelt — und beim
+  Klavier tanzen die Tasten, während es klimpert. Blockflöte, Harfe und
+  Schlagzeug spielen ebenfalls auf. Erst antippen zum Auswählen, dann
+  nochmal tippen — oder den Knopf unten drücken, der Dir sagt, was passiert
+  (#93)
 
 ## [0.11.1] - 2026-09-20
 

@@ -334,9 +334,16 @@ const FURN = {
     const fl = sph(g, 0.06, MAT.red, 0, 0.68, 0.14); fl.scale.z = 0.4; sph(g, 0.028, MAT.gold, 0, 0.68, 0.16);
     return g; },
   schaukelstuhl() { const g = G();
-    box(g, 0.4, 0.05, 0.38, MAT.wood, 0, 0.32); box(g, 0.4, 0.5, 0.05, MAT.wood, 0, 0.55, -0.17).rotation.x = 0.15;
-    [-0.16, 0.16].forEach(x => { [-0.14, 0.14].forEach(z => box(g, 0.045, 0.28, 0.045, MAT.woodD, x, 0.17, z));
-      const r = mesh(new THREE.TorusGeometry(0.32, 0.028, 10, 24, 1.9), MAT.woodD, x, 0.34, 0, g);
+    /* Der ganze Stuhl hängt in einer Gruppe, deren Ursprung auf der
+       Kufenmitte sitzt (y = 0.34, Torusradius 0.32). Nur so wippt er um die
+       Kufen statt um den Boden (#93). Die Teile stehen deshalb um -0.34
+       versetzt — die Ruhelage ist dieselbe wie vorher. */
+    const wippe = G(); g.add(wippe); wippe.position.y = 0.34;
+    g.userData.wippe = wippe;
+    box(wippe, 0.4, 0.05, 0.38, MAT.wood, 0, -0.02);
+    box(wippe, 0.4, 0.5, 0.05, MAT.wood, 0, 0.21, -0.17).rotation.x = 0.15;
+    [-0.16, 0.16].forEach(x => { [-0.14, 0.14].forEach(z => box(wippe, 0.045, 0.28, 0.045, MAT.woodD, x, -0.17, z));
+      const r = mesh(new THREE.TorusGeometry(0.32, 0.028, 10, 24, 1.9), MAT.woodD, x, 0, 0, wippe);
       r.rotation.y = Math.PI / 2; r.rotation.z = Math.PI + 0.6; });
     return g; },
   hamsterrad() { const g = G();
@@ -347,7 +354,10 @@ const FURN = {
     return g; },
   klavier() { const g = G();
     box(g, 0.85, 0.72, 0.3, MAT.dark, 0, 0.44, -0.05); box(g, 0.8, 0.05, 0.2, MAT.white, 0, 0.46, 0.14);
-    for (let i = 0; i < 7; i++) box(g, 0.05, 0.04, 0.1, MAT.black, -0.3 + i * 0.1, 0.5, 0.1);
+    /* Die Tasten sind einzeln greifbar, damit ANIM.reihum sie beim Spielen
+       nacheinander eintauchen lässt (#93). */
+    g.userData.tasten = [];
+    for (let i = 0; i < 7; i++) g.userData.tasten.push(box(g, 0.05, 0.04, 0.1, MAT.black, -0.3 + i * 0.1, 0.5, 0.1));
     [-0.36, 0.36].forEach(x => box(g, 0.07, 0.2, 0.24, MAT.dark, x, 0.1, 0));
     return g; },
   /* Instrumente */
