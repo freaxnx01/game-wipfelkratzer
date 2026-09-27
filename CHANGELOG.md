@@ -61,6 +61,18 @@ All notable changes to this project are documented here, following
   angeschnitten. Jetzt sind die Punkte auf allen vier Wänden gleich gross,
   in jedem Stockwerk — und das Muster endet an Ecke, Boden und Decke sauber
   am Rand einer Kachel (#98)
+### Added
+
+- Beim Einrichten gibt es zwei neue Knöpfe: «Alles weg» räumt die ganze
+  Wohnung auf einmal leer (es fragt vorher nach, damit nichts aus
+  Versehen verschwindet), und «Zufall einrichten» stellt Dir mit einem
+  Tippen eine ganze Einrichtung hin — mit zwei Fenstern, damit es hell
+  wird. Umbauen kannst Du danach alles wie immer (#97)
+
+### Fixed
+
+- Ein weggeräumtes Hamsterrad drehte sich unsichtbar weiter. Jetzt
+  hört es auf (#97)
 
 ## [0.11.1] - 2026-09-20
 
