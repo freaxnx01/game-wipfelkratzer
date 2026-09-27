@@ -1617,6 +1617,22 @@ function toggleAction() {
 }
 $('btn-action').onclick = toggleAction;
 
+/* Die Stelle an einer Wand, die von allen schon dort hängenden Objekten
+   am weitesten entfernt ist. Abgetastet in 0.4er-Schritten — fein genug
+   für Poster und Fenster, grob genug, dass die Schleife nichts kostet.
+   Ein eigener Helfer, weil sowohl addItem als auch zufallEinrichten ihn
+   braucht und zwei Kopien derselben Rechnung auseinanderlaufen würden. */
+function wallSlotX(k, wall, taken) {
+  const pl = wallPlacement(k, wall);
+  const wallLen = pl.freeAxis === 'x' ? W(k) : D(k);
+  const hw = wallLen / 2 - 0.6;
+  let best = 0, bd = -1;
+  for (let x = -hw; x <= hw; x += 0.4) {
+    const dmin = taken.length ? Math.min(...taken.map(t => Math.abs(t - x))) : 99;
+    if (dmin > bd) { bd = dmin; best = x; }
+  }
+  return best;
+}
 function addItem(id, build) {
   if (!edit) return;
   const k = edit.k;
@@ -1631,12 +1647,8 @@ function addItem(id, build) {
   if (WALL_ITEMS.has(id)) {
     entry.wall = wallTarget === 'alle' ? 'back' : wallTarget;
     entry.y = id === 'fenster' ? 1.05 : 1.2;
-    const pl = wallPlacement(k, entry.wall);
-    const wallLen = pl.freeAxis === 'x' ? W(k) : D(k);
     const taken = roomOf(k).filter(e => WALL_ITEMS.has(e.id) && (e.wall || 'back') === entry.wall).map(e => e.x);
-    const hw = wallLen / 2 - 0.6; let best = 0, bd = -1;
-    for (let x = -hw; x <= hw; x += 0.4) { const dmin = taken.length ? Math.min(...taken.map(t => Math.abs(t - x))) : 99; if (dmin > bd) { bd = dmin; best = x; } }
-    entry.x = best; }
+    entry.x = wallSlotX(k, entry.wall, taken); }
   if (DECO.has(id)) {
     let surf = null;
     if (selected && selected.k === k && SURFACES.includes(selected.entry.id)) surf = selected.mesh;
@@ -3025,7 +3037,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   MAXF, tenantOf, topY, floorGroup, applyLook, catalogIds: CATALOG.map(c => c.id),
   EXTRA_PREIS, updateHUD,
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
-  get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
+  get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, wallSlotX, get edit() { return edit; },
   enterBesuch, exitBesuch, besuchCamFor, get besuch() { return besuch; }, floorYOf: floorY,
   deckeUnterY, WALL_MASSE: { w: W, d: D, t: WALL_T }, besuchLampe,
   /* Strahlenprobe für die Playwright-Checks (#96): vom Augpunkt des Besuchs
