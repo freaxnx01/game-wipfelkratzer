@@ -24,6 +24,11 @@ All notable changes to this project are documented here, following
   gesichert. Jetzt wird er in so einem Fall als Datei heruntergeladen — und
   wenn wirklich etwas schiefgeht, steht es als Hinweis auf dem Bildschirm
   (#94)
+### Fixed
+
+- Die Harfe sieht endlich aus wie eine Harfe: Du siehst jetzt ihre sieben
+  goldenen Saiten, und sie werden nach vorne hin länger. Vorher steckten
+  sie im Holz und waren gar nicht zu sehen (#101)
 
 ## [0.11.1] - 2026-09-20
 
