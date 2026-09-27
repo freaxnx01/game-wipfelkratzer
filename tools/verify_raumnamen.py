@@ -243,6 +243,78 @@ def pruefe_neuladen(page):
     page.wait_for_timeout(300)
 
 
+# Die Dateiprüfung ist reine Logik — sie läuft im Browser über dasselbe Modul,
+# das das Spiel auch lädt, statt über eine Nachbildung in Python.
+DATEI_JS = """async () => {
+  const m = await import('./js/standdatei.js');
+  const roh = { maxFloors: 10, floors: 3, roomNames: {
+    '1': '  Musikzimmer  ',
+    '2': 'x'.repeat(40),
+    '3': '',
+    'kueche': 'Unbekannter Raum',
+    'roof': 'Dachterrasse',
+    '4': 42,
+  } };
+  return { v: m.DATEI_V, namen: m.bereinigeStand(roh).roomNames };
+}"""
+
+# Der echte Weg: sichern, wie «Meine Türme» es tut, und als neuen Turm wieder
+# einlesen — bis in den localStorage des neuen Slots hinein.
+RUNDREISE_JS = """async () => {
+  const m = await import('./js/standdatei.js');
+  const { text } = wipfelkratzer.standDatei(wipfelkratzer.stand, false);
+  const geprueft = m.pruefeDatei(text);
+  if (!geprueft.ok) return { ok: false, grund: geprueft.grund, namen: null, imSlot: null };
+  const rein = wipfelkratzer.importiereText(text);
+  let imSlot = null;
+  if (rein.ok) {
+    imSlot = JSON.parse(localStorage.getItem(rein.eintrag.standKey) || '{}').roomNames;
+    wipfelkratzer.staende.loescheStand(rein.eintrag.id);
+  }
+  return { ok: true, grund: rein.ok ? '' : rein.grund,
+           namen: geprueft.datei.stand.roomNames, imSlot };
+}"""
+
+# Eine Datei aus der Zeit vor diesem Vorhaben: kein roomNames, Version 2.
+ALT_JS = """async () => {
+  const m = await import('./js/standdatei.js');
+  const alt = { typ: 'wipfelkratzer-stand', version: 2, name: 'Alter Turm',
+    stand: { maxFloors: 10, floors: 2, nuts: 7, rooms: { '1': [] } } };
+  const geprueft = m.pruefeDatei(JSON.stringify(alt));
+  return { ok: geprueft.ok, grund: geprueft.grund || '',
+           namen: geprueft.ok ? geprueft.datei.stand.roomNames : null,
+           floors: geprueft.ok ? geprueft.datei.stand.floors : null };
+}"""
+
+
+def pruefe_datei(page):
+    print("\n=== Turmdatei ===")
+    out = page.evaluate(DATEI_JS)
+    namen = out["namen"] or {}
+    check(out["v"] == 2, "DATEI_V ist unverändert 2", str(out["v"]))
+    check(namen.get("1") == "Musikzimmer", "Name wird getrimmt", repr(namen.get("1")))
+    check(namen.get("2") == "x" * 24, "Name wird auf 24 Zeichen gekappt",
+          str(len(namen.get("2") or "")))
+    check("3" not in namen, "Leerer Name fällt weg")
+    check("kueche" not in namen, "Unbekannter Raumschlüssel fällt weg")
+    check(namen.get("roof") == "Dachterrasse", "Bekannter Raumschlüssel roof bleibt")
+    check("4" not in namen, "Nicht-String fällt weg")
+
+    rund = page.evaluate(RUNDREISE_JS)
+    check(rund["ok"], "Gesicherter Turm lässt sich einlesen", rund["grund"])
+    check((rund["namen"] or {}).get("1") == "Musikzimmer",
+          "Der Name kommt durch Sichern und Einlesen", repr(rund["namen"]))
+    check((rund["imSlot"] or {}).get("1") == "Musikzimmer",
+          "Der eingelesene Turm hat den Namen im Spielstand",
+          rund["grund"] or repr(rund["imSlot"]))
+
+    alt = page.evaluate(ALT_JS)
+    check(alt["ok"], "Ältere Datei ohne roomNames lädt weiter", alt["grund"])
+    check(alt["floors"] == 2, "Ältere Datei behält ihre Stockwerke", str(alt["floors"]))
+    check(alt["namen"] == {}, "Ältere Datei bekommt ein leeres roomNames",
+          repr(alt["namen"]))
+
+
 def main():
     if not port_free(PORT):
         print(f"Port {PORT} ist belegt — bitte freigeben (fuser -k {PORT}/tcp).")
@@ -265,6 +337,7 @@ def main():
             pruefe_besuch(page)
             pruefe_schild(page)
             pruefe_kein_html(page)
+            pruefe_datei(page)
             pruefe_dach_und_spielplatz(page)
             pruefe_tastatur(page)
             alle_fehler += errors
