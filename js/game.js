@@ -1290,10 +1290,11 @@ function enterBesuch(k) {
   controls.maxDistance = 6;
   controls.enableZoom = false;
   stelleBesuchKamera(k);
-  /* Die Decke bleibt beim Besuch stehen. Ohne sie schaut man aus dem Zimmer in
+  /* Die Decke bleibt beim Besuch stehen — ohne sie schaut man aus dem Zimmer in
      den Himmel: der Turm verjüngt sich nach oben, die Bodenplatte des
      Stockwerks darüber deckt den Raum also nicht, und über dem obersten
-     Stockwerk liegt nur die schmalere Dachterrasse (#96). */
+     Stockwerk liegt nur die schmalere Dachterrasse (#96). Die Lampe ersetzt
+     das Licht, das sie von oben aussperrt. */
   setzeBesuchLampe(k);
   applyFronts();
   renderBesuchbar();
