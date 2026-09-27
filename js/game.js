@@ -318,7 +318,13 @@ function holedWallGeo(w, h, t, xs, y0) {
   const pos = geo.attributes.position, uv = geo.attributes.uv;
   for (let i = 0; i < uv.count; i++)
     uv.setXY(i, (pos.getX(i) + w / 2) / w, pos.getY(i) / h);
-  uv.needsUpdate = true;
+  /* Die 0..1-uv oben sind erst die halbe Miete. Seit #98 steckt die Kachelzahl
+     in den uv-Werten der Wand statt in der geteilten Textur (repeat 1×1), also
+     braucht die gelochte Variante denselben Nachzug wie die ungelochte — sonst
+     liegt genau eine Kachel über der ganzen Wand, sobald fensterAuf() sie
+     einhängt. tapeziereUV multipliziert die vorhandenen uv und setzt
+     needsUpdate selbst. */
+  tapeziereUV(geo, w, h);
   geo.translate(0, -h / 2, -t / 2);
   return geo;
 }
@@ -498,8 +504,6 @@ function makeFloor(i) {
   g.userData.ceil = mesh(new THREE.BoxGeometry(w - 2 * WALL_T, CEIL_T, d - 2 * WALL_T), MAT.plasterIn, 0, h - CEIL_DROP, 0, g); g.userData.ceil.castShadow = false;
   const front = new THREE.Group(); front.position.z = d / 2 - 0.06; g.add(front); g.userData.front = front;
   g.userData.frontKern = mesh(new THREE.BoxGeometry(w - 0.24, h, WALL_CORE), MAT.plaster, 0, h / 2, 0.06 - WALL_CORE / 2, front);
-  panel('front', new THREE.BoxGeometry(w - 0.24, h, WALL_PANEL), 0, h / 2, 0.06 - WALL_T + WALL_PANEL / 2, front);
-  mesh(new THREE.BoxGeometry(w - 0.24, h, WALL_CORE), MAT.plaster, 0, h / 2, 0.06 - WALL_CORE / 2, front);
   panel('front', tapeziereUV(new THREE.BoxGeometry(w - 0.24, h, WALL_PANEL), w - 0.24, h), 0, h / 2, 0.06 - WALL_T + WALL_PANEL / 2, front);
   g.userData.wins = [];
   const nw = winCount(w);
