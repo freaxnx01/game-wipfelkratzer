@@ -82,7 +82,13 @@
   /* Edit bar */
   #editbar { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 6; display: none; align-items: center; gap: 10px; padding: 8px 10px 8px 16px; max-width: 92vw; }
   #editbar.on { display: flex; }
-  #edit-title { font-size: 16px; font-weight: 700; }
+  #edit-nr { font-size: 16px; font-weight: 700; }
+  /* 13ch, nicht 24ch: die Leiste steht neben vier Knöpfen unter max-width: 92vw
+     und bricht nicht um (#103). Ein längerer Name scrollt im Feld. */
+  #edit-name { font: inherit; font-size: 15px; width: 13ch; min-height: 44px;
+    padding: 4px 8px; border: 2px solid var(--woodL); border-radius: 8px; background: #fff; color: var(--ink); }
+  #edit-name::placeholder { color: #a79772; }
+  #edit-bewohner { font-size: 13px; opacity: .8; }
   /* Besuchsleiste — wie #editbar aufgebaut, aber unten, damit sie auf dem
      Tablet unter dem Daumen liegt. */
   #besuchbar { position: fixed; bottom: calc(var(--toolbar-h, 60px) + 16px); left: 50%; transform: translateX(-50%); z-index: 6; display: none; align-items: center; gap: 8px; padding: 8px 10px 8px 16px; max-width: 92vw; flex-wrap: wrap; justify-content: center; }
@@ -330,7 +336,10 @@
 </div>
 
 <div id="editbar" class="panel">
-  <span id="edit-title"></span>
+  <span id="edit-nr"></span>
+  <input id="edit-name" type="text" maxlength="24" placeholder="Wohnung anschreiben"
+         title="Gib dieser Wohnung einen Namen" autocomplete="off">
+  <span id="edit-bewohner"></span>
   <button id="btn-roomclear" class="danger">Alles weg</button>
   <button id="btn-roomrandom" class="hidden">Zufall einrichten</button>
   <button id="btn-roomcopy" class="hidden">Raum kopieren</button>
