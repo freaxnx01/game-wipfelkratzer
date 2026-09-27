@@ -34,6 +34,14 @@ All notable changes to this project are documented here, following
   das × in der Blase, dann ist sie sofort weg. Das gilt überall: bei
   Willi, bei der Biberburg, bei Móki, bei den Tieren im Turm und bei
   den Texten, die Du von der Aussichtsplattform aus hörst (#104)
+### Fixed
+
+- «Wände weg» wirkt jetzt auch, wenn Du drinnen stehst: Im Besuch nimmt
+  der Knopf die Vorderwände weg, und Du schaust aus der Wohnung hinaus
+  auf den Wald, den Bach und den Rest Deines Turms. Ein zweiter Druck
+  stellt sie wieder hin. Beim nächsten «Hineingehen» stehen die Wände
+  wieder, und die Aussenansicht bleibt genau so, wie Du sie verlassen
+  hast (#95)
 
 ## [0.11.1] - 2026-09-20
 

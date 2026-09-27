@@ -1107,13 +1107,16 @@ function moveCam(pos, tgt, dur = 0.9) {
   tween(dur, k => { camera.position.lerpVectors(p0, pos, k); controls.target.lerpVectors(t0, tgt, k); });
 }
 function applyFronts() {
-  /* Von innen gilt das Gegenteil von aussen: die Wand muss stehen, sonst sieht
-     man in einen offenen Setzkasten statt in ein Zimmer. state.cutaway selbst
-     bleibt unangetastet, damit die Aussenansicht nach dem Besuch unverändert
-     ist (#44). */
+  /* Eine Quelle, je nachdem wo man steht: drinnen das nicht gespeicherte
+     besuch.wandWeg, draussen state.cutaway. Der Besuch beginnt mit stehenden
+     Wänden — sonst sähe man in einen offenen Setzkasten statt in ein Zimmer
+     (#44) —, aber «Wände weg» wirkt jetzt auch von innen und nimmt dieselben
+     Vorderwände weg wie draussen (#95). state.cutaway bleibt dabei
+     unangetastet: die Aussenansicht nach dem Besuch ist unverändert. */
+  const wandWeg = besuch ? besuch.wandWeg : state.cutaway;
   for (let j = 0; j <= MAXF; j++) if (floorGroups[j])
-    floorGroups[j].userData.front.visible = besuch ? true : (!state.cutaway && !(edit && edit.k === j));
-  $('btn-cutaway').textContent = state.cutaway ? 'Wände hin' : 'Wände weg';
+    floorGroups[j].userData.front.visible = !wandWeg && !(edit && edit.k === j);
+  $('btn-cutaway').textContent = wandWeg ? 'Wände hin' : 'Wände weg';
 }
 function fitDistance(halfWidth, halfHeight) {
   const vFov = camera.fov * Math.PI / 180;
@@ -1244,7 +1247,9 @@ function stelleBesuchKamera(k) {
 
 function enterBesuch(k) {
   if (edit || besuch) return;
-  besuch = { k };
+  /* Jeder Besuch beginnt mit stehenden Wänden; der Zustand lebt nur so lange
+     wie der Besuch und wird nicht gespeichert (#95). */
+  besuch = { k, wandWeg: false };
   camSave = { p: camera.position.clone(), t: controls.target.clone() };
   /* Die heutigen Grenzen sind für die Aussenansicht gemacht: minDistance 4 bei
      rund 1.5 m Abstand im Raum würde die Kamera beim ersten update() durch die
@@ -1274,7 +1279,7 @@ function exitBesuch() {
     enableZoom: besuchSave.zoom });
   besuch = null; besuchSave = null;
   /* Erst jetzt, mit besuch === null, stellt applyFronts den Aussenzustand
-     her — vorher hielte es alle Wände sichtbar. */
+     her — vorher folgte es noch besuch.wandWeg. */
   for (let j = 0; j <= MAXF; j++) if (floorGroups[j]) floorGroups[j].userData.ceil.visible = true;
   applyFronts();
   moveCam(camSave.p, camSave.t);
@@ -1920,8 +1925,17 @@ function setSeason(idx) {
 /* Bewusst ohne Sperre während der Dachparty — anders als bei Tag/Nacht gibt es
    keinen Grund, die Jahreszeit festzuhalten. */
 $('btn-season').onclick = () => setSeason((seasonTo + 1) % SEASONS.length);
-$('btn-cutaway').onclick = () => { state.cutaway = !state.cutaway; applyFronts(); sfx.whoosh(); save();
-  if (state.cutaway) toast('Blick in alle Wohnungen — wie im Buch!'); };
+/* Im Besuch legt der Knopf nur den Besuchszustand um: kein save(), kein
+   Schreiben an state — der Spielstand bleibt byte-gleich (#44, #95). */
+$('btn-cutaway').onclick = () => {
+  if (besuch) {
+    besuch.wandWeg = !besuch.wandWeg; applyFronts(); sfx.whoosh();
+    if (besuch.wandWeg) toast('Die Wände sind weg — Du schaust hinaus!');
+    return;
+  }
+  state.cutaway = !state.cutaway; applyFronts(); sfx.whoosh(); save();
+  if (state.cutaway) toast('Blick in alle Wohnungen — wie im Buch!');
+};
 
 /* ---------- Audio ---------- */
 let AC = null, master, musGain, musicOn = true, seqPos = 0, nextNote = 0;
