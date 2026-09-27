@@ -243,12 +243,12 @@
   #wallpick button.on { background: var(--wood); color: #fff; border-color: #5b3a1f; box-shadow: none; }
   #residents .panel, #splash-ask .panel { width: min(420px, 92vw); max-height: 84vh; overflow-y: auto; padding: 16px 20px; }
   #residents h2, #splash-ask h2 { margin: 0 0 8px; color: var(--wood); }
-  #pasteask { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; background: rgba(60,40,20,.35); }
-  #pasteask.open { display: flex; }
-  #pasteask .panel { width: min(420px, 92vw); padding: 16px 20px; }
-  #pasteask h2 { margin: 0 0 8px; color: var(--wood); }
-  #pasteask p { margin: 0 0 12px; font-size: 15px; line-height: 1.35; }
-  #pasteask-buttons { display: flex; flex-direction: column; gap: 8px; }
+  #pasteask, #clearask { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; background: rgba(60,40,20,.35); }
+  #pasteask.open, #clearask.open { display: flex; }
+  #pasteask .panel, #clearask .panel { width: min(420px, 92vw); padding: 16px 20px; }
+  #pasteask h2, #clearask h2 { margin: 0 0 8px; color: var(--wood); }
+  #pasteask p, #clearask p { margin: 0 0 12px; font-size: 15px; line-height: 1.35; }
+  #pasteask-buttons, #clearask-buttons { display: flex; flex-direction: column; gap: 8px; }
   #resident-list { list-style: none; margin: 0 0 12px; padding: 0; font-size: 15px; }
   #resident-list li { display: flex; gap: 10px; padding: 4px 0; border-bottom: 2px dotted #e3cfa5; }
   #resident-list .fl { font-weight: 700; width: 28px; color: var(--wood); }
@@ -331,6 +331,8 @@
 
 <div id="editbar" class="panel">
   <span id="edit-title"></span>
+  <button id="btn-roomclear" class="danger">Alles weg</button>
+  <button id="btn-roomrandom" class="hidden">Zufall einrichten</button>
   <button id="btn-roomcopy" class="hidden">Raum kopieren</button>
   <button id="btn-roompaste" class="hidden">Raum einfügen</button>
   <button id="btn-tip">Tipp</button>
@@ -387,6 +389,17 @@
       <button id="paste-add" class="primary">Dazustellen</button>
       <button id="paste-replace" class="danger">Alles ersetzen</button>
       <button id="paste-cancel">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<div id="clearask">
+  <div class="panel">
+    <h2>Wirklich alles wegräumen?</h2>
+    <p id="clearask-text"></p>
+    <div id="clearask-buttons">
+      <button id="clear-ok" class="danger">Ja, alles weg</button>
+      <button id="clear-cancel" class="primary">Lieber nicht</button>
     </div>
   </div>
 </div>

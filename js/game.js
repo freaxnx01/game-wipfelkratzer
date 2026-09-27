@@ -1264,7 +1264,7 @@ function enterEdit(k) {
   $('editbar').classList.add('on');
   wallTarget = 'alle';
   $('catalog').classList.add('open'); renderCatalog(); highlightWalls();
-  updateRoomClipButtons();
+  updateRoomButtons();
   updateHUD(); sfx.whoosh();
 }
 function exitEdit() {
@@ -1278,7 +1278,7 @@ function exitEdit() {
   edit = null;
   wallTarget = 'alle'; highlightWalls();
   applyFronts();
-  updateRoomClipButtons();
+  updateRoomButtons();
   $('editbar').classList.remove('on');
   $('catalog').classList.remove('open');
   updateHUD();
@@ -1477,17 +1477,24 @@ function select(pick) { deselect(); selected = pick;
    längst umgeräumt ist, wäre mehr Überraschung als Hilfe. */
 let clip = null;
 const deepCopy = v => JSON.parse(JSON.stringify(v));
-function updateRoomClipButtons() {
+/* Eine Stelle für alle vier Raum-Knöpfe. Kopieren und Einfügen gelten
+   nur für gewöhnliche Wohnungen; «Alles weg» gilt überall, ist aber im
+   leeren Raum ausgegraut statt versteckt — ein verschwindender Knopf
+   liesse die Leiste bei jedem Aufstellen springen. */
+function updateRoomButtons() {
   const normal = !!edit && edit.k !== 'roof' && edit.k !== 'garten';
   $('btn-roomcopy').classList.toggle('hidden', !normal);
   $('btn-roompaste').classList.toggle('hidden', !(normal && clip && clip.from !== edit.k));
+  $('btn-roomclear').disabled = !edit || roomOf(edit.k).length === 0;
+  $('btn-roomrandom').classList.toggle('hidden', !normal);
+  $('btn-roomrandom').disabled = !normal || freeCell(edit.k) < 0;
 }
 function copyRoom() {
   if (!edit || edit.k === 'roof' || edit.k === 'garten') return;
   const k = edit.k;
   clip = { from: k, items: deepCopy(roomOf(k)),
     wallpaper: deepCopy(wallpaperOf(k)), flooring: state.flooring[k] || null };
-  updateRoomClipButtons(); sfx.pop();
+  updateRoomButtons(); sfx.pop();
   toast(`Wohnung ${flLabel(k)} gemerkt — geh auf ein anderes Stockwerk und tippe auf «Raum einfügen».`);
 }
 $('btn-roomcopy').onclick = copyRoom;
@@ -1516,7 +1523,13 @@ function pasteEntries(k, items) {
    itemMeshes müssen zusammen aufgeräumt werden, sonst bleiben Möbel
    sichtbar stehen, die es im Spielstand nicht mehr gibt. */
 function clearRoom(k) {
-  itemMeshes[k].slice().forEach(m => parentOf(k).remove(m));
+  itemMeshes[k].slice().forEach(m => {
+    /* Dasselbe Aufräumen wie in rebuildItemMesh: ein Rad, das nur aus
+       der Szene fliegt, dreht sich in spinners weiter und wird nie
+       wieder eingesammelt. */
+    if (m.userData.wheel) { const si = spinners.indexOf(m.userData.wheel); if (si >= 0) spinners.splice(si, 1); }
+    parentOf(k).remove(m);
+  });
   itemMeshes[k].length = 0;
   roomOf(k).length = 0;
 }
@@ -1563,6 +1576,149 @@ $('paste-cancel').onclick = closePasteAsk;
 $('pasteask').onclick = e => { if (e.target === $('pasteask')) closePasteAsk(); };
 $('paste-add').onclick = () => { const k = pasteTarget; closePasteAsk(); if (k !== null) doPaste(k, false); };
 $('paste-replace').onclick = () => { const k = pasteTarget; closePasteAsk(); if (k !== null) doPaste(k, true); };
+
+/* ---------- Alles weg (#97) ----------
+   Die Rückfrage ist ein eigener Dialog nach dem Vorbild von #pasteask:
+   window.confirm() sieht auf dem iPad fremd aus und lässt sich nicht
+   kindgerecht formulieren. Geleert wird nur die Möbelliste — Tapete und
+   Boden sind der Raum selbst, nicht seine Einrichtung. */
+const raumName = k => k === 'roof' ? 'der Dachterrasse'
+  : k === 'garten' ? 'dem Spielplatz' : `Stockwerk ${flLabel(k)}`;
+
+function raumLeeren(k) {
+  clearRoom(k);
+  deselect();
+  renderWishes(); renderResidents();
+  sfx.knock();
+  toast(`Aufgeräumt — in ${raumName(k)} steht jetzt nichts mehr.`);
+  save(); updateHUD(); updateRoomButtons();
+}
+
+function fragNachLeeren() {
+  if (!edit) return;
+  const k = edit.k;
+  const n = roomOf(k).length;
+  if (!n) return;
+  $('clearask-text').textContent =
+    `In ${raumName(k)} stehen ${n} Sachen. Sie sind dann alle weg.`;
+  $('clearask').classList.add('open');
+}
+function closeClearAsk() { $('clearask').classList.remove('open'); }
+$('btn-roomclear').onclick = fragNachLeeren;
+$('clear-cancel').onclick = closeClearAsk;
+$('clearask').onclick = e => { if (e.target === $('clearask')) closeClearAsk(); };
+$('clear-ok').onclick = () => { const k = edit && edit.k; closeClearAsk(); if (k != null) raumLeeren(k); };
+
+/* ---------- Zufall einrichten (#97) ----------
+   Ein festes Rezept statt einer freien Ziehung aus CATALOG: frei
+   gezogen kämen drei Betten und kein Fenster heraus, und CATALOG
+   enthält auch Dach- und Spielplatzobjekte, die in einer Wohnung
+   nichts zu suchen haben. Wer ein neues Möbelstück in den Zufall
+   aufnehmen will, trägt es hier ein — an genau einer Stelle. */
+/* Die min/max-Summe je Rolle ist bewusst auf 9-12 Stück insgesamt
+   austariert (7 feste Rollen plus Fenster, dazu drei Rollen mit
+   Spielraum) — nicht frei gewählt, siehe AK «9-12 Gegenstände». */
+const ZUFALL_REZEPT = [
+  { rolle: 'Schlafen',   ids: ['bett', 'etagenbett'],                                          min: 1, max: 1 },
+  { rolle: 'Tisch',      ids: ['tisch', 'wk_tisch'],                                           min: 1, max: 1 },
+  { rolle: 'Sitzen',     ids: ['stuhl', 'wk_stuhl', 'sofa', 'wk_sofa', 'schaukelstuhl'],       min: 1, max: 2 },
+  { rolle: 'Verstauen',  ids: ['schrank', 'regal', 'wk_regal', 'kommode'],                     min: 1, max: 1 },
+  { rolle: 'Gemütlich',  ids: ['teppich', 'lampe', 'ofen', 'pflanze', 'badewanne'],            min: 1, max: 1 },
+  { rolle: 'Spass',      ids: ['hamsterrad', 'klavier', 'ball', 'kuscheltier', 'harfe', 'tischkicker'], min: 0, max: 1 },
+  { rolle: 'Deko',       ids: ['vase', 'teekanne', 'kerze', 'buecher', 'nussschale'],          min: 1, max: 2 },
+  { rolle: 'Fenster',    ids: ['fenster'],                                                     min: 2, max: 2 },
+  { rolle: 'Wandschmuck', ids: ['poster_wald', 'poster_mond', 'poster_willi', 'uhr', 'spiegel'], min: 1, max: 1 },
+];
+
+/* Je Rolle ohne Zurücklegen ziehen — kein zweites Bett, aber sehr wohl
+   zwei Fenster, denn dort ist die Kandidatenliste selbst einelementig
+   und min === max === 2. */
+function zieheAusRolle(rolle) {
+  const anzahl = rolle.min + Math.floor(Math.random() * (rolle.max - rolle.min + 1));
+  if (rolle.ids.length === 1) return Array(anzahl).fill(rolle.ids[0]);
+  const topf = rolle.ids.slice();
+  const raus = [];
+  for (let n = 0; n < anzahl && topf.length; n++) {
+    const i = Math.floor(Math.random() * topf.length);
+    raus.push(topf.splice(i, 1)[0]);
+  }
+  return raus;
+}
+
+function zieheEinrichtung() {
+  const bekannt = new Set(CATALOG.map(c => c.id));
+  return ZUFALL_REZEPT.flatMap(zieheAusRolle).filter(id => bekannt.has(id));
+}
+
+/* Aufgestellt wird über pasteEntries — dieselbe Mechanik wie «Raum
+   einfügen», samt der Reihenfolge Möbel-vor-Deko, die dafür sorgt, dass
+   surfaceYAt die Vase auf den Tisch legt. Eine Schleife um addItem wäre
+   falsch: die würde je Gegenstand auswählen, animieren, klingen und
+   speichern. */
+const ZUFALL_WAENDE = ['back', 'left', 'right'];
+
+function zufallsEintraege(k) {
+  const ids = zieheEinrichtung();
+  const eintraege = [];
+  let naechsteZelle = 0;
+  /* Belegte Wandplätze aus dem, was schon hängt — und aus dem, was
+     dieser Lauf gerade dazuhängt. */
+  const belegt = {};
+  ZUFALL_WAENDE.forEach(w => {
+    belegt[w] = roomOf(k).filter(e => WALL_ITEMS.has(e.id) && (e.wall || 'back') === w).map(e => e.x);
+  });
+  let wandZeiger = Math.floor(Math.random() * ZUFALL_WAENDE.length);
+
+  ids.forEach(id => {
+    if (WALL_ITEMS.has(id)) {
+      const wall = ZUFALL_WAENDE[wandZeiger % ZUFALL_WAENDE.length];
+      wandZeiger++;
+      const x = wallSlotX(k, wall, belegt[wall]);
+      belegt[wall].push(x);
+      eintraege.push({ id, cell: 0, x, y: id === 'fenster' ? 1.05 : 1.2, z: 0, rot: 0, wall });
+      return;
+    }
+    if (DECO.has(id)) {
+      /* Deko bekommt keine eigene Zelle: pasteEntries legt sie über
+         surfaceYAt auf die Oberfläche unter ihr. x/z kommen von der
+         Mitte des Raums, clampEntry rückt sie hinein. */
+      eintraege.push({ id, cell: 0, x: (Math.random() - 0.5) * 0.6, y: 0, z: (Math.random() - 0.5) * 0.6, rot: 0 });
+      return;
+    }
+    const cell = freeCell(k, naechsteZelle);
+    if (cell < 0) return;               // voll — der Rest fällt weg
+    naechsteZelle = cell + 1;
+    const p = cellPos(k, cell);
+    /* Die Zelle muss sofort als belegt gelten, sonst gibt freeCell sie
+       beim nächsten Stück noch einmal aus: roomOf(k) wächst erst in
+       pasteEntries. Deshalb wird hier vorgemerkt und die Marke in
+       pasteEntries mitgezählt. */
+    eintraege.push({ id, cell, x: p.x, y: 0, z: p.z, rot: 0 });
+    roomOf(k).push({ id: '__platzhalter', cell, x: p.x, y: 0, z: p.z, rot: 0 });
+  });
+  /* Platzhalter wieder heraus — sie waren nur für freeCell da. */
+  const arr = roomOf(k);
+  for (let i = arr.length - 1; i >= 0; i--) if (arr[i].id === '__platzhalter') arr.splice(i, 1);
+  return eintraege;
+}
+
+function zufallEinrichten(k) {
+  const eintraege = zufallsEintraege(k);
+  if (!eintraege.length) { toast('Hier ist kein Platz mehr frei.'); return; }
+  const ids = pasteEntries(k, eintraege);
+  /* Dieselbe Reihenfolge wie doPaste: erst der eigene Wunsch, dann der
+     Einzug — sonst sieht renderWishes den Wunschgegenstand schon im
+     Raum liegen und hakt ihn still ab, ohne die drei Haselnüsse zu
+     zahlen (siehe den Kommentar in doPaste). */
+  const t = tenantOf(k);
+  if (!t.roofWish) { const wunschId = ids.find(id => wishKey(id) === t.wish); if (wunschId) checkWishes(wunschId, k); }
+  checkTenant(k);
+  renderWishes(); renderResidents();
+  deselect(); sfx.chime();
+  toast(`${ids.length} Sachen hingestellt — bau ruhig um, wie es Dir gefällt!`);
+  save(); updateHUD(); updateRoomButtons();
+}
+$('btn-roomrandom').onclick = () => { if (edit && edit.k !== 'roof' && edit.k !== 'garten') zufallEinrichten(edit.k); };
 
 /* Die Reihe zeigt «Standard» plus die Palette; die Punkte tragen den Farbwert
    der MAT-Instanz, damit kein zweiter Ort eine Farbe festlegt. */
@@ -1617,6 +1773,22 @@ function toggleAction() {
 }
 $('btn-action').onclick = toggleAction;
 
+/* Die Stelle an einer Wand, die von allen schon dort hängenden Objekten
+   am weitesten entfernt ist. Abgetastet in 0.4er-Schritten — fein genug
+   für Poster und Fenster, grob genug, dass die Schleife nichts kostet.
+   Ein eigener Helfer, weil sowohl addItem als auch zufallEinrichten ihn
+   braucht und zwei Kopien derselben Rechnung auseinanderlaufen würden. */
+function wallSlotX(k, wall, taken) {
+  const pl = wallPlacement(k, wall);
+  const wallLen = pl.freeAxis === 'x' ? W(k) : D(k);
+  const hw = wallLen / 2 - 0.6;
+  let best = 0, bd = -1;
+  for (let x = -hw; x <= hw; x += 0.4) {
+    const dmin = taken.length ? Math.min(...taken.map(t => Math.abs(t - x))) : 99;
+    if (dmin > bd) { bd = dmin; best = x; }
+  }
+  return best;
+}
 function addItem(id, build) {
   if (!edit) return;
   const k = edit.k;
@@ -1631,12 +1803,8 @@ function addItem(id, build) {
   if (WALL_ITEMS.has(id)) {
     entry.wall = wallTarget === 'alle' ? 'back' : wallTarget;
     entry.y = id === 'fenster' ? 1.05 : 1.2;
-    const pl = wallPlacement(k, entry.wall);
-    const wallLen = pl.freeAxis === 'x' ? W(k) : D(k);
     const taken = roomOf(k).filter(e => WALL_ITEMS.has(e.id) && (e.wall || 'back') === entry.wall).map(e => e.x);
-    const hw = wallLen / 2 - 0.6; let best = 0, bd = -1;
-    for (let x = -hw; x <= hw; x += 0.4) { const dmin = taken.length ? Math.min(...taken.map(t => Math.abs(t - x))) : 99; if (dmin > bd) { bd = dmin; best = x; } }
-    entry.x = best; }
+    entry.x = wallSlotX(k, entry.wall, taken); }
   if (DECO.has(id)) {
     let surf = null;
     if (selected && selected.k === k && SURFACES.includes(selected.entry.id)) surf = selected.mesh;
@@ -1658,14 +1826,14 @@ function addItem(id, build) {
   select(m.userData.pick);
   sfx.pop();
   checkTenant(k); checkWishes(id, k);
-  save(); updateHUD();
+  save(); updateHUD(); updateRoomButtons();
 }
 function removeItem(pick) {
   const arr = roomOf(pick.k); const idx = arr.indexOf(pick.entry);
   if (idx >= 0) arr.splice(idx, 1);
   parentOf(pick.k).remove(pick.mesh);
   const mi = itemMeshes[pick.k].indexOf(pick.mesh); if (mi >= 0) itemMeshes[pick.k].splice(mi, 1);
-  deselect(); sfx.knock(); save(); renderWishes();
+  deselect(); sfx.knock(); save(); renderWishes(); updateRoomButtons();
 }
 /* Umfärben heisst: Mesh wegwerfen und über placeItemMesh neu bauen. Das ist
    der einzige Pfad, der Elternknoten, itemMeshes, spinners und userData.pick
@@ -3025,7 +3193,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   MAXF, tenantOf, topY, floorGroup, applyLook, catalogIds: CATALOG.map(c => c.id),
   EXTRA_PREIS, updateHUD,
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
-  get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
+  get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, wallSlotX, get edit() { return edit; },
   enterBesuch, exitBesuch, besuchCamFor, get besuch() { return besuch; }, floorYOf: floorY,
   deckeUnterY, WALL_MASSE: { w: W, d: D, t: WALL_T }, besuchLampe,
   /* Strahlenprobe für die Playwright-Checks (#96): vom Augpunkt des Besuchs
@@ -3053,7 +3221,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   fensterSchichten,
   wechsleBesuch, fensterSchichten, fensterAuf, fensterZu,
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
-  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, get clip() { return clip; },
+  ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, clearRoom, spinnerCount: () => spinners.length, raumLeeren, updateRoomButtons, ZUFALL_REZEPT, zieheEinrichtung, zufallEinrichten, DECO_IDS: [...DECO], WALL_IDS: [...WALL_ITEMS], get clip() { return clip; },
   ziehtGerade: () => !!ziehen, zugBlockiert: () => !!(ziehen && ziehen.blockiert),
   poolEntries: () => roomOf('roof').filter(e => e.id === 'pool'),
   get magpiePhase() { return magPhase; }, MAGPIE_DUR, magpie,
