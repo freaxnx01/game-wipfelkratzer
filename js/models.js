@@ -742,6 +742,25 @@ export const FLOORS = [
 ];
 function fill(c, col) { c.fillStyle = col; c.fillRect(0, 0, 128, 128); }
 function noise(c, col) { c.fillStyle = col; let s = 7; for (let i = 0; i < 260; i++) { s = (s * 9301 + 49297) % 233280; const x = (s / 233280) * 128; s = (s * 9301 + 49297) % 233280; const y = (s / 233280) * 128; c.fillRect(x, y, 3, 3); } }
+/* Eine Tapete soll wie eine Bahn um den Raum laufen: überall gleich grosse
+   Kacheln und auf jeder Wand eine ganze Zahl davon, damit das Muster in der
+   Ecke an einer Kachelkante weitergeht statt mitten im Punkt abzureissen
+   (#98). Die Kachelzahl steckt deshalb in den uv-Werten der Wand — nicht in
+   der Textur, die sich alle Wände teilen. */
+export const WALL_TILE = 1.2;
+const kacheln = meter => Math.max(1, Math.round(meter / WALL_TILE));
+/* Die Raumhöhe gibt das Mass vor, waagrecht wird nachgezogen: senkrecht ist nur
+   Platz für zwei Kachelreihen (2.4 m im Erdgeschoss, 2.0 m darüber), also liegt
+   die Kachelkante dort fest. Würde man waagrecht unabhängig davon auf 1.2 m
+   runden, wären die Punkte in den oberen Etagen bis zu 39 % gestaucht — so
+   bleiben sie auf jeder Wand fast quadratisch. */
+export function tapeziereUV(geo, breite, hoehe) {
+  const uv = geo.attributes.uv, v = kacheln(hoehe), kante = hoehe / v;
+  const u = Math.max(1, Math.round(breite / kante));
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * u, uv.getY(i) * v);
+  uv.needsUpdate = true;
+  return geo;
+}
 const texCache = {};
 export function lookCanvas(kind, id) {
   const def = (kind === 'wall' ? WALLS : FLOORS).find(l => l.id === id) || (kind === 'wall' ? WALLS : FLOORS)[0];
@@ -750,7 +769,10 @@ export function lookCanvas(kind, id) {
 export function lookTexture(kind, id) {
   const key = kind + ':' + id; if (texCache[key]) return texCache[key];
   const t = new THREE.CanvasTexture(lookCanvas(kind, id)); t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(kind === 'wall' ? 5 : 4, kind === 'wall' ? 1.6 : 3); t.colorSpace = THREE.SRGBColorSpace;
+  /* Wände kacheln über ihre uv-Werte (tapeziereUV), Böden weiterhin über die
+     Textur — der Bodenbelag ist nicht Teil von #98. */
+  if (kind === 'floor') t.repeat.set(4, 3);
+  t.colorSpace = THREE.SRGBColorSpace;
   texCache[key] = t; return t;
 }
 /* Ein nicht einfärbbares Möbel ignoriert colorId, eine unbekannte Farb-id fällt

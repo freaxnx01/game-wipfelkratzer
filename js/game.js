@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MAT, SEASONS, LEAVES, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, TINTABLE,
   BUILD_SHAPES, BUILD_WIDTHS, BUILD_MAX, BUILD_MAX_H, DESIGN_MAX, normalizeBuild,
-  makeCustomFurniture, lookCanvas, lookTexture, makeFurniture, makeAnimal, makeWilli,
+  makeCustomFurniture, lookCanvas, lookTexture, tapeziereUV, WALL_TILE, makeFurniture, makeAnimal, makeWilli,
   makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge,
   makeAussicht, AUSSICHT_DECK } from './models.js';
 import { zipStore } from './zip.js';
@@ -318,7 +318,13 @@ function holedWallGeo(w, h, t, xs, y0) {
   const pos = geo.attributes.position, uv = geo.attributes.uv;
   for (let i = 0; i < uv.count; i++)
     uv.setXY(i, (pos.getX(i) + w / 2) / w, pos.getY(i) / h);
-  uv.needsUpdate = true;
+  /* Die 0..1-uv oben sind erst die halbe Miete. Seit #98 steckt die Kachelzahl
+     in den uv-Werten der Wand statt in der geteilten Textur (repeat 1×1), also
+     braucht die gelochte Variante denselben Nachzug wie die ungelochte — sonst
+     liegt genau eine Kachel über der ganzen Wand, sobald fensterAuf() sie
+     einhängt. tapeziereUV multipliziert die vorhandenen uv und setzt
+     needsUpdate selbst. */
+  tapeziereUV(geo, w, h);
   geo.translate(0, -h / 2, -t / 2);
   return geo;
 }
@@ -482,11 +488,14 @@ function makeFloor(i) {
   mesh(new THREE.BoxGeometry(w - 0.24, 0.02, d - 0.24), floorMat, 0, 0.145, 0, g).castShadow = false;
   /* Rückwand: Kern (aussen sichtbar) + Innenpanel — die Innenfläche bleibt bei -d/2 + 0.12,
      also 0.005 hinter wallPlacement(k,'back').fixed, damit Wandobjekte sauber davor hängen. */
+  /* Die Kachelzahl der Tapete kommt aus dem echten Wandmass, damit die Kacheln
+     auf allen vier Wänden gleich gross sind und in der Ecke an einer
+     Kachelkante aufeinandertreffen (#98). */
   mesh(new THREE.BoxGeometry(w - 0.24, h, WALL_CORE), MAT.plaster, 0, h / 2, -d / 2 + WALL_CORE / 2, g);
-  panel('back', new THREE.BoxGeometry(w - 0.24, h, WALL_PANEL), 0, h / 2, -d / 2 + WALL_T - WALL_PANEL / 2, g);
+  panel('back', tapeziereUV(new THREE.BoxGeometry(w - 0.24, h, WALL_PANEL), w - 0.24, h), 0, h / 2, -d / 2 + WALL_T - WALL_PANEL / 2, g);
   [-1, 1].forEach(s => {
     mesh(new THREE.BoxGeometry(WALL_CORE, h, d), MAT.plaster, s * (w / 2 - WALL_CORE / 2), h / 2, 0, g);
-    panel(s > 0 ? 'right' : 'left', new THREE.BoxGeometry(WALL_PANEL, h, d), s * (w / 2 - WALL_T + WALL_PANEL / 2), h / 2, 0, g);
+    panel(s > 0 ? 'right' : 'left', tapeziereUV(new THREE.BoxGeometry(WALL_PANEL, h, d), d, h), s * (w / 2 - WALL_T + WALL_PANEL / 2), h / 2, 0, g);
   });
   /* Bis an die Innenflächen der vier Wände (±(Mass/2 − WALL_T)) — die frühere
      Platte (w − 0.3) liess rundum einen 3 cm breiten Schlitz offen, durch den
@@ -495,7 +504,7 @@ function makeFloor(i) {
   g.userData.ceil = mesh(new THREE.BoxGeometry(w - 2 * WALL_T, CEIL_T, d - 2 * WALL_T), MAT.plasterIn, 0, h - CEIL_DROP, 0, g); g.userData.ceil.castShadow = false;
   const front = new THREE.Group(); front.position.z = d / 2 - 0.06; g.add(front); g.userData.front = front;
   g.userData.frontKern = mesh(new THREE.BoxGeometry(w - 0.24, h, WALL_CORE), MAT.plaster, 0, h / 2, 0.06 - WALL_CORE / 2, front);
-  panel('front', new THREE.BoxGeometry(w - 0.24, h, WALL_PANEL), 0, h / 2, 0.06 - WALL_T + WALL_PANEL / 2, front);
+  panel('front', tapeziereUV(new THREE.BoxGeometry(w - 0.24, h, WALL_PANEL), w - 0.24, h), 0, h / 2, 0.06 - WALL_T + WALL_PANEL / 2, front);
   g.userData.wins = [];
   const nw = winCount(w);
   for (let k = 0; k < nw; k++) {
@@ -3005,7 +3014,7 @@ for (let i = 0; i <= MAXF; i++) if (tenantIn(i)) spawnTenant(i, true);
 for (let i = 0; i <= MAXF; i++) if (floorGroups[i]) applyLook(i);
 if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
-window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, gartenG, gardenEdge, scene, camera, controls, WALL_KEYS, FURN_COLORS, TINTABLE,
+window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, gartenG, gardenEdge, scene, camera, controls, WALL_KEYS, WALL_TILE, FURN_COLORS, TINTABLE,
   GARDEN: { pos: GARDEN_POS, w: GARDEN_W, d: GARDEN_D }, riverZ, river, placeItemMesh, clampEntry, removeItem,
   MAT, SEASONS, LEAVES, setSeason, setNight, ground,
   riverMats: { sand: riverSandMat, water: riverWaterMat, foam: riverFoamMat },
@@ -3013,7 +3022,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   /* Laufende Überblendungen. Ein Test kann so abwarten, bis ein Wechsel fertig
      ist, statt auf eine Bildrate zu wetten. */
   tweenCount: () => tweens.length,
-  MAXF, tenantOf, topY, floorGroup, catalogIds: CATALOG.map(c => c.id),
+  MAXF, tenantOf, topY, floorGroup, applyLook, catalogIds: CATALOG.map(c => c.id),
   EXTRA_PREIS, updateHUD,
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },

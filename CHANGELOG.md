@@ -53,6 +53,14 @@ All notable changes to this project are documented here, following
 - Beim «Hineingehen» sind die Fenster jetzt echte Öffnungen: Du schaust
   aus der Wohnung hinaus auf Wald, Bach und den Rest Deines Turms.
   Sobald Du wieder draussen bist, ist die Fassade wie vorher (#102)
+### Fixed
+
+- Die Tapete läuft jetzt durchgängig um das Zimmer. Vorher waren die Punkte
+  auf der breiten Rückwand deutlich grösser als auf den Seitenwänden, das
+  Muster brach in jeder Ecke ab und an der Decke war die oberste Reihe
+  angeschnitten. Jetzt sind die Punkte auf allen vier Wänden gleich gross,
+  in jedem Stockwerk — und das Muster endet an Ecke, Boden und Decke sauber
+  am Rand einer Kachel (#98)
 
 ## [0.11.1] - 2026-09-20
 
