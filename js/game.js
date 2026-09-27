@@ -1591,7 +1591,8 @@ $('btn-besuch-aussicht').onclick = () => wechsleBesuch('aussicht');
 $('btn-besuch-zu').onclick = exitBesuch;
 
 function deselect() { if (selHelper) { scene.remove(selHelper); selHelper = null; } selected = null;
-  $('colorpick').classList.remove('open'); $('selbar').classList.remove('on'); }
+  $('colorpick').classList.remove('open'); $('sizepick').classList.remove('open');
+  $('selbar').classList.remove('on'); }
 function select(pick) { deselect(); selected = pick;
   selHelper = new THREE.BoxHelper(pick.mesh, 0xc0432e); scene.add(selHelper);
   const wall = WALL_ITEMS.has(pick.entry.id);
@@ -1600,6 +1601,10 @@ function select(pick) { deselect(); selected = pick;
   $('wallpad').classList.toggle('hidden', !wall);
   $('btn-color').classList.toggle('hidden', !TINTABLE.has(pick.entry.id));
   renderColorPick();
+  /* Grösse gibt es nur für frei stehende Möbel: ein Wandobjekt wird über feste
+     Wandkonstanten platziert, ein Tier ist ein Bewohner und kein Möbel (#99). */
+  $('btn-size').classList.toggle('hidden', wall || !!pick.tenant);
+  renderSizePick();
   /* Ein Bewohner lässt sich nicht wegwerfen (#39). */
   $('btn-del').classList.toggle('hidden', !!pick.tenant);
   updateActionBtn();
@@ -1870,6 +1875,19 @@ function renderColorPick() {
   mk('standard', 'Standardfarbe', null);
   FURN_COLORS.forEach(c => mk(c.id, c.name, '#' + MAT[c.mat].color.getHexString()));
 }
+/* Die Reihe zeigt die drei Stufen aus FURN_SIZES; die aktive ist markiert.
+   Beschriftet wird mit dem Faktor in deutscher Schreibweise (1,5×). */
+function renderSizePick() {
+  const el = $('sizepick'); el.innerHTML = '';
+  if (!selected) return;
+  const cur = sizeOf(selected.entry);
+  FURN_SIZES.forEach(s => { const b = document.createElement('button');
+    b.dataset.size = String(s.f); b.textContent = String(s.f).replace('.', ',') + '×';
+    b.title = s.name; b.setAttribute('aria-label', s.name);
+    if (s.f === cur) b.className = 'on';
+    b.onclick = () => setItemSize(s.f);
+    el.appendChild(b); });
+}
 function setItemColor(colorId) {
   if (!selected) return;
   const en = selected.entry;
@@ -1908,8 +1926,8 @@ function setItemSize(f) {
     applyEntryScale(mesh, en);
     clampEntry(selected.k, mesh, en);
   });
-  if (!ok) { meldeBlockade(); return false; }
-  selHelper.update(); sfx.pop(); save();
+  if (!ok) { meldeBlockade(); renderSizePick(); return false; }
+  selHelper.update(); sfx.pop(); save(); renderSizePick();
   return true;
 }
 
@@ -2849,8 +2867,14 @@ $('btn-rot').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.id
     clampEntry(selected.k, selected.mesh, en); })) { meldeBlockade(); return; }
   if (selected.tenant) setTenantPos(selected.tenant.floor, selected.tenant.idx, en); else save();
   selHelper.update(); sfx.pop(); };
+/* Die beiden Reihen teilen sich den Platz über der Leiste und schliessen
+   einander darum aus (#99). */
 $('btn-color').onclick = () => { if (!selected || !TINTABLE.has(selected.entry.id)) return;
+  $('sizepick').classList.remove('open');
   $('colorpick').classList.toggle('open'); renderColorPick(); };
+$('btn-size').onclick = () => { if (!selected || selected.tenant || WALL_ITEMS.has(selected.entry.id)) return;
+  $('colorpick').classList.remove('open');
+  $('sizepick').classList.toggle('open'); renderSizePick(); };
 $('btn-del').onclick = () => { if (selected && !selected.tenant) removeItem(selected); };
 
 /* Wandobjekt verschieben: dx entlang der Wand, dy in der Höhe — von Tastatur und Touch-Pad geteilt */
