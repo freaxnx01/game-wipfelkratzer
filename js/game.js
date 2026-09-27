@@ -2026,11 +2026,9 @@ $('btn-music').onclick = () => { musicOn = !musicOn; $('btn-music').textContent 
 
 function tenantTalk(i) {
   const t = tenantOf(i);
-  bubbleTarget = tenantGroups[i]; bubbleH = 1.0;
   const status = state.fulfilled[i] ? 'ist glücklich und zufrieden!' : wishOpen(i) ? t.wtext : 'fühlt sich schon richtig wohl.';
-  bubbleEl.innerHTML = `<img src="${animalThumbs[i] || ''}" alt=""><span><b>${t.name}</b><br>${status}</span>`;
-  bubbleEl.classList.add('show');
-  bubbleUntil = clock.elapsedTime + 4.5;
+  zeigeBlase(tenantGroups[i], 1.0,
+    `<img src="${animalThumbs[i] || ''}" alt=""><span><b>${t.name}</b><br>${status}</span>`);
   sfx.pop();
 }
 const TIPS = [
@@ -2342,11 +2340,39 @@ const PHRASES = [
 ];
 let phraseI = 0, bubbleUntil = 0, bubbleTarget = null, bubbleH = 1.6;
 const bubbleEl = $('bubble');
-function williTalk() {
-  bubbleTarget = willi; bubbleH = 1.6;
-  bubbleEl.innerHTML = `<img src="${williThumb}" alt="Willi"><span>${PHRASES[phraseI++ % PHRASES.length]}</span>`;
+
+/* Standzeit jeder Sprechblase. Vorher hatte jeder Sprecher seinen
+   eigenen Wert (4 / 4.5 / 5 s) — zu kurz für ein Kind, das gerade
+   lesen lernt, und für die Fernrohr-Texte von der Aussichtsplattform
+   erst recht (#104). */
+const BLASE_DAUER = 12;
+
+/* Alle Sprecher öffnen die Blase hier — so entstehen der Schliessknopf
+   und die Standzeit an einer Stelle statt an fünf. Der Klang bleibt
+   beim Sprecher, er gehört zu ihm und nicht zur Blase. */
+function zeigeBlase(ziel, hoehe, inhalt) {
+  bubbleTarget = ziel; bubbleH = hoehe;
+  bubbleEl.innerHTML = inhalt +
+    '<button type="button" class="blase-zu" aria-label="Zu">×</button>';
   bubbleEl.classList.add('show');
-  bubbleUntil = clock.elapsedTime + 4;
+  bubbleUntil = clock.elapsedTime + BLASE_DAUER;
+}
+
+function verbergeBlase() {
+  bubbleEl.classList.remove('show');
+  bubbleUntil = 0;
+}
+
+/* Ein einziger Listener auf der Blase statt einer Verdrahtung pro
+   Sprechen: der Knopf entsteht bei jedem zeigeBlase() durch innerHTML
+   neu, ein direkt gesetzter onclick wäre danach jedes Mal weg. */
+bubbleEl.addEventListener('click', e => {
+  if (e.target.closest('.blase-zu')) verbergeBlase();
+});
+
+function williTalk() {
+  zeigeBlase(willi, 1.6,
+    `<img src="${williThumb}" alt="Willi"><span>${PHRASES[phraseI++ % PHRASES.length]}</span>`);
   buildingUntil = clock.elapsedTime + 1.3;
   sfx.chime();
 }
@@ -2357,10 +2383,8 @@ const DAM_TEXTS = [
 ];
 let damI = 0;
 function damTalk() {
-  bubbleTarget = dam; bubbleH = 1.4;
-  bubbleEl.innerHTML = `<img src="${damThumb}" alt="Biberburg"><span>${DAM_TEXTS[damI++ % DAM_TEXTS.length]}</span>`;
-  bubbleEl.classList.add('show');
-  bubbleUntil = clock.elapsedTime + 5;
+  zeigeBlase(dam, 1.4,
+    `<img src="${damThumb}" alt="Biberburg"><span>${DAM_TEXTS[damI++ % DAM_TEXTS.length]}</span>`);
   sfx.splash();
 }
 const MOKI_TEXTS = [
@@ -2371,10 +2395,11 @@ const MOKI_TEXTS = [
 ];
 let mokiI2 = 0;
 function mokiTalk() {
-  bubbleTarget = moki; bubbleH = 1.1; mokiWait = Math.max(mokiWait, 4);
-  bubbleEl.innerHTML = `<img src="${mokiThumb}" alt="Móki"><span><b>Móki</b><br>${MOKI_TEXTS[mokiI2++ % MOKI_TEXTS.length]}</span>`;
-  bubbleEl.classList.add('show');
-  bubbleUntil = clock.elapsedTime + 4.5;
+  /* Móki bleibt stehen, solange seine Blase offen ist — die Blase hängt
+     an ihm und würde sonst mitwandern (#104). */
+  mokiWait = Math.max(mokiWait, BLASE_DAUER);
+  zeigeBlase(moki, 1.1,
+    `<img src="${mokiThumb}" alt="Móki"><span><b>Móki</b><br>${MOKI_TEXTS[mokiI2++ % MOKI_TEXTS.length]}</span>`);
   sfx.pop();
 }
 
@@ -2393,10 +2418,7 @@ const FERNROHR = {
 const bachMerker = new THREE.Object3D();
 
 function erzaehle(ziel, text, hoehe) {
-  bubbleTarget = ziel; bubbleH = hoehe;
-  bubbleEl.innerHTML = `<span>${text}</span>`;
-  bubbleEl.classList.add('show');
-  bubbleUntil = clock.elapsedTime + 5;
+  zeigeBlase(ziel, hoehe, `<span>${text}</span>`);
   sfx.pop();
 }
 
@@ -2887,6 +2909,13 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
      umhüllt die Einträge mit Zählern und prüft so, welcher Effekt bei
      Elses Botengang wirklich gelaufen ist (#105). */
   sfx,
+  /* Sprechblase für Playwright-Sonden (#104): die Sprecher direkt
+     aufrufen spart die Kamerafahrt zur Aussichtsplattform. clock wird
+     erst weiter unten angelegt — deshalb ein Getter, sonst greift das
+     Objektliteral in die temporale Totzone. */
+  BLASE_DAUER, zeigeBlase, verbergeBlase, erzaehle,
+  williTalk, damTalk, mokiTalk, tenantTalk,
+  get clock() { return clock; },
   askSplashdown, SPLASHDOWN_URL };
 /* Setzt die Jahreszeit ohne Überblendung (seasonFrom === seasonTo) und ruft am
    Ende applyNight(nightK) — das ersetzt den früheren Erstaufruf von applyNight. */
