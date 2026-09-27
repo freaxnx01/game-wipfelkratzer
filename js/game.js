@@ -1963,6 +1963,14 @@ function noiseBurst(t, dur, f0, f1, g = 0.2) {
   const gn = AC.createGain(); gn.gain.value = g;
   src.connect(f); f.connect(gn); gn.connect(master); src.start(t);
 }
+/* Eine Wasserblase: kurzer Sinuston, dessen Tonhöhe aufwärts wandert.
+   Das ist der hörbare Kern eines Tropfens — die aufsteigende Luftblase
+   schrumpft und klingt dabei höher. Genau diese Aufwärtsbewegung fehlt
+   drain(), das mit konstanten, absteigenden Tönen gluckert (#105). */
+function bubble(t, f0, f1, dur = 0.09, g = 0.07) {
+  const o = tone(f0, t, dur, 'sine', g);
+  if (o) o.frequency.exponentialRampToValueAtTime(f1, t + dur * 0.9);
+}
 function schedBeat(i, t) {
   const s = SONGS[curSong];
   const m = s.mel[i % s.mel.length];
@@ -1996,6 +2004,23 @@ const sfx = {
   drain() { if (!AC) return; const t = AC.currentTime;
     noiseBurst(t, 0.9, 2600, 420, 0.12);
     [0, 0.22, 0.46, 0.68].forEach((d, i) => tone(220 - i * 32, t + d, 0.12, 'sine', 0.07)); },
+  /* Eimer taucht in den Bach: ein kurzes Blubb mit einer Nachblase.
+     Vorher lief hier whoosh() — der Kameraschwenk-Rauscher (#105). */
+  schoepfen() { if (!AC) return; const t = AC.currentTime;
+    noiseBurst(t, 0.3, 1800, 1100, 0.09);
+    bubble(t, 300, 620, 0.14, 0.09);
+    bubble(t + 0.12, 520, 780, 0.08, 0.05); },
+  /* Eimer kippt ins Becken: ein heller Strahl und aufsteigende Blasen.
+     Bewusst NICHT splash() — dessen Tiefpassfahrt bis 260 Hz ist der
+     dumpfe Wumms, der für Wasserrutsche und Biberburg richtig ist, für
+     ein flaches Becken aber nicht. Die Blasen liegen zufällig, damit
+     die drei Fahrten pro Pool nicht identisch klingen (#105). */
+  plaetschern() { if (!AC) return; const t = AC.currentTime;
+    noiseBurst(t, 0.85, 1500, 900, 0.10);
+    for (let i = 0; i < 5; i++) {
+      const f = 420 + Math.random() * 380;
+      bubble(t + 0.05 + Math.random() * 0.6, f, f * 1.7);
+    } },
 };
 $('btn-music').onclick = () => { musicOn = !musicOn; $('btn-music').textContent = musicOn ? 'Musik aus' : 'Musik an'; };
 
@@ -2838,6 +2863,10 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
       if (o) return o.userData.type; }
     return null;
   },
+  /* sfx liegt hier, weil eine Playwright-Sonde nicht hören kann — sie
+     umhüllt die Einträge mit Zählern und prüft so, welcher Effekt bei
+     Elses Botengang wirklich gelaufen ist (#105). */
+  sfx,
   askSplashdown, SPLASHDOWN_URL };
 /* Setzt die Jahreszeit ohne Überblendung (seasonFrom === seasonTo) und ruft am
    Ende applyNight(nightK) — das ersetzt den früheren Erstaufruf von applyNight. */
@@ -2879,7 +2908,7 @@ function magpieAdvance() {
   if (magPhase === 'holen') { magpieEnter('schoepfen'); return; }
   if (magPhase === 'schoepfen') {
     magInner.userData.bucketWater.visible = true;
-    sfx.whoosh();
+    sfx.schoepfen();
     magpieEnter('bringen'); return;
   }
   if (magPhase === 'bringen') {
@@ -2896,7 +2925,7 @@ function magpieAdvance() {
 function pourBucket() {
   const en = magTarget;
   magInner.userData.bucketWater.visible = false;
-  sfx.splash();
+  sfx.plaetschern();
   if (!en || roomOf('roof').indexOf(en) < 0) return;
   en.fill = Math.min(POOL_TRIPS, (en.fill | 0) + 1);
   const m = poolMeshOf(en);

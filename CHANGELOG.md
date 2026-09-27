@@ -12,6 +12,11 @@ All notable changes to this project are documented here, following
   tippst auf «Waldkarte» und bist sofort im Wald bei Deinen Türmen.
   Vorher musste man erst «Extras» öffnen und dort «Meine Türme» suchen
   (#106)
+- Wenn Else Elster Wasser für den Pool holt, klingt es jetzt nach
+  Wasser: ein Blubb, wenn sie den Eimer in den Bach taucht, und ein
+  Plätschern mit aufsteigenden Blasen, wenn sie ihn ins Becken kippt.
+  Vorher rauschte es dort, als würde die Kamera schwenken, und der
+  Guss klang wie ein dumpfer Plumps (#105)
 
 ## [0.11.1] - 2026-09-20
 
