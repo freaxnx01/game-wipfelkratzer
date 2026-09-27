@@ -2908,7 +2908,7 @@ function magpieAdvance() {
   if (magPhase === 'holen') { magpieEnter('schoepfen'); return; }
   if (magPhase === 'schoepfen') {
     magInner.userData.bucketWater.visible = true;
-    sfx.whoosh();
+    sfx.schoepfen();
     magpieEnter('bringen'); return;
   }
   if (magPhase === 'bringen') {
@@ -2925,7 +2925,7 @@ function magpieAdvance() {
 function pourBucket() {
   const en = magTarget;
   magInner.userData.bucketWater.visible = false;
-  sfx.splash();
+  sfx.plaetschern();
   if (!en || roomOf('roof').indexOf(en) < 0) return;
   en.fill = Math.min(POOL_TRIPS, (en.fill | 0) + 1);
   const m = poolMeshOf(en);
