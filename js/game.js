@@ -2393,6 +2393,44 @@ const sfx = {
       const f = 420 + Math.random() * 380;
       bubble(t + 0.05 + Math.random() * 0.6, f, f * 1.7);
     } },
+  /* Klavier: fünf Töne einer C-Dur-Pentatonik nacheinander, jeder mit einer
+     leisen Oktave darunter — das gibt dem Klimpern Körper. */
+  klavier() { if (!AC) return; const t = AC.currentTime;
+    [60, 64, 67, 72, 76].forEach((n, i) => {
+      tone(midi2f(n), t + i * 0.12, 0.55, 'triangle', 0.10);
+      tone(midi2f(n - 12), t + i * 0.12, 0.45, 'sine', 0.04); }); },
+  /* Blockflöte: weicher Sinus mit Luftstoss davor. Das Vibrato ist ein
+     zweiter, ganz leiser Ton eine Idee daneben — eine Schwebung ist billiger
+     als ein LFO und klingt hier genauso. */
+  floete() { if (!AC) return; const t = AC.currentTime;
+    noiseBurst(t, 0.07, 3200, 1400, 0.05);
+    tone(midi2f(79), t + 0.02, 1.1, 'sine', 0.11);
+    tone(midi2f(79) * 1.004, t + 0.02, 1.1, 'sine', 0.05); },
+  /* Harfe: aufsteigendes Arpeggio, lange Ausklingzeit. */
+  harfe() { if (!AC) return; const t = AC.currentTime;
+    [60, 64, 67, 71, 74, 79].forEach((n, i) =>
+      tone(midi2f(n), t + i * 0.07, 0.9, 'triangle', 0.08)); },
+  /* Schlagzeug: Bassdrum (fallender Sinus) und gleich danach Snare
+     (Rauschstoss). */
+  trommel() { if (!AC) return; const t = AC.currentTime;
+    const o = tone(70, t, 0.35, 'sine', 0.28);
+    if (o) o.frequency.exponentialRampToValueAtTime(42, t + 0.25);
+    noiseBurst(t + 0.18, 0.12, 4200, 1200, 0.16);
+    noiseBurst(t + 0.34, 0.10, 3600, 1000, 0.10); },
+  /* Schaukelstuhl: zwei sehr leise Holzknarzer im Wipptakt — ein gedämpfter
+     Verwandter von creak(). */
+  wippe() { if (!AC) return; const t = AC.currentTime;
+    [0, 0.75].forEach(d => { const o = tone(120, t + d, 0.5, 'sawtooth', 0.035);
+      if (o) o.frequency.exponentialRampToValueAtTime(84, t + d + 0.45); }); },
+  /* Hüpfen: drei immer leisere Plopps, jeder steigt in der Tonhöhe. */
+  hops() { if (!AC) return; const t = AC.currentTime;
+    [[0, 0.16], [0.30, 0.10], [0.54, 0.06]].forEach(([d, g]) => {
+      const o = tone(260, t + d, 0.13, 'sine', g);
+      if (o) o.frequency.exponentialRampToValueAtTime(540, t + d + 0.1); }); },
+  /* Pflanze: drei kurze, hohe Rauschstösse — Blätter, die sich bewegen. */
+  rascheln() { if (!AC) return; const t = AC.currentTime;
+    [[0, 0.09], [0.16, 0.07], [0.34, 0.05]].forEach(([d, g]) =>
+      noiseBurst(t + d, 0.14, 5200, 2600, g)); },
 };
 $('btn-music').onclick = () => { musicOn = !musicOn; $('btn-music').textContent = musicOn ? 'Musik aus' : 'Musik an'; };
 
