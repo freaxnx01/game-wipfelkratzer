@@ -6,7 +6,7 @@
    Die erlaubten Werte kommen alle aus models.js, damit ein neues Möbel oder
    eine neue Tapete nicht zusätzlich hier nachgetragen werden muss. */
 import { CATALOG, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, FURN_SIZES, SEASONS,
-  DESIGN_MAX, normalizeBuild } from './models.js';
+  DESIGN_MAX, STRETCH_STEPS, normalizeBuild } from './models.js';
 
 export const DATEI_TYP = 'wipfelkratzer-stand';
 export const DATEI_V = 2;               /* 2 = Tapete pro Wand, 1 = Tapete als String */
@@ -147,7 +147,7 @@ export function bereinigeStand(roh) {
   return out;
 }
 
-/* Ein Möbeleintrag hat die Form { id, cell, x, y, z, rot, wall?, color?, scale?, build?, fill? }
+/* Ein Möbeleintrag hat die Form { id, cell, x, y, z, rot, wall?, color?, scale?, dehnung?, build?, fill? }
    (js/game.js:1325, js/game.js:775). Eigenbau-Möbel führen ihren Bauplan mit
    sich; er geht durch dieselbe Prüfung wie beim Laden (js/game.js:556-561). */
 function bereinigeMoebel(e) {
@@ -174,6 +174,14 @@ function bereinigeMoebel(e) {
   }
   if (FARBEN.has(e.color)) eintrag.color = e.color;
   if (GROESSEN.has(e.scale)) eintrag.scale = e.scale;
+  /* Dehnung (#100): nur die bekannten Stufen, und nur wenn sie etwas ändert.
+     Wandobjekte sind nicht dehnbar (js/game.js, normalizeDehnung). */
+  const deh = objekt(e.dehnung);
+  if (deh && !WALL_ITEMS.has(e.id)
+      && STRETCH_STEPS.includes(deh.x) && STRETCH_STEPS.includes(deh.z)
+      && !(deh.x === 1 && deh.z === 1)) {
+    eintrag.dehnung = { x: deh.x, z: deh.z };
+  }
   if (e.fill !== undefined) eintrag.fill = ganz(e.fill, 0, 9, 0);
   return eintrag;
 }

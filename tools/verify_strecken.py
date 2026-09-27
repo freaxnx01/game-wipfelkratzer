@@ -234,6 +234,59 @@ def teil2_bedienung(page):
     check(abs(skala - 1.25) < 0.02, "Auch das Mesh ist nach dem Umfärben noch gedehnt (%s)" % skala)
 
 
+def teil3_datei(page):
+    """Task 3: Raum kopieren, Export/Import."""
+    print("Teil 3 — Kopieren und Datei")
+    # Raum 2 traegt aus Teil 2 ein gedehntes Sofa.
+    page.evaluate("() => window.wipfelkratzer.exitEdit()")
+    page.evaluate("() => window.wipfelkratzer.enterEdit(2)")
+    page.click("#btn-roomcopy")
+    page.evaluate("() => window.wipfelkratzer.exitEdit()")
+    page.evaluate("() => window.wipfelkratzer.enterEdit(3)")
+    page.click("#btn-roompaste")
+    if page.is_visible("#paste-add"):
+        page.click("#paste-add")
+    warte_ruhig(page)
+    kopiert = page.evaluate("() => JSON.stringify(window.wipfelkratzer.roomOf(3)[0].dehnung)")
+    check(kopiert == '{"x":1.25,"z":1}', "Raum einfügen überträgt die Dehnung (%s)" % kopiert)
+
+    # Export -> Import durch die Positivliste von js/standdatei.js.
+    # baueDatei({ name, bild, stand, fotos }) liefert ein Objekt, pruefeDatei(text)
+    # gibt { ok, datei } zurueck — beides synchron (js/standdatei.js:41, :65).
+    durchgereicht = page.evaluate("""async () => {
+      const m = await import('/js/standdatei.js');
+      const stand = JSON.parse(JSON.stringify(window.wipfelkratzer.state));
+      const text = JSON.stringify(m.baueDatei({ name: 'Test', bild: null, stand, fotos: null }));
+      const geprueft = m.pruefeDatei(text);
+      if (!geprueft.ok) return 'nicht gelesen: ' + geprueft.grund;
+      return JSON.stringify(geprueft.datei.stand.rooms['2'][0].dehnung);
+    }""")
+    check(durchgereicht == '{"x":1.25,"z":1}',
+          "Export/Import erhält die Dehnung (%s)" % durchgereicht)
+
+    # Ein erfundener Faktor faellt weg
+    gefiltert = page.evaluate("""async () => {
+      const m = await import('/js/standdatei.js');
+      const stand = JSON.parse(JSON.stringify(window.wipfelkratzer.state));
+      stand.rooms['2'][0].dehnung = { x: 7, z: 1 };
+      const text = JSON.stringify(m.baueDatei({ name: 'Test', bild: null, stand, fotos: null }));
+      const geprueft = m.pruefeDatei(text);
+      return geprueft.ok && geprueft.datei.stand.rooms['2'][0].dehnung === undefined;
+    }""")
+    check(gefiltert, "Ein ungültiger Faktor fällt beim Einlesen weg")
+
+    # Ein alter Spielstand ohne Dehnung laedt unveraendert
+    unberuehrt = page.evaluate("""async () => {
+      const m = await import('/js/standdatei.js');
+      const stand = JSON.parse(JSON.stringify(window.wipfelkratzer.state));
+      delete stand.rooms['2'][0].dehnung;
+      const text = JSON.stringify(m.baueDatei({ name: 'Test', bild: null, stand, fotos: null }));
+      const geprueft = m.pruefeDatei(text);
+      return geprueft.ok && !('dehnung' in geprueft.datei.stand.rooms['2'][0]);
+    }""")
+    check(unberuehrt, "Ein Möbel ohne Dehnung bekommt keins angehängt")
+
+
 def run():
     srv = subprocess.Popen([sys.executable, "-m", "http.server", str(PORT)],
                            cwd=str(ROOT), stdout=subprocess.DEVNULL,
@@ -253,6 +306,7 @@ def run():
 
             teil1_modell(page)
             teil2_bedienung(page)
+            teil3_datei(page)
 
             check(not errors, "Konsole bleibt leer (%s)" % (errors[:3] or "leer"))
             browser.close()
