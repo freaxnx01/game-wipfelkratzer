@@ -71,6 +71,15 @@ def warte_ruhig(page):
     page.wait_for_function("() => window.wipfelkratzer.tweenCount() === 0", timeout=120000)
 
 
+def raeume_toasts(page):
+    """Offene Meldungen wegtippen — sie liegen ueber der Auswahlleiste."""
+    for _ in range(10):
+        offen = page.locator(".toast-item")
+        if not offen.count():
+            return
+        offen.first.click()
+
+
 def add_item(page, k, tab, name):
     """Moebel ueber die echte UI hinzufuegen (wie tools/verify_katalog.py)."""
     page.evaluate("() => window.wipfelkratzer.exitEdit()")
@@ -287,6 +296,55 @@ def teil3_datei(page):
     check(unberuehrt, "Ein Möbel ohne Dehnung bekommt keins angehängt")
 
 
+def teil4_kollision(page):
+    """Task 4: Ein Tier im Weg nimmt den Schritt zurueck (Spec E7).
+
+    Der Raum wird lueckenlos zugestellt — erst dann findet nudgeTenant
+    garantiert keinen Ausweichplatz mehr und die Ruecknahme ist keine
+    Zufallsfrage. Die fuenf mal vier Hochbeete decken nach clampEntry die
+    ganze Flaeche von Stockwerk 1 ab (je 2.0 x 1.7 bei 7.6 x 5.0 Raum)."""
+    print("Teil 4 — Kollision")
+    for name in ("Sofa", "Bett", "Stuhl"):
+        add_item(page, 1, "Möbel", name)
+    lage = page.evaluate("""() => {
+      const w = window.wipfelkratzer;
+      for (const x of [-3.3, -1.6, 0.1, 1.8, 3.3])
+        for (const z of [-2.2, -0.6, 1.0, 2.2]) {
+          const en = { id: 'hochbeet', cell: 0, x, z, rot: 0 };
+          w.roomOf(1).push(en);
+          w.clampEntry(1, w.placeItemMesh(1, en), en);
+        }
+      const tier = w.tenantMeshes[1][0].userData.pick;
+      return { tier: (w.tenantMeshes[1] || []).length, eingeklemmt: w.tenantBlocked(tier),
+               x: tier.entry.x, z: tier.entry.z };
+    }""")
+    check(lage["tier"] == 1 and lage["eingeklemmt"],
+          "Der zugestellte Raum laesst dem Tier keinen Ausweichplatz (%s)" % lage)
+
+    # Die Einzugs-Meldung liegt ueber der Auswahlleiste und faengt sonst den
+    # Klick ab. Toasts verschwinden nie von selbst (js/game.js:906), sie
+    # muessen weggetippt werden — danach ist der Stapel leer und die naechste
+    # Meldung darin ist die, auf die es hier ankommt.
+    raeume_toasts(page)
+    page.evaluate("() => { const w = window.wipfelkratzer; w.select(w.itemMeshes[1].find(m => m.userData.pick.entry.id === 'sofa').userData.pick); }")
+    page.click("#btn-stretch")
+    page.click("#btn-laenger")
+    warte_ruhig(page)
+    nachher = page.evaluate("""() => {
+      const w = window.wipfelkratzer;
+      const m = w.itemMeshes[1].find(x => x.userData.pick.entry.id === 'sofa');
+      const tier = w.tenantMeshes[1][0].userData.pick;
+      return { dehnung: JSON.stringify(m.userData.pick.entry.dehnung || null), sx: m.scale.x,
+               tx: tier.entry.x, tz: tier.entry.z };
+    }""")
+    check(nachher["dehnung"] == "null", "Der Schritt wird zurückgenommen (%s)" % nachher["dehnung"])
+    check(abs(nachher["sx"] - 1) < 0.001, "Auch das Mesh ist wieder ungedehnt (%s)" % nachher["sx"])
+    check(abs(nachher["tx"] - lage["x"]) < 0.001 and abs(nachher["tz"] - lage["z"]) < 0.001,
+          "Das Tier steht noch da, wo es stand")
+    klopfen = page.evaluate("() => document.getElementById('toast-stack').textContent")
+    check("steht im Weg" in klopfen, "Es klopft und sagt, wer im Weg steht (%s)" % klopfen[:60])
+
+
 def run():
     srv = subprocess.Popen([sys.executable, "-m", "http.server", str(PORT)],
                            cwd=str(ROOT), stdout=subprocess.DEVNULL,
@@ -307,6 +365,17 @@ def run():
             teil1_modell(page)
             teil2_bedienung(page)
             teil3_datei(page)
+
+            # Eigene Page: der zugestellte Raum aus Teil 4 wuerde die Raeume
+            # der frueheren Teile unbrauchbar machen. new_page() ist ein
+            # eigener Browserkontext, also auch ein eigener localStorage.
+            page4 = browser.new_page()
+            page4.on("console", lambda msg: errors.append(msg.text) if msg.type == "error" else None)
+            page4.on("pageerror", lambda e: errors.append(str(e)))
+            seed(page4)
+            open_game(page4)
+            teil4_kollision(page4)
+            page4.close()
 
             check(not errors, "Konsole bleibt leer (%s)" % (errors[:3] or "leer"))
             browser.close()
