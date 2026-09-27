@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { MAT, SEASONS, LEAVES, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, TINTABLE,
+import { MAT, SEASONS, LEAVES, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, FURN_SIZES, TINTABLE,
   BUILD_SHAPES, BUILD_WIDTHS, BUILD_MAX, BUILD_MAX_H, DESIGN_MAX, normalizeBuild,
   makeCustomFurniture, lookCanvas, lookTexture, tapeziereUV, WALL_TILE, makeFurniture, makeAnimal, makeWilli,
   makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge,
@@ -678,6 +678,26 @@ function normalizeColor(en) {
   if (!en.color) return;
   if (!TINTABLE.has(en.id) || !FURN_COLORS.some(c => c.id === en.color)) { delete en.color; migrated = true; }
 }
+/* Grösse pro Möbel (Issue #99). Wie bei der Farbe heisst «kein Feld»
+   Standard — hier Faktor 1. Ein unbekannter Wert oder eine Grösse an einem
+   Wandobjekt wird still entfernt; der Faktor 1 wird ebenfalls entfernt, damit
+   ein Stand nicht pro Möbel um ein nutzloses Feld wächst. */
+const SIZE_FACTORS = FURN_SIZES.map(s => s.f);
+const sizeOf = en => (en && SIZE_FACTORS.includes(en.scale) ? en.scale : 1);
+function normalizeSize(en) {
+  if (en.scale === undefined) return;
+  if (!SIZE_FACTORS.includes(en.scale) || en.scale === 1 || WALL_ITEMS.has(en.id)) {
+    delete en.scale; migrated = true; }
+}
+/* Die einzige Stelle, die die Grösse eines Möbels ans Mesh bringt. Sie sitzt
+   auf dem Gruppenknoten, nie auf einem Kind: die Schaltzustände (Badewanne,
+   Pool, Fenster) rechnen in Kindern und dürfen davon nichts merken.
+   q ist der Fortschritt einer Einfahr-Animation (1 = fertig).
+   Issue #100 (in die Länge ziehen) erweitert genau diese eine Zeile zu
+   m.scale.set(f * laenge, f, f) — deshalb geht jeder Pfad hier durch. */
+function applyEntryScale(mesh, entry, q = 1) {
+  mesh.scale.setScalar(sizeOf(entry) * q);
+}
 /* Eigenbauten prüfen, bevor sie gebaut werden. Ein Bauplan ist Fremdeingabe:
    von Hand verändert, aus einer älteren Version, aus einer entfernten Form.
    Ungültige Einträge verschwinden still, gekürzte werden ersetzt — und der
@@ -823,6 +843,9 @@ function replaceMesh(pick) {
   if (pick.tenant) { pick.mesh.position.x = en.x; pick.mesh.position.z = en.z; }
   else pick.mesh.position.set(en.x, en.y ?? baseY(pick.k), en.z);
   pick.mesh.rotation.y = en.rot ?? 0;
+  /* Auch die Grösse gehört zurückgedreht — sonst bleibt nach einer
+     abgelehnten Stufe ein grosses Mesh an einem kleinen Eintrag hängen. */
+  if (!pick.tenant) applyEntryScale(pick.mesh, en);
   clampEntry(pick.k, pick.mesh, en);
   if (selHelper && selected === pick) selHelper.update();
 }
@@ -839,10 +862,12 @@ function meldeBlockade() {
    Rückgabe: true, wenn der Zug Bestand hat. */
 function applyMove(pick, mutate) {
   const en = pick.entry;
-  const snap = { x: en.x, z: en.z, y: en.y, rot: en.rot, wall: en.wall };
+  const snap = { x: en.x, z: en.z, y: en.y, rot: en.rot, wall: en.wall, scale: en.scale };
   mutate();
   const ok = pick.tenant ? resolveTenantMove(pick) : resolveItemMove(pick);
-  if (!ok) { Object.assign(en, snap); replaceMesh(pick); }
+  /* Object.assign schreibt ein fehlendes Feld als `scale: undefined` zurück
+     statt es zu löschen — «kein Feld» ist aber der Normalzustand (#99). */
+  if (!ok) { Object.assign(en, snap); if (en.scale === undefined) delete en.scale; replaceMesh(pick); }
   return ok;
 }
 function resolveTenantMove(pick) { return !tenantBlocked(pick); }
@@ -965,6 +990,7 @@ function applyItemState(m, animate) {
 
 function placeItemMesh(k, entry) {
   normalizeColor(entry);
+  normalizeSize(entry);
   if (entry.x === undefined) { const p = cellPos(k, entry.cell || 0); entry.x = p.x; entry.z = p.z; entry.rot = (entry.rot || 0) * Math.PI / 2; }
   /* Zwei Wege zu einem Möbel-Mesh: Katalog-id oder Bauplan (Schreinerei). */
   const m = entry.id === 'eigenbau' ? makeCustomFurniture(entry.build) : makeFurniture(entry.id, entry.color);
@@ -979,6 +1005,7 @@ function placeItemMesh(k, entry) {
     m.position.set(entry.x, entry.y ?? baseY(k), entry.z);
     m.rotation.y = entry.rot;
   }
+  applyEntryScale(m, entry);
   m.userData.pick = { k, entry, mesh: m };
   parentOf(k).add(m); itemMeshes[k].push(m);
   if (m.userData.wheel) spinners.push(m.userData.wheel);
@@ -1953,8 +1980,8 @@ function addItem(id, build) {
     const mi = itemMeshes[k].indexOf(m); if (mi >= 0) itemMeshes[k].splice(mi, 1);
     meldeBlockade(); save(); return;
   }
-  m.scale.setScalar(0.01);
-  tween(0.35, q => { m.scale.setScalar(0.01 + 0.99 * q); if (selHelper) selHelper.update(); });
+  applyEntryScale(m, entry, 0.01);
+  tween(0.35, q => { applyEntryScale(m, entry, 0.01 + 0.99 * q); if (selHelper) selHelper.update(); });
   select(m.userData.pick);
   sfx.pop();
   checkTenant(k); checkWishes(id, k);
@@ -3376,6 +3403,7 @@ for (let i = 0; i <= MAXF; i++) if (floorGroups[i]) applyLook(i);
 if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
 window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, gartenG, gardenEdge, scene, camera, controls, WALL_KEYS, WALL_TILE, FURN_COLORS, TINTABLE,
+  FURN_SIZES, sizeOf, applyEntryScale, H,
   GARDEN: { pos: GARDEN_POS, w: GARDEN_W, d: GARDEN_D }, riverZ, river, placeItemMesh, clampEntry, removeItem,
   MAT, SEASONS, LEAVES, setSeason, setNight, ground,
   riverMats: { sand: riverSandMat, water: riverWaterMat, foam: riverFoamMat },
