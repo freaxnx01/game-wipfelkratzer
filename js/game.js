@@ -1641,7 +1641,7 @@ $('btn-besuch-aussicht').onclick = () => wechsleBesuch('aussicht');
 $('btn-besuch-zu').onclick = exitBesuch;
 
 function deselect() { if (selHelper) { scene.remove(selHelper); selHelper = null; } selected = null;
-  $('colorpick').classList.remove('open'); $('sizepick').classList.remove('open');
+  $('colorpick').classList.remove('open'); $('sizepick').classList.remove('open'); $('stretchpad').classList.remove('open');
   $('selbar').classList.remove('on'); }
 function select(pick) { deselect(); selected = pick;
   selHelper = new THREE.BoxHelper(pick.mesh, 0xc0432e); scene.add(selHelper);
@@ -1655,6 +1655,8 @@ function select(pick) { deselect(); selected = pick;
      Wandkonstanten platziert, ein Tier ist ein Bewohner und kein Möbel (#99). */
   $('btn-size').classList.toggle('hidden', wall || !!pick.tenant);
   renderSizePick();
+  $('btn-stretch').classList.toggle('hidden', !dehnbar(pick));
+  renderStretchPad();
   /* Ein Bewohner lässt sich nicht wegwerfen (#39). */
   $('btn-del').classList.toggle('hidden', !!pick.tenant);
   updateActionBtn();
@@ -1912,6 +1914,46 @@ function zufallEinrichten(k) {
   save(); updateHUD(); updateRoomButtons();
 }
 $('btn-roomrandom').onclick = () => { if (edit && edit.k !== 'roof' && edit.k !== 'garten') zufallEinrichten(edit.k); };
+
+/* ---------- Dehnen: Bedienung (Issue #100) ---------- */
+/* Wandobjekte kennen ihre Breite nicht (wallPlacement rechnet mit festen
+   Rändern), und ein Tier ist kein Möbel. */
+const dehnbar = pick => !!pick && !pick.tenant && !WALL_ITEMS.has(pick.entry.id);
+/* Passt das Möbel mit dem neuen Faktor noch in den Raum? Verglichen wird die
+   längere Kante gegen die kürzere Raumseite — das gilt unabhängig davon, wie
+   das Möbel gerade gedreht ist. */
+function passtInRaum(pick, achse, faktor) {
+  const en = pick.entry, mass = modellMass(en), g = en.scale ?? 1;
+  const d = dehnungOf(en); d[achse] = faktor;
+  const grenze = raumGrenzen(pick.k);
+  return Math.max(mass.w * g * d.x, mass.d * g * d.z) <= 2 * Math.min(grenze.x, grenze.z);
+}
+function kannDehnen(pick, dir) {
+  if (!dehnbar(pick)) return false;
+  const achse = modellMass(pick.entry).achse;
+  const i = STRETCH_STEPS.indexOf(dehnungOf(pick.entry)[achse]);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= STRETCH_STEPS.length) return false;
+  return dir < 0 || passtInRaum(pick, achse, STRETCH_STEPS[j]);
+}
+function renderStretchPad() {
+  const auf = dehnbar(selected);
+  $('btn-laenger').disabled = !(auf && kannDehnen(selected, 1));
+  $('btn-kuerzer').disabled = !(auf && kannDehnen(selected, -1));
+}
+/* Ein Schritt ist ein Zug wie Verschieben oder Drehen: applyMove räumt
+   danach die Kollisionen auf und nimmt den Zug zurück, wenn ein Tier
+   eingeklemmt würde. */
+function dehneSchritt(dir) {
+  if (!kannDehnen(selected, dir)) return;
+  const pick = selected, en = pick.entry, achse = modellMass(en).achse;
+  const neu = dehnungOf(en);
+  neu[achse] = STRETCH_STEPS[STRETCH_STEPS.indexOf(neu[achse]) + dir];
+  if (!applyMove(pick, () => { setDehnung(en, neu);
+    applyEntryScale(pick.mesh, en);
+    clampEntry(pick.k, pick.mesh, en); })) { meldeBlockade(); renderStretchPad(); return; }
+  selHelper.update(); sfx.pop(); save(); renderStretchPad();
+}
 
 /* Die Reihe zeigt «Standard» plus die Palette; die Punkte tragen den Farbwert
    der MAT-Instanz, damit kein zweiter Ort eine Farbe festlegt. */
@@ -2922,6 +2964,10 @@ $('btn-rot').onclick = () => { if (!selected || WALL_ITEMS.has(selected.entry.id
   selHelper.update(); sfx.pop(); };
 /* Die beiden Reihen teilen sich den Platz über der Leiste und schliessen
    einander darum aus (#99). */
+$('btn-stretch').onclick = () => { if (!dehnbar(selected)) return;
+  $('stretchpad').classList.toggle('open'); renderStretchPad(); };
+$('btn-laenger').onclick = () => dehneSchritt(1);
+$('btn-kuerzer').onclick = () => dehneSchritt(-1);
 $('btn-color').onclick = () => { if (!selected || !TINTABLE.has(selected.entry.id)) return;
   $('sizepick').classList.remove('open');
   $('colorpick').classList.toggle('open'); renderColorPick(); };
@@ -3516,7 +3562,7 @@ if (migrated) save();
 window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, gartenG, gardenEdge, scene, camera, controls, WALL_KEYS, WALL_TILE, FURN_COLORS, TINTABLE,
   FURN_SIZES, sizeOf, applyEntryScale, H, setItemSize,
   GARDEN: { pos: GARDEN_POS, w: GARDEN_W, d: GARDEN_D }, riverZ, river, placeItemMesh, clampEntry, removeItem,
-  STRETCH_STEPS, applyEntryScale, modellMass, raumGrenzen, dehnungOf,
+  STRETCH_STEPS, applyEntryScale, modellMass, raumGrenzen, dehnungOf, dehneSchritt, kannDehnen,
   MAT, SEASONS, LEAVES, setSeason, setNight, ground,
   riverMats: { sand: riverSandMat, water: riverWaterMat, foam: riverFoamMat },
   leafColors: () => LEAVES.map(e => e.mat.color.getHexString()),

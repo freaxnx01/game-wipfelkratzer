@@ -120,6 +120,120 @@ def teil1_modell(page):
     check(schritte == [0.5, 0.75, 1, 1.25, 1.5, 2], "STRETCH_STEPS wie in der Spec")
 
 
+def teil2_bedienung(page):
+    """Task 2: Knoepfe, Schritte, Grenzen, Kollision."""
+    print("Teil 2 — Bedienung")
+    add_item(page, 1, "Möbel", "Tisch")
+    page.evaluate("() => window.wipfelkratzer.select(window.wipfelkratzer.itemMeshes[1][0].userData.pick)")
+
+    check(page.is_visible("#btn-stretch"), "«Strecken» ist bei einem Tisch sichtbar")
+    page.click("#btn-stretch")
+    check(page.is_visible("#btn-laenger"), "Das Feld mit «Länger»/«Kürzer» geht auf")
+
+    def box1(i):
+        return page.evaluate("""(i) => {
+          const w = window.wipfelkratzer;
+          const bb = new w.THREE.Box3().setFromObject(w.itemMeshes[1][i]);
+          return { x: bb.max.x - bb.min.x, y: bb.max.y - bb.min.y, z: bb.max.z - bb.min.z };
+        }""", i)
+
+    vorher = box1(0)
+    page.click("#btn-laenger")
+    warte_ruhig(page)
+    nach1 = box1(0)
+    check(abs(nach1["x"] - vorher["x"] * 1.25) < 0.02, "Ein Schritt macht den Tisch 1.25x lang")
+    check(abs(nach1["y"] - vorher["y"]) < 0.01, "Die Höhe bleibt beim Dehnen gleich")
+
+    page.click("#btn-kuerzer")
+    page.click("#btn-kuerzer")
+    warte_ruhig(page)
+    nach2 = box1(0)
+    check(abs(nach2["x"] - vorher["x"] * 0.75) < 0.02, "Zwei Schritte zurück ergeben 0.75x")
+
+    # bis ans untere Ende der Liste
+    page.click("#btn-kuerzer")
+    warte_ruhig(page)
+    check(page.is_disabled("#btn-kuerzer"), "Am unteren Ende ist «Kürzer» gesperrt")
+
+    # zurueck auf 1 und ans obere Ende — entweder Liste zu Ende oder Raum zu klein
+    for _ in range(6):
+        if page.is_disabled("#btn-laenger"):
+            break
+        page.click("#btn-laenger")
+        warte_ruhig(page)
+    check(page.is_disabled("#btn-laenger"), "Am oberen Ende ist «Länger» gesperrt")
+    grenze = page.evaluate("""() => {
+      const w = window.wipfelkratzer;
+      const en = w.roomOf(1)[0], m = w.modellMass(en), g = w.raumGrenzen(1);
+      const d = w.dehnungOf(en);
+      return Math.max(m.w * d.x, m.d * d.z) <= 2 * Math.min(g.x, g.z) + 0.001;
+    }""")
+    check(grenze, "Das gedehnte Möbel passt noch in den Raum")
+
+    # Ein gedrehtes Moebel wird entlang seiner eigenen Laenge gedehnt (Spec E2)
+    gedreht = page.evaluate("""() => {
+      const w = window.wipfelkratzer;
+      const en = w.roomOf(1)[0], m = w.itemMeshes[1][0];
+      const d = w.dehnungOf(en);
+      return { sx: m.scale.x, sz: m.scale.z, dx: d.x, dz: d.z };
+    }""")
+    page.click("#btn-rot")
+    warte_ruhig(page)
+    nach_dreh = page.evaluate("""() => {
+      const w = window.wipfelkratzer;
+      const en = w.roomOf(1)[0], m = w.itemMeshes[1][0];
+      const d = w.dehnungOf(en);
+      return { sx: m.scale.x, sz: m.scale.z, dx: d.x, dz: d.z, rot: en.rot };
+    }""")
+    check(nach_dreh["sx"] == gedreht["sx"] and nach_dreh["sz"] == gedreht["sz"],
+          "Drehen laesst die lokalen Dehnfaktoren stehen (%s -> %s)" % (gedreht, nach_dreh))
+
+    # Die Raumgrenze sperrt «Länger», BEVOR die Stufenliste zu Ende ist: das
+    # Häuschen misst 2.4 in der Laenge, die Dachterrasse ist quer nur
+    # 2 * (ROOF_D/2 - 0.1) = 4.6 tief — 2x (4.8) passt nicht mehr, 1.5x (3.6)
+    # schon.
+    add_item(page, "roof", "Dach", "Häuschen")
+    page.evaluate("() => { const w = window.wipfelkratzer; const m = w.itemMeshes.roof.find(x => x.userData.pick.entry.id === 'terrassenhaus'); w.select(m.userData.pick); }")
+    page.click("#btn-stretch")
+    for _ in range(6):
+        if page.is_disabled("#btn-laenger"):
+            break
+        page.click("#btn-laenger")
+        warte_ruhig(page)
+    stufe = page.evaluate("() => JSON.stringify(window.wipfelkratzer.roomOf('roof').find(e => e.id === 'terrassenhaus').dehnung)")
+    check(page.is_disabled("#btn-laenger") and stufe == '{"x":1.5,"z":1}',
+          "Kein Möbel ragt durch die Wand: «Länger» sperrt bei 1.5x (%s)" % stufe)
+
+    # Wandobjekt ist nicht dehnbar
+    add_item(page, 1, "Wand", "Wanduhr")
+    page.evaluate("() => { const w = window.wipfelkratzer; const m = w.itemMeshes[1].find(x => x.userData.pick.entry.id === 'uhr'); w.select(m.userData.pick); }")
+    check(page.is_hidden("#btn-stretch"), "Bei einem Wandobjekt ist «Strecken» versteckt")
+
+    # Persistenz ueber einen Reload
+    page.evaluate("() => window.wipfelkratzer.deselect()")
+    vor_reload = page.evaluate("() => JSON.stringify(window.wipfelkratzer.roomOf(1)[0].dehnung)")
+    page.reload(wait_until="networkidle")
+    page.wait_for_function("() => !!window.wipfelkratzer")
+    page.click("#btn-start")
+    nach_reload = page.evaluate("() => JSON.stringify(window.wipfelkratzer.roomOf(1)[0].dehnung)")
+    check(vor_reload == nach_reload, "Die Dehnung übersteht einen Reload (%s / %s)"
+          % (vor_reload, nach_reload))
+
+    # Umfaerben darf die Dehnung nicht zuruecksetzen (Spec E6)
+    add_item(page, 2, "Möbel", "Sofa")
+    page.evaluate("() => window.wipfelkratzer.select(window.wipfelkratzer.itemMeshes[2][0].userData.pick)")
+    page.click("#btn-stretch")
+    page.click("#btn-laenger")
+    warte_ruhig(page)
+    page.click("#btn-color")
+    page.click("#colorpick button:nth-child(2)")
+    warte_ruhig(page)
+    nach_farbe = page.evaluate("() => JSON.stringify(window.wipfelkratzer.roomOf(2)[0].dehnung)")
+    skala = page.evaluate("() => window.wipfelkratzer.itemMeshes[2][0].scale.x")
+    check(nach_farbe == '{"x":1.25,"z":1}', "Umfärben lässt die Dehnung stehen (%s)" % nach_farbe)
+    check(abs(skala - 1.25) < 0.02, "Auch das Mesh ist nach dem Umfärben noch gedehnt (%s)" % skala)
+
+
 def run():
     srv = subprocess.Popen([sys.executable, "-m", "http.server", str(PORT)],
                            cwd=str(ROOT), stdout=subprocess.DEVNULL,
@@ -138,6 +252,7 @@ def run():
             open_game(page)
 
             teil1_modell(page)
+            teil2_bedienung(page)
 
             check(not errors, "Konsole bleibt leer (%s)" % (errors[:3] or "leer"))
             browser.close()
