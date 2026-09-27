@@ -23,6 +23,11 @@ const poolFill = en => en.fill === undefined ? 1
 const WALL_KEYS = ['back', 'left', 'right', 'front'];
 const WALL_LABELS = { back: 'Hinten', left: 'Links', right: 'Rechts', front: 'Vorne' };
 const WALL_T = 0.12, WALL_CORE = 0.09, WALL_PANEL = 0.02;
+/* Die Decke ist eine Platte der Dicke CEIL_T, deren Mitte CEIL_DROP unter der
+   Rohdecke hängt. Ihre Unterkante ist die Grenze, gegen die der Besuch seine
+   Kamera rechnet — vorher war es die Raumhöhe, und die liegt 3 cm zu hoch (#96). */
+const CEIL_T = 0.1, CEIL_DROP = 0.13;
+const deckeUnterY = k => H(k) - CEIL_DROP - CEIL_T / 2;
 
 const TENANTS = [
   { name: 'Die Kindergarten-Mäuse', unit: 'Kindergarten und Partyraum', animals: ['maus', 'maus'], wish: 'klavier', wtext: 'Die Kindergarten-Mäuse wünschen sich ein Klavier.' },
@@ -406,7 +411,11 @@ function makeFloor(i) {
     mesh(new THREE.BoxGeometry(WALL_CORE, h, d), MAT.plaster, s * (w / 2 - WALL_CORE / 2), h / 2, 0, g);
     panel(s > 0 ? 'right' : 'left', new THREE.BoxGeometry(WALL_PANEL, h, d), s * (w / 2 - WALL_T + WALL_PANEL / 2), h / 2, 0, g);
   });
-  g.userData.ceil = mesh(new THREE.BoxGeometry(w - 0.3, 0.1, d - 0.3), MAT.plasterIn, 0, h - 0.13, 0, g); g.userData.ceil.castShadow = false;
+  /* Bis an die Innenflächen der vier Wände (±(Mass/2 − WALL_T)) — die frühere
+     Platte (w − 0.3) liess rundum einen 3 cm breiten Schlitz offen, durch den
+     man beim Besuch nach draussen sah (#96). Nicht weiter: bei w − 0.18
+     schnitte sie durch die Innenpanele, die die Tapete tragen. */
+  g.userData.ceil = mesh(new THREE.BoxGeometry(w - 2 * WALL_T, CEIL_T, d - 2 * WALL_T), MAT.plasterIn, 0, h - CEIL_DROP, 0, g); g.userData.ceil.castShadow = false;
   const front = new THREE.Group(); front.position.z = d / 2 - 0.06; g.add(front); g.userData.front = front;
   mesh(new THREE.BoxGeometry(w - 0.24, h, WALL_CORE), MAT.plaster, 0, h / 2, 0.06 - WALL_CORE / 2, front);
   panel('front', new THREE.BoxGeometry(w - 0.24, h, WALL_PANEL), 0, h / 2, 0.06 - WALL_T + WALL_PANEL / 2, front);
@@ -1262,11 +1271,10 @@ function enterBesuch(k) {
   controls.maxDistance = 6;
   controls.enableZoom = false;
   stelleBesuchKamera(k);
-  /* Die Decke ist die Lichtquelle des Raums — mit ihr wird es dunkel und trüb.
-     Dieselbe bewusste Unehrlichkeit, die enterEdit schon trifft. Höhere
-     Stockwerke bleiben dagegen stehen: beim Blick aus dem Fenster fehlte sonst
-     der halbe Turm. */
-  if (typeof k === 'number' && floorGroups[k]) floorGroups[k].userData.ceil.visible = false;
+  /* Die Decke bleibt beim Besuch stehen. Ohne sie schaut man aus dem Zimmer in
+     den Himmel: der Turm verjüngt sich nach oben, die Bodenplatte des
+     Stockwerks darüber deckt den Raum also nicht, und über dem obersten
+     Stockwerk liegt nur die schmalere Dachterrasse (#96). */
   applyFronts();
   renderBesuchbar();
   sfx.whoosh();
@@ -1313,7 +1321,6 @@ function renderBesuchbar() {
 function wechsleBesuch(k) {
   if (!besuch) return;
   besuch.k = k;
-  if (typeof k === 'number' && floorGroups[k]) floorGroups[k].userData.ceil.visible = false;
   stelleBesuchKamera(k);
   renderBesuchbar();
   sfx.pop();
@@ -2901,6 +2908,29 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   matCount() { const s = new Set(); scene.traverse(o => { if (o.material) s.add(o.material.uuid); }); return s.size; },
   get wallTarget() { return wallTarget; }, enterEdit, exitEdit, dims, cellPos, wallPlacement, get edit() { return edit; },
   enterBesuch, exitBesuch, besuchCamFor, get besuch() { return besuch; }, floorYOf: floorY,
+  deckeUnterY, WALL_MASSE: { w: W, d: D, t: WALL_T },
+  /* Strahlenprobe für die Playwright-Checks (#96): vom Augpunkt des Besuchs
+     gerade nach oben und in die vier oberen Raumecken. Gezählt wird jede Probe,
+     deren erstes Objekt nicht die Decke dieses Raums ist — 0 heisst, der Raum
+     ist oben dicht. Möbel im Weg verfälschen das Ergebnis; die Probe gehört in
+     einen leeren Raum. */
+  sichtFrei(k) {
+    if (typeof k !== 'number' || !floorGroups[k]) return 0;
+    const g = floorGroups[k], decke = g.userData.ceil;
+    const { eye } = besuchCamFor(k);
+    const ziele = [eye.clone().add(new THREE.Vector3(0, 1, 0))];
+    const ex = W(k) / 2 - WALL_T - 0.03, ez = D(k) / 2 - WALL_T - 0.03;
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) =>
+      ziele.push(g.localToWorld(new THREE.Vector3(sx * ex, deckeUnterY(k), sz * ez))));
+    let frei = 0;
+    for (const ziel of ziele) {
+      ray.set(eye, ziel.clone().sub(eye).normalize());
+      const treffer = ray.intersectObjects(scene.children, true)
+        .filter(h => h.object.material && h.object.material.visible !== false && h.distance > 0.01);
+      if (!treffer.length || treffer[0].object !== decke) frei++;
+    }
+    return frei;
+  },
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
   ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, get clip() { return clip; },
   ziehtGerade: () => !!ziehen, zugBlockiert: () => !!(ziehen && ziehen.blockiert),
