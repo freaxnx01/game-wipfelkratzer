@@ -29,6 +29,11 @@ All notable changes to this project are documented here, following
 - Die Harfe sieht endlich aus wie eine Harfe: Du siehst jetzt ihre sieben
   goldenen Saiten, und sie werden nach vorne hin länger. Vorher steckten
   sie im Holz und waren gar nicht zu sehen (#101)
+- Sprechblasen bleiben jetzt zwölf Sekunden stehen statt nur vier bis
+  fünf — Zeit genug zum Lesen. Und wenn Du fertig bist, tippst Du auf
+  das × in der Blase, dann ist sie sofort weg. Das gilt überall: bei
+  Willi, bei der Biberburg, bei Móki, bei den Tieren im Turm und bei
+  den Texten, die Du von der Aussichtsplattform aus hörst (#104)
 
 ## [0.11.1] - 2026-09-20
 
