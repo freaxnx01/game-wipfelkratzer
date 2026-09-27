@@ -42,6 +42,12 @@ All notable changes to this project are documented here, following
   stellt sie wieder hin. Beim nächsten «Hineingehen» stehen die Wände
   wieder, und die Aussenansicht bleibt genau so, wie Du sie verlassen
   hast (#95)
+### Fixed
+
+- Beim Hineingehen hat Dein Zimmer jetzt eine richtige Decke. Vorher klaffte
+  oben zwischen Wand und Decke eine Lücke, durch die man in den Himmel
+  schaute — besonders im Erdgeschoss. Damit es drinnen trotzdem hell bleibt,
+  brennt während des Besuchs eine Lampe im Raum (#96)
 
 ## [0.11.1] - 2026-09-20
 
