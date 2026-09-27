@@ -342,6 +342,23 @@ function fensterSchichten(i) {
   return { kern, panel, wins: g.userData.wins, geo: g.userData.fensterGeo };
 }
 
+/* Zwei Funktionen statt eines Schalters — ein Flag-Argument würde hier
+   nur den Tausch verstecken. Die Bogenscheiben gehen mit weg: sie stehen
+   2 cm VOR der Wand (siehe makeFloor) und verstopften die frische Öffnung
+   von aussen. */
+function fensterAuf(i) {
+  const s = fensterSchichten(i); if (!s) return;
+  s.kern.geometry = s.geo.kernOffen;
+  s.panel.geometry = s.geo.panelOffen;
+  s.wins.forEach(m => { m.visible = false; });
+}
+function fensterZu(i) {
+  const s = fensterSchichten(i); if (!s) return;
+  s.kern.geometry = s.geo.kernZu;
+  s.panel.geometry = s.geo.panelZu;
+  s.wins.forEach(m => { m.visible = true; });
+}
+
 /* ---------- Aussentreppe ----------
    Jede Etage trägt einen eigenen Zufalls-Versatz und -Drehwinkel. Ein Lauf
    verbindet zwei Etagen und liegt damit zwischen zwei verschiedenen lokalen
@@ -1356,6 +1373,12 @@ function enterBesuch(k) {
      Stockwerk liegt nur die schmalere Dachterrasse (#96). Die Lampe ersetzt
      das Licht, das sie von oben aussperrt. */
   setzeBesuchLampe(k);
+  /* Die Decke ist die Lichtquelle des Raums — mit ihr wird es dunkel und trüb.
+     Dieselbe bewusste Unehrlichkeit, die enterEdit schon trifft. Höhere
+     Stockwerke bleiben dagegen stehen: beim Blick aus dem Fenster fehlte sonst
+     der halbe Turm. */
+  if (typeof k === 'number' && floorGroups[k]) floorGroups[k].userData.ceil.visible = false;
+  fensterAuf(k);
   applyFronts();
   renderBesuchbar();
   sfx.whoosh();
@@ -1366,6 +1389,7 @@ function exitBesuch() {
   Object.assign(controls, { minDistance: besuchSave.min, maxDistance: besuchSave.max,
     minPolarAngle: besuchSave.minP, maxPolarAngle: besuchSave.maxP,
     enableZoom: besuchSave.zoom });
+  fensterZu(besuch.k);
   besuch = null; besuchSave = null;
   setzeBesuchLampe(null);
   /* Erst jetzt, mit besuch === null, stellt applyFronts den Aussenzustand
@@ -1402,8 +1426,11 @@ function renderBesuchbar() {
    dorthin zurückführt, wo man angefangen hat. */
 function wechsleBesuch(k) {
   if (!besuch) return;
+  fensterZu(besuch.k);
   besuch.k = k;
   setzeBesuchLampe(k);
+  if (typeof k === 'number' && floorGroups[k]) floorGroups[k].userData.ceil.visible = false;
+  fensterAuf(k);
   stelleBesuchKamera(k);
   renderBesuchbar();
   sfx.pop();
@@ -3015,6 +3042,7 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
     return frei;
   },
   fensterSchichten,
+  wechsleBesuch, fensterSchichten, fensterAuf, fensterZu,
   itemMeshes, tenantMeshes, tenantGroups, tenantSpot, tenantSpots, setTenantPos, select, deselect, get selected() { return selected; },
   ACTIONS, isOn, addItem, solidBoxes, overlapsXZ, tenantBlocked, applyMove, meldeBlockade, roomOf, get clip() { return clip; },
   ziehtGerade: () => !!ziehen, zugBlockiert: () => !!(ziehen && ziehen.blockiert),
