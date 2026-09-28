@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { MAT, SEASONS, LEAVES, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, FURN_SIZES, TINTABLE,
+import { L, MAT, SEASONS, LEAVES, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_COLORS, FURN_SIZES, TINTABLE,
   BUILD_SHAPES, BUILD_WIDTHS, BUILD_MAX, BUILD_MAX_H, DESIGN_MAX, STRETCH_STEPS, normalizeBuild,
   makeCustomFurniture, lookCanvas, lookTexture, tapeziereUV, WALL_TILE, makeFurniture, makeAnimal, makeWilli,
   makeTree, makeTallTree, makeMagpie, makeSign, makeDam, makeBridge,
@@ -8,6 +8,7 @@ import { MAT, SEASONS, LEAVES, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_CO
 import { zipStore } from './zip.js';
 import * as staende from './staende.js';
 import { baueDatei, dateiName, pruefeDatei, MAX_DATEI } from './standdatei.js';
+import { STYLE, patchLambert, addHull, hullOf, syncStyleRes, ladeStil, speichereStil } from './stil.js';
 
 /* ---------- Konstanten ---------- */
 const PLAT_Y = 2.2, E_H = 2.4, FLOOR_H = 2.0;
@@ -178,6 +179,7 @@ const holder = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
+syncStyleRes(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 holder.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
@@ -195,6 +197,11 @@ Object.assign(dir.shadow.camera, { left: -20, right: 20, top: 32, bottom: -6, fa
 scene.add(dir);
 
 const SKY = { d: new THREE.Color(0xcfe3c2), n: new THREE.Color(0x18294e) };
+/* Aquarell-Himmel (#90) — applyNight() wählt dieses Paar statt SKY, wenn der
+   Stil aktiv ist. Ein direkt gesetzter Aquarell-Himmel würde beim nächsten
+   Nachtwechsel überschrieben, weil applyNight scene.background bei jedem
+   Tween-Schritt neu schreibt. */
+const SKY_AQ = { d: new THREE.Color(0xfdf4e0), n: new THREE.Color(0x4a3a2e) };
 const HEMI = { d: new THREE.Color(0xfff4da), n: new THREE.Color(0x2a3a66) };
 const GRND = { d: new THREE.Color(0x9dbb7a), n: new THREE.Color(0x1c2a3a) };
 scene.background = SKY.d.clone();
@@ -211,7 +218,7 @@ const moon = new THREE.Mesh(new THREE.SphereGeometry(1.6 * HSCALE, 20, 14), moon
 
 /* ---------- Umgebung ---------- */
 const mesh = (geo, mat, x = 0, y = 0, z = 0, parent = scene) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
-const ground = mesh(new THREE.CircleGeometry(70, 40), new THREE.MeshLambertMaterial({ color: 0x8fbb6e }), 0, 0, 0);
+const ground = mesh(new THREE.CircleGeometry(70, 40), L(0x8fbb6e), 0, 0, 0);
 ground.rotation.x = -Math.PI / 2; ground.castShadow = false;
 const riverZ = x => 9 + Math.sin(x * 0.18) * 2.4;
 function ribbon(width, y, mat) {
@@ -229,9 +236,9 @@ function ribbon(width, y, mat) {
 /* Eigene Instanzen statt MAT.water: der Bach friert im Winter zu, das
    Badewasser, die Teekanne und der Dachpool aber nicht (#50). Die Startfarben
    sind identisch mit heute. */
-const riverSandMat = new THREE.MeshLambertMaterial({ color: 0xc9b083 });
-const riverWaterMat = new THREE.MeshLambertMaterial({ color: 0x5aa7c7 });
-const riverFoamMat = new THREE.MeshLambertMaterial({ color: 0x7fc4dd });
+const riverSandMat = L(0xc9b083);
+const riverWaterMat = L(0x5aa7c7);
+const riverFoamMat = L(0x7fc4dd);
 ribbon(5.6, 0.02, riverSandMat);
 /* Das breite Wasserband ist die Trefferfläche des Bachs (#46) — nicht das
    Sandufer darunter und nicht der helle Streifen darüber, der zwar höher
@@ -287,9 +294,9 @@ scene.add(aussicht);
 
 /* Plattform + Stämme */
 { const g = new THREE.Group(); scene.add(g);
-  mesh(new THREE.BoxGeometry(9.8, 0.34, 6.8), MAT.wood, 0, PLAT_Y - 0.17, 0, g);
+  addHull(mesh(new THREE.BoxGeometry(9.8, 0.34, 6.8), MAT.wood, 0, PLAT_Y - 0.17, 0, g));
   [[-4, -2.4], [4, -2.4], [-4, 2.4], [4, 2.4], [0, 0]].forEach(([x, z]) => {
-    mesh(new THREE.CylinderGeometry(0.5, 0.7, PLAT_Y, 12), MAT.woodD, x, PLAT_Y / 2 - 0.1, z, g); });
+    addHull(mesh(new THREE.CylinderGeometry(0.5, 0.7, PLAT_Y, 12), MAT.woodD, x, PLAT_Y / 2 - 0.1, z, g)); });
   const lad = new THREE.Group(); g.add(lad); lad.position.set(3.4, PLAT_Y / 2 + 0.1, 3.85); lad.rotation.x = -0.3;
   [-0.22, 0.22].forEach(x => mesh(new THREE.CylinderGeometry(0.045, 0.045, PLAT_Y + 0.5, 8), MAT.wood, x, 0, 0, lad));
   for (let i = 0; i < 5; i++) mesh(new THREE.BoxGeometry(0.44, 0.05, 0.05), MAT.woodL, 0, -1 + i * 0.5, 0, lad);
@@ -299,7 +306,7 @@ scene.add(aussicht);
 function makeArchGeo(w, h) { const s = new THREE.Shape();
   s.moveTo(-w / 2, 0); s.lineTo(-w / 2, h - w / 2); s.absarc(0, h - w / 2, w / 2, Math.PI, 0, true); s.lineTo(w / 2, 0); s.closePath();
   return new THREE.ExtrudeGeometry(s, { depth: 0.05, bevelEnabled: false }); }
-const matWin = new THREE.MeshLambertMaterial({ color: 0x6b4526 });
+const matWin = L(0x6b4526);
 
 /* ---------- Fensteröffnungen für den Besuch (#102) ----------
    Die Fassadenfenster sind flache Bogenscheiben VOR der Wand (siehe
@@ -375,12 +382,19 @@ function fensterAuf(i) {
   const s = fensterSchichten(i); if (!s) return;
   s.kern.geometry = s.geo.kernOffen;
   s.panel.geometry = s.geo.panelOffen;
+  /* Die Kontur teilt die Geometrie ihres Elters (#90) — beim Fenstertausch
+     muss sie deshalb mitwandern, sonst steht eine Kontur ohne Loch vor der
+     gelochten Wand. */
+  const hk = hullOf(s.kern); if (hk) hk.geometry = s.geo.kernOffen;
+  const hp = hullOf(s.panel); if (hp) hp.geometry = s.geo.panelOffen;
   s.wins.forEach(m => { m.visible = false; });
 }
 function fensterZu(i) {
   const s = fensterSchichten(i); if (!s) return;
   s.kern.geometry = s.geo.kernZu;
   s.panel.geometry = s.geo.panelZu;
+  const hk = hullOf(s.kern); if (hk) hk.geometry = s.geo.kernZu;
+  const hp = hullOf(s.panel); if (hp) hp.geometry = s.geo.panelZu;
   s.wins.forEach(m => { m.visible = true; });
 }
 
@@ -493,27 +507,32 @@ function makeFloor(i) {
   const g = new THREE.Group(); const pose = floorPose(i);
   g.position.set(pose.x, pose.y, 0); g.rotation.y = pose.ry;
   const w = W(i), d = D(i), h = H(i);
-  const floorMat = MAT.woodL.clone();
+  /* clone() kopiert kein onBeforeCompile (three.js Material.copy) — ohne
+     erneutes patchLambert bliebe dieses Material im Aquarell-Stil unbehandelt. */
+  const floorMat = patchLambert(MAT.woodL.clone());
   /* Pro Wand eine eigene Innenschale: die tragende Wand bleibt aussen immer Putz,
      nur das dünne Innenpanel bekommt die Tapete. */
   const wallMats = {}, wallPanels = {};
-  WALL_KEYS.forEach(key => { wallMats[key] = MAT.plasterIn.clone(); });
+  WALL_KEYS.forEach(key => { wallMats[key] = patchLambert(MAT.plasterIn.clone()); });
   g.userData.wallMats = wallMats; g.userData.wallPanels = wallPanels; g.userData.floorMat = floorMat;
+  /* Konturen sitzen nur auf Struktur (#90, nie auf Möbeln) — panel() hängt
+     darum immer ein Kontur-Kind an sein Panel. */
   const panel = (key, geo, x, y, z, parent) => {
     const m = mesh(geo, wallMats[key], x, y, z, parent);
-    m.castShadow = false; m.userData.wallKey = key; wallPanels[key] = m; return m;
+    m.castShadow = false; m.userData.wallKey = key; wallPanels[key] = m; addHull(m); return m;
   };
-  mesh(new THREE.BoxGeometry(w + 0.12, 0.14, d + 0.12), MAT.woodL, 0, 0.07, 0, g);
-  mesh(new THREE.BoxGeometry(w - 0.24, 0.02, d - 0.24), floorMat, 0, 0.145, 0, g).castShadow = false;
+  addHull(mesh(new THREE.BoxGeometry(w + 0.12, 0.14, d + 0.12), MAT.woodL, 0, 0.07, 0, g));
+  const boden = mesh(new THREE.BoxGeometry(w - 0.24, 0.02, d - 0.24), floorMat, 0, 0.145, 0, g);
+  boden.castShadow = false; addHull(boden);
   /* Rückwand: Kern (aussen sichtbar) + Innenpanel — die Innenfläche bleibt bei -d/2 + 0.12,
      also 0.005 hinter wallPlacement(k,'back').fixed, damit Wandobjekte sauber davor hängen. */
   /* Die Kachelzahl der Tapete kommt aus dem echten Wandmass, damit die Kacheln
      auf allen vier Wänden gleich gross sind und in der Ecke an einer
      Kachelkante aufeinandertreffen (#98). */
-  mesh(new THREE.BoxGeometry(w - 0.24, h, WALL_CORE), MAT.plaster, 0, h / 2, -d / 2 + WALL_CORE / 2, g);
+  addHull(mesh(new THREE.BoxGeometry(w - 0.24, h, WALL_CORE), MAT.plaster, 0, h / 2, -d / 2 + WALL_CORE / 2, g));
   panel('back', tapeziereUV(new THREE.BoxGeometry(w - 0.24, h, WALL_PANEL), w - 0.24, h), 0, h / 2, -d / 2 + WALL_T - WALL_PANEL / 2, g);
   [-1, 1].forEach(s => {
-    mesh(new THREE.BoxGeometry(WALL_CORE, h, d), MAT.plaster, s * (w / 2 - WALL_CORE / 2), h / 2, 0, g);
+    addHull(mesh(new THREE.BoxGeometry(WALL_CORE, h, d), MAT.plaster, s * (w / 2 - WALL_CORE / 2), h / 2, 0, g));
     panel(s > 0 ? 'right' : 'left', tapeziereUV(new THREE.BoxGeometry(WALL_PANEL, h, d), d, h), s * (w / 2 - WALL_T + WALL_PANEL / 2), h / 2, 0, g);
   });
   /* Bis an die Innenflächen der vier Wände (±(Mass/2 − WALL_T)) — die frühere
@@ -521,8 +540,10 @@ function makeFloor(i) {
      man beim Besuch nach draussen sah (#96). Nicht weiter: bei w − 0.18
      schnitte sie durch die Innenpanele, die die Tapete tragen. */
   g.userData.ceil = mesh(new THREE.BoxGeometry(w - 2 * WALL_T, CEIL_T, d - 2 * WALL_T), MAT.plasterIn, 0, h - CEIL_DROP, 0, g); g.userData.ceil.castShadow = false;
+  addHull(g.userData.ceil);
   const front = new THREE.Group(); front.position.z = d / 2 - 0.06; g.add(front); g.userData.front = front;
   g.userData.frontKern = mesh(new THREE.BoxGeometry(w - 0.24, h, WALL_CORE), MAT.plaster, 0, h / 2, 0.06 - WALL_CORE / 2, front);
+  addHull(g.userData.frontKern);
   panel('front', tapeziereUV(new THREE.BoxGeometry(w - 0.24, h, WALL_PANEL), w - 0.24, h), 0, h / 2, 0.06 - WALL_T + WALL_PANEL / 2, front);
   g.userData.wins = [];
   const nw = winCount(w);
@@ -530,7 +551,7 @@ function makeFloor(i) {
     const x = (k - (nw - 1) / 2) * (w / (nw + 0.6));
     if (i === 0 && k === Math.floor(nw / 2)) { mesh(makeArchGeo(1.1, 1.8), matWin, x - 0, 0, 0.08, front); continue; }
     if (i > 0 && k === nw - 1) continue;
-    const win = mesh(makeArchGeo(0.5, 0.8), matWin.clone(), x, h * 0.24, 0.08, front);
+    const win = mesh(makeArchGeo(0.5, 0.8), patchLambert(matWin.clone()), x, h * 0.24, 0.08, front);
     g.userData.wins.push(win);
   }
   const stairs = new THREE.Group(); g.add(stairs); g.userData.stairs = stairs;
@@ -586,7 +607,10 @@ itemMeshes.garten = [];
 
 /* Dachterrasse */
 const roofG = new THREE.Group(); towerG.add(roofG);
-{ mesh(new THREE.BoxGeometry(ROOF_W, ROOF_DECK_T, ROOF_D), MAT.woodL, 0, ROOF_DECK_T / 2, 0, roofG);
+/* Kontur nur auf die Dachplatte selbst — die schlanken Geländerpfosten
+   blieben ohne Hull: eine Tuschelinie um jeden Pfosten wirkt bei dieser
+   Dicke eher wie ein zusätzlicher Fehler als wie Struktur (#90). */
+{ addHull(mesh(new THREE.BoxGeometry(ROOF_W, ROOF_DECK_T, ROOF_D), MAT.woodL, 0, ROOF_DECK_T / 2, 0, roofG));
   const n = 8;
   for (let k = 0; k <= n; k++) { const x = -ROOF_W / 2 + k * ROOF_W / n;
     [-1, 1].forEach(s => mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.55, 8), MAT.wood, x, 0.45, s * (ROOF_D / 2 - 0.04), roofG)); }
@@ -2475,7 +2499,8 @@ function floorLampState(i) {
 }
 function applyNight(k) {
   nightK = k;
-  scene.background.lerpColors(SKY.d, SKY.n, k); scene.fog.color.copy(scene.background);
+  const sky = STYLE.aquarell.value ? SKY_AQ : SKY;
+  scene.background.lerpColors(sky.d, sky.n, k); scene.fog.color.copy(scene.background);
   hemi.color.lerpColors(HEMI.d, HEMI.n, k); hemi.groundColor.lerpColors(GRND.d, GRND.n, k);
   hemi.intensity = 1.05 - 0.62 * k; dir.intensity = 1.15 - 1.0 * k;
   starMat.opacity = k * 0.9; moonMat.opacity = k;
@@ -2538,6 +2563,19 @@ function setSeason(idx) {
 /* Bewusst ohne Sperre während der Dachparty — anders als bei Tag/Nacht gibt es
    keinen Grund, die Jahreszeit festzuhalten. */
 $('btn-season').onclick = () => setSeason((seasonTo + 1) % SEASONS.length);
+/* Der Stilwechsel ist absichtlich klein: eine Uniform, die Sichtbarkeit
+   der Konturen, die Himmelsfarbe. Kein Rebuild — ein Turm mit zehn
+   Stockwerken, laufenden Tweens und offenem Besuchsmodus überlebt keinen
+   (#90). */
+function setStil(aquarell) {
+  STYLE.aquarell.value = aquarell ? 1 : 0;
+  scene.traverse(o => { if (o.userData && o.userData.kontur) o.visible = !!STYLE.aquarell.value; });
+  applyNight(nightK);
+  speichereStil(STYLE.aquarell.value);
+  $('btn-stil').textContent = STYLE.aquarell.value ? 'Bilderbuch' : 'Aquarell';
+}
+$('btn-stil').onclick = () => setStil(!STYLE.aquarell.value);
+setStil(ladeStil());
 /* Im Besuch legt der Knopf nur den Besuchszustand um: kein save(), kein
    Schreiben an state — der Spielstand bleibt byte-gleich (#44, #95). */
 $('btn-cutaway').onclick = () => {
@@ -3560,6 +3598,7 @@ for (let i = 0; i <= MAXF; i++) if (floorGroups[i]) applyLook(i);
 if (migrated) save();
 /* Debug-/Testzugriff auf die Szene (Playwright-Checks) */
 window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG, gartenG, gardenEdge, scene, camera, controls, WALL_KEYS, WALL_TILE, FURN_COLORS, TINTABLE,
+  STYLE, setStil, hullOf, stilAktiv: () => !!STYLE.aquarell.value,
   FURN_SIZES, sizeOf, applyEntryScale, H, setItemSize,
   GARDEN: { pos: GARDEN_POS, w: GARDEN_W, d: GARDEN_D }, riverZ, river, placeItemMesh, clampEntry, removeItem,
   STRETCH_STEPS, applyEntryScale, modellMass, raumGrenzen, dehnungOf, dehneSchritt, kannDehnen,
@@ -3754,4 +3793,5 @@ function tick() {
 }
 tick();
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight);
+  syncStyleRes(innerWidth, innerHeight);
   if (edit) { const { eye, tgt } = editCamFor(edit.k); camera.position.copy(eye); controls.target.copy(tgt); } });

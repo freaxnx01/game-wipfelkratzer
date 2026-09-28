@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import { patchLambert } from './stil.js';
 
-const L = (c, o = {}) => new THREE.MeshLambertMaterial({ color: c, ...o });
+export const L = (c, o = {}) => patchLambert(new THREE.MeshLambertMaterial({ color: c, ...o }));
 export const MAT = {
   plaster: L(0xf3e2bd), plasterIn: L(0xf8ecd0), wood: L(0xb9854e), woodD: L(0x8a5a2b),
   woodL: L(0xd8b078), leaf: L(0x77aa5c), leafD: L(0x568b49), red: L(0xc0432e),
@@ -319,8 +320,10 @@ const FURN = {
        träfe jede Lampe im Turm gleichzeitig. Der Schirm klont den Korpuston
        aus #34 — die Farbe bleibt gewählt, das Material aber privat, weil
        applyLampe() emissive darauf setzt. */
-    g.userData.shade = cyl(g, 0.12, 0.24, 0.24, body.clone(), 0, 0.95);
-    g.userData.bulb = sph(g, 0.06, MAT.glow.clone(), 0, 0.86);
+    /* clone() kopiert kein onBeforeCompile (three.js Material.copy) — ohne
+       erneutes patchLambert bliebe der Schirm im Aquarell-Stil unbehandelt. */
+    g.userData.shade = cyl(g, 0.12, 0.24, 0.24, patchLambert(body.clone()), 0, 0.95);
+    g.userData.bulb = sph(g, 0.06, patchLambert(MAT.glow.clone()), 0, 0.86);
     return g; },
   ofen() { const g = G();
     cyl(g, 0.25, 0.28, 0.62, MAT.dark, 0, 0.31); box(g, 0.2, 0.18, 0.04, MAT.fire, 0, 0.28, 0.26);
@@ -965,7 +968,7 @@ export function makeSign(title) {
     ctx.font = '700 64px "Baloo 2", sans-serif'; ctx.fillText(title, 256, 100);
     ctx.font = '500 40px "Baloo 2", sans-serif'; ctx.fillText('Firma Biberzahn', 256, 178); tex.needsUpdate = true; };
   const tex = new THREE.CanvasTexture(cv);
-  const board = mesh(new THREE.BoxGeometry(1.5, 0.75, 0.08), [MAT.woodD, MAT.woodD, MAT.woodD, MAT.woodD, new THREE.MeshLambertMaterial({ map: tex }), MAT.woodD], 0, 1.5, 0, g);
+  const board = mesh(new THREE.BoxGeometry(1.5, 0.75, 0.08), [MAT.woodD, MAT.woodD, MAT.woodD, MAT.woodD, L(0xffffff, { map: tex }), MAT.woodD], 0, 1.5, 0, g);
   draw(); if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
   return g;
 }

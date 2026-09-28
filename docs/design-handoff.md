@@ -20,6 +20,14 @@ The task is to **recreate this experience in the target codebase's environment**
 
 Do not substitute realistic materials, PBR lighting, or photographic textures.
 
+Since #90 there is a **second**, runtime-switchable look ("Aquarell") layered
+on top of this one via `js/stil.js` — an `onBeforeCompile` patch plus
+inverted-hull outline meshes, both gated by a single uniform
+(`STYLE.aquarell.value`). `material.type` stays `MeshLambertMaterial`
+everywhere; the rule above is unchanged, it now just has two renderings
+instead of one. Don't revert the Aquarell code as a rule violation — it *is*
+the rule, patched instead of replaced.
+
 ---
 
 ## Screens / Views
