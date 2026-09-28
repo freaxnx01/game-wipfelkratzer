@@ -506,6 +506,14 @@ mit grosszügigem Timeout. `python3 tools/verify_katalog.py` ebenfalls grün.
 
 ## Abnahme
 
+> **Laufzeit von `tools/verify_stil.py`:** unter Software-GL (headless,
+> swiftshader) braucht der Lauf **über 400 Sekunden** — er baut die Szene
+> mehrfach auf und misst Frame-Zeiten an einem Zehnstöcker, der dort bei rund
+> 1000 ms/Frame liegt. Ein `timeout 400` killt ihn mitten im Lauf, was wie ein
+> Fehlschlag aussieht und keiner ist. Gib dem Vordergrundaufruf mindestens
+> **1500 s** und lass ihn blockieren.
+
+
 1. Branch committen und **pushen**, erst danach prüfen.
 2. `python3 tools/verify_katalog.py` — grün, Vordergrund.
 3. `python3 tools/verify_stil.py` — grün, Vordergrund.

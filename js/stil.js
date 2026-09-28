@@ -9,6 +9,23 @@ export const STYLE = {
   res: { value: new THREE.Vector2(1, 1) },
   paper: { value: null },
   offset: { value: new THREE.Vector2(0, 0) },
+  /* Die drei Stärken als Uniforms statt als Zahlen im Shader-Text — sie
+     mussten für die Kamera dieses Spiels neu eingestellt werden, und wer
+     sie später nachjustiert, soll dafür keinen Shader anfassen müssen.
+
+     Warum nicht die Prototyp-Werte (1.25 / 1.0 / 0.85): die Tiefen-
+     skalierung im Hull-Vertexshader hält die Strichbreite über die
+     Entfernung konstant, aber nicht über das Sichtfeld. Der Prototyp
+     rendert mit fov 27 aus 12.5 Einheiten, das Spiel mit **fov 48**
+     (js/game.js:186) aus rund 24 — die halbe Bildhöhe an der Zielebene
+     ist damit 10.7 statt 3.0 Einheiten, und derselbe Versatz liefert
+     knapp ein Fünftel der Strichbreite auf dem Schirm. Bei 1.25 war die
+     Kontur im Spiel schlicht unsichtbar. 5.0 ist am Turm gemessen; ab
+     etwa 8.0 reisst die Wobble-Funktion den Strich in schwebende
+     Fetzen. */
+  edge: { value: 1.6 },
+  grain: { value: 1.0 },
+  width: { value: 5.0 },
 };
 
 /* Papier wird gemalt, nicht geladen — das Spiel ist buildless und holt
@@ -88,6 +105,8 @@ export function patchLambert(mat) {
     shader.uniforms.uAquarell = STYLE.aquarell;
     shader.uniforms.uRes = STYLE.res;
     shader.uniforms.uPaper = STYLE.paper;
+    shader.uniforms.uEdge = STYLE.edge;
+    shader.uniforms.uGrain = STYLE.grain;
 
     const patch = MARKE + /* glsl */`
       if (uAquarell > 0.5) {
@@ -97,12 +116,12 @@ export function patchLambert(mat) {
            vom Licht — deshalb abs(), das Vorzeichen von vViewPosition
            spielt keine Rolle. */
         float rim = 1.0 - abs(dot(nn, normalize(vViewPosition)));
-        col = mix(col, col * 0.56, pow(rim, 2.4) * 1.0);
+        col = mix(col, col * 0.56, pow(rim, 2.4) * uEdge);
         /* Papierkorn im Screen Space. In UV gerechnet läse es sich als
            Material statt als Papier — der Bogen liegt VOR der Szene. */
         vec2 puv = gl_FragCoord.xy / uRes * 1.7;
         vec3 paper = texture2D(uPaper, puv).rgb;
-        col = mix(col, col * paper, 0.85);
+        col = mix(col, col * paper, uGrain);
         gl_FragColor.rgb = col;
       }`;
     if (!shader.fragmentShader.includes(MARKE)) {
@@ -110,7 +129,7 @@ export function patchLambert(mat) {
       return;
     }
     shader.fragmentShader =
-      'uniform float uAquarell;\nuniform vec2 uRes;\nuniform sampler2D uPaper;\n'
+      'uniform float uAquarell;\nuniform vec2 uRes;\nuniform sampler2D uPaper;\nuniform float uEdge;\nuniform float uGrain;\n'
       + shader.fragmentShader.replace(MARKE, patch);
   };
   /* Ohne eigenen Cache-Key teilen sich beide Stile ein Programm und der
@@ -132,7 +151,7 @@ export function hullMaterial() {
   if (hullMat) return hullMat;
   hullMat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
-    uniforms: { uWidth: { value: 1.25 }, uOffset: STYLE.offset, uInk: { value: new THREE.Color(0x6e4426) } },
+    uniforms: { uWidth: STYLE.width, uOffset: STYLE.offset, uInk: { value: new THREE.Color(0x6e4426) } },
     vertexShader: GLSL_NOISE + /* glsl */`
       uniform float uWidth; uniform vec2 uOffset;
       void main(){
