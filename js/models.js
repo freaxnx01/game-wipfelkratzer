@@ -25,20 +25,22 @@ export const GMAT = {
    identisch mit heute (dh = 0, ks = 1, dl = 0). Die Sommerzeile ist aus den
    heutigen Konstanten in game.js abgeschrieben — Boden, Hemisphärengrund,
    Himmel und die drei Bachbänder. */
+/* `key` ist der i18n-Schlüssel für die Anzeige (js/strings.js); `name` bleibt
+   der deutsche Wert, wie er heute im Spielstand und in Texten steht. */
 export const SEASONS = [
-  { id: 'fruehling', name: 'Frühling',
+  { id: 'fruehling', name: 'Frühling', key: 'season.fruehling',
     leaf: { dh: -0.010, ks: 1.15, dl: 0.08 },
     ground: 0x9fc776, hemiGround: 0xa9c886, sky: 0xd7e9c9,
     sand: 0xc9b083, water: 0x5aa7c7, foam: 0x7fc4dd },
-  { id: 'sommer', name: 'Sommer',
+  { id: 'sommer', name: 'Sommer', key: 'season.sommer',
     leaf: { dh: 0.000, ks: 1.00, dl: 0.00 },
     ground: 0x8fbb6e, hemiGround: 0x9dbb7a, sky: 0xcfe3c2,
     sand: 0xc9b083, water: 0x5aa7c7, foam: 0x7fc4dd },
-  { id: 'herbst', name: 'Herbst',
+  { id: 'herbst', name: 'Herbst', key: 'season.herbst',
     leaf: { dh: -0.215, ks: 1.60, dl: 0.05 },
     ground: 0xb0a76a, hemiGround: 0xb5aa72, sky: 0xdcd9b8,
     sand: 0xc0a679, water: 0x53929f, foam: 0x84b6c4 },
-  { id: 'winter', name: 'Winter',
+  { id: 'winter', name: 'Winter', key: 'season.winter',
     leaf: { dh: 0.020, ks: 0.16, dl: 0.34 },
     ground: 0xe6ecef, hemiGround: 0xd3dde4, sky: 0xd3dbe6,
     sand: 0xe0e4e6, water: 0x9fc4d2, foam: 0xd8e6ec },

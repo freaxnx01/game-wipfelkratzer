@@ -6,6 +6,16 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added
+
+- Das Spiel spricht jetzt Deutsch **und** Englisch. Unten rechts in der
+  Leiste steht ein Knopf `DE`/`EN` — ein Tipp darauf schaltet die
+  Menüs, Knöpfe und Fenstertitel sofort um, ohne die Seite neu zu laden.
+  Die Wahl gilt auch in den anderen Spielen auf github.freaxnx01.ch.
+  Meldungen, Möbelnamen und die Sprüche der Tiere sind noch Deutsch;
+  sie folgen in den nächsten Ausgaben. Selbst vergebene Namen — Räume,
+  Türme, eigene Möbel — bleiben immer so, wie Du sie geschrieben hast.
+
 ## [0.12.0] - 2026-09-28
 
 ### Added
