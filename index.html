@@ -329,84 +329,85 @@
 <div id="scene"></div>
 
 <div id="hud">
-  <div class="panel"><h1>Willi baut den Wipfelkratzer</h1></div>
-  <div class="panel" id="nutrow"><span class="nut"></span><span><span id="nuts">0</span> Haselnüsse</span></div>
-  <div class="panel" id="floorinfo">Erdgeschoss + <span id="floors">0</span> von <span id="floors-max">10</span> Stockwerken</div>
+  <div class="panel"><h1 data-i18n="app.title">Willi baut den Wipfelkratzer</h1></div>
+  <div class="panel" id="nutrow"><span class="nut"></span><span></span></div>
+  <div class="panel" id="floorinfo"></div>
 </div>
 
 <div id="wishes"></div>
 
 <div id="toolbar">
   <button id="btn-build" class="primary">Stockwerk bauen</button>
-  <button id="btn-catalog">Einrichten</button>
-  <button id="btn-staende">Waldkarte</button>
-  <button id="btn-extras">Extras</button>
+  <button id="btn-catalog" data-i18n="toolbar.catalog">Einrichten</button>
+  <button id="btn-staende" data-i18n="toolbar.staende">Waldkarte</button>
+  <button id="btn-extras" data-i18n="toolbar.extras">Extras</button>
   <button id="btn-night">Nacht</button>
   <button id="btn-season">Sommer</button>
   <button id="btn-cutaway">Wände weg</button>
-  <button id="btn-besuch">Hineingehen</button>
-  <button id="btn-photo">Foto</button>
+  <button id="btn-besuch" data-i18n="toolbar.besuch">Hineingehen</button>
+  <button id="btn-photo" data-i18n="toolbar.photo">Foto</button>
   <button id="btn-music">Musik aus</button>
 </div>
 
 <div id="extras-menu" class="panel">
-  <button id="btn-bridge">Brücke bauen</button>
-  <button id="btn-garden">Garten &amp; Spielplatz</button>
-  <button id="btn-sign">Bewohner-Schild</button>
-  <button id="btn-animals">Tier-Übersicht</button>
-  <button id="btn-gallery">Fotogalerie</button>
-  <button id="btn-party" class="primary hidden">Dachparty feiern!</button>
+  <button id="btn-bridge" data-i18n="extras.bridge">Brücke bauen</button>
+  <button id="btn-garden" data-i18n="extras.garden">Garten &amp; Spielplatz</button>
+  <button id="btn-sign" data-i18n="extras.sign">Bewohner-Schild</button>
+  <button id="btn-animals" data-i18n="extras.animals">Tier-Übersicht</button>
+  <button id="btn-gallery" data-i18n="extras.gallery">Fotogalerie</button>
+  <button id="btn-party" class="primary hidden" data-i18n="extras.party">Dachparty feiern!</button>
 </div>
 
 <div id="editbar" class="panel">
   <span id="edit-nr"></span>
   <input id="edit-name" type="text" maxlength="24" placeholder="Wohnung anschreiben"
-         title="Gib dieser Wohnung einen Namen" autocomplete="off">
+         title="Gib dieser Wohnung einen Namen" autocomplete="off"
+         data-i18n-placeholder="edit.placeholder" data-i18n-title="edit.nameTitle">
   <span id="edit-bewohner"></span>
-  <button id="btn-roomclear" class="danger">Alles weg</button>
-  <button id="btn-roomrandom" class="hidden">Zufall einrichten</button>
-  <button id="btn-roomcopy" class="hidden">Raum kopieren</button>
-  <button id="btn-roompaste" class="hidden">Raum einfügen</button>
-  <button id="btn-tip">Tipp</button>
-  <button id="btn-done" class="primary">Fertig</button>
+  <button id="btn-roomclear" class="danger" data-i18n="edit.clear">Alles weg</button>
+  <button id="btn-roomrandom" class="hidden" data-i18n="edit.random">Zufall einrichten</button>
+  <button id="btn-roomcopy" class="hidden" data-i18n="edit.copy">Raum kopieren</button>
+  <button id="btn-roompaste" class="hidden" data-i18n="edit.paste">Raum einfügen</button>
+  <button id="btn-tip" data-i18n="edit.tip">Tipp</button>
+  <button id="btn-done" class="primary" data-i18n="edit.done">Fertig</button>
 </div>
 
 <div id="besuchbar" class="panel">
   <span id="besuch-titel"></span>
-  <button id="btn-besuch-runter" title="ein Stockwerk tiefer">▼</button>
-  <button id="btn-besuch-hoch" title="ein Stockwerk höher">▲</button>
-  <button id="btn-besuch-dach">Dach</button>
-  <button id="btn-besuch-garten">Draussen</button>
-  <button id="btn-besuch-aussicht">Aussicht</button>
-  <button id="btn-besuch-zu" class="primary">Schluss</button>
+  <button id="btn-besuch-runter" title="ein Stockwerk tiefer" data-i18n-title="besuch.down">▼</button>
+  <button id="btn-besuch-hoch" title="ein Stockwerk höher" data-i18n-title="besuch.up">▲</button>
+  <button id="btn-besuch-dach" data-i18n="besuch.roof">Dach</button>
+  <button id="btn-besuch-garten" data-i18n="besuch.outside">Draussen</button>
+  <button id="btn-besuch-aussicht" data-i18n="besuch.view">Aussicht</button>
+  <button id="btn-besuch-zu" class="primary" data-i18n="besuch.close">Schluss</button>
 </div>
 
 <div id="selbar" class="panel">
-  <button id="btn-move">Verschieben</button>
-  <button id="btn-rot">Drehen</button>
-  <button id="btn-stretch">Strecken</button>
-  <div id="stretchpad" aria-label="Länge ändern">
-    <button id="btn-kuerzer">Kürzer</button>
-    <button id="btn-laenger">Länger</button>
+  <button id="btn-move" data-i18n="sel.move">Verschieben</button>
+  <button id="btn-rot" data-i18n="sel.turn">Drehen</button>
+  <button id="btn-stretch" data-i18n="sel.stretch">Strecken</button>
+  <div id="stretchpad" aria-label="Länge ändern" data-i18n-aria="sel.stretchAria">
+    <button id="btn-kuerzer" data-i18n="sel.shorter">Kürzer</button>
+    <button id="btn-laenger" data-i18n="sel.longer">Länger</button>
   </div>
   <div id="wallpad" class="hidden">
-    <button id="btn-wall-up" aria-label="Nach oben">↑</button>
-    <button id="btn-wall-left" aria-label="Nach links">←</button>
-    <button id="btn-wall-down" aria-label="Nach unten">↓</button>
-    <button id="btn-wall-right" aria-label="Nach rechts">→</button>
+    <button id="btn-wall-up" aria-label="Nach oben" data-i18n-aria="sel.up">↑</button>
+    <button id="btn-wall-left" aria-label="Nach links" data-i18n-aria="sel.left">←</button>
+    <button id="btn-wall-down" aria-label="Nach unten" data-i18n-aria="sel.down">↓</button>
+    <button id="btn-wall-right" aria-label="Nach rechts" data-i18n-aria="sel.right">→</button>
   </div>
   <button id="btn-action" class="hidden"></button>
-  <button id="btn-color">Farbe</button>
-  <div id="colorpick" aria-label="Farbe wählen"></div>
-  <button id="btn-size">Grösse</button>
-  <div id="sizepick" aria-label="Grösse wählen"></div>
-  <button id="btn-del" class="danger">Weg damit</button>
+  <button id="btn-color" data-i18n="sel.color">Farbe</button>
+  <div id="colorpick" aria-label="Farbe wählen" data-i18n-aria="sel.colorAria"></div>
+  <button id="btn-size" data-i18n="sel.size">Grösse</button>
+  <div id="sizepick" aria-label="Grösse wählen" data-i18n-aria="sel.sizeAria"></div>
+  <button id="btn-del" class="danger" data-i18n="sel.delete">Weg damit</button>
 </div>
 
 <div id="catalog">
   <header>
-    <h2>Einrichtung</h2>
-    <button id="btn-catclose">Zu</button>
+    <h2 data-i18n="dlg.catalog.title">Einrichtung</h2>
+    <button id="btn-catclose" data-i18n="dlg.close">Zu</button>
   </header>
   <div id="catalog-tabs"></div>
   <div id="catalog-items"></div>
@@ -414,125 +415,125 @@
 
 <div id="residents">
   <div class="panel">
-    <h2>Wipfelkratzer — Bewohner</h2>
+    <h2 data-i18n="dlg.residents.title">Wipfelkratzer — Bewohner</h2>
     <ul id="resident-list"></ul>
-    <button id="btn-resclose" class="primary">Zu</button>
+    <button id="btn-resclose" class="primary" data-i18n="dlg.close">Zu</button>
   </div>
 </div>
 
 <div id="pasteask">
   <div class="panel">
-    <h2>Hier wohnt schon etwas</h2>
+    <h2 data-i18n="dlg.pasteask.title">Hier wohnt schon etwas</h2>
     <p id="pasteask-text"></p>
     <div id="pasteask-buttons">
-      <button id="paste-add" class="primary">Dazustellen</button>
-      <button id="paste-replace" class="danger">Alles ersetzen</button>
-      <button id="paste-cancel">Abbrechen</button>
+      <button id="paste-add" class="primary" data-i18n="dlg.pasteask.add">Dazustellen</button>
+      <button id="paste-replace" class="danger" data-i18n="dlg.pasteask.replace">Alles ersetzen</button>
+      <button id="paste-cancel" data-i18n="dlg.pasteask.cancel">Abbrechen</button>
     </div>
   </div>
 </div>
 
 <div id="clearask">
   <div class="panel">
-    <h2>Wirklich alles wegräumen?</h2>
+    <h2 data-i18n="dlg.clearask.title">Wirklich alles wegräumen?</h2>
     <p id="clearask-text"></p>
     <div id="clearask-buttons">
-      <button id="clear-ok" class="danger">Ja, alles weg</button>
-      <button id="clear-cancel" class="primary">Lieber nicht</button>
+      <button id="clear-ok" class="danger" data-i18n="dlg.clearask.ok">Ja, alles weg</button>
+      <button id="clear-cancel" class="primary" data-i18n="dlg.clearask.cancel">Lieber nicht</button>
     </div>
   </div>
 </div>
 
 <div id="splash-ask">
   <div class="panel">
-    <h2>Zum Bach hinunter?</h2>
-    <p>Du kommst zu &laquo;Splashdown!&raquo; &mdash; dem Wasserrutschen-Rennen.</p>
-    <p>Dein Wipfelkratzer bleibt gespeichert und wartet auf Dich.</p>
-    <button id="btn-splash-go" class="primary">Ja, rutschen!</button>
-    <button id="btn-splash-stay">Lieber hier bleiben</button>
+    <h2 data-i18n="dlg.splash.title">Zum Bach hinunter?</h2>
+    <p data-i18n="dlg.splash.p1">Du kommst zu &laquo;Splashdown!&raquo; &mdash; dem Wasserrutschen-Rennen.</p>
+    <p data-i18n="dlg.splash.p2">Dein Wipfelkratzer bleibt gespeichert und wartet auf Dich.</p>
+    <button id="btn-splash-go" class="primary" data-i18n="dlg.splash.go">Ja, rutschen!</button>
+    <button id="btn-splash-stay" data-i18n="dlg.splash.stay">Lieber hier bleiben</button>
   </div>
 </div>
 
 <div id="animals">
   <div class="panel">
-    <h2>Die Tiere im Wipfelkratzer</h2>
+    <h2 data-i18n="dlg.animals.title">Die Tiere im Wipfelkratzer</h2>
     <div id="animal-grid"></div>
-    <button id="btn-aniclose" class="primary">Zu</button>
+    <button id="btn-aniclose" class="primary" data-i18n="dlg.close">Zu</button>
   </div>
 </div>
 
 <div id="gallery">
   <div class="panel">
-    <h2>Fotogalerie</h2>
+    <h2 data-i18n="dlg.gallery.title">Fotogalerie</h2>
     <div id="photo-grid"></div>
     <div id="gallery-actions">
-      <button id="btn-download-all" class="hidden">Alle herunterladen</button>
-      <button id="btn-galclose" class="primary">Zu</button>
+      <button id="btn-download-all" class="hidden" data-i18n="dlg.gallery.downloadAll">Alle herunterladen</button>
+      <button id="btn-galclose" class="primary" data-i18n="dlg.close">Zu</button>
     </div>
   </div>
 </div>
 
 <div id="workshop">
   <div class="panel">
-    <h2>Schreinerei</h2>
-    <p class="ws-hint">Staple bis zu fünf Teile. Tippe ein Teil an, dann wähle Form, Breite und Farbe.</p>
-    <img id="ws-preview" alt="Vorschau des Möbels">
+    <h2 data-i18n="dlg.workshop.title">Schreinerei</h2>
+    <p class="ws-hint" data-i18n="dlg.workshop.hint">Staple bis zu fünf Teile. Tippe ein Teil an, dann wähle Form, Breite und Farbe.</p>
+    <img id="ws-preview" alt="Vorschau des Möbels" data-i18n-alt="dlg.workshop.previewAlt">
     <div id="ws-stack"></div>
     <div id="ws-shape" class="ws-row"></div>
     <div id="ws-width" class="ws-row"></div>
     <div id="ws-color" class="ws-row"></div>
     <div class="ws-row">
-      <button id="ws-add">Teil dazu</button>
-      <button id="ws-del">Teil weg</button>
+      <button id="ws-add" data-i18n="dlg.workshop.add">Teil dazu</button>
+      <button id="ws-del" data-i18n="dlg.workshop.del">Teil weg</button>
     </div>
     <div class="ws-row">
-      <button id="ws-cancel">Abbrechen</button>
-      <button id="ws-ok" class="primary">Fertig</button>
+      <button id="ws-cancel" data-i18n="dlg.workshop.cancel">Abbrechen</button>
+      <button id="ws-ok" class="primary" data-i18n="dlg.workshop.ok">Fertig</button>
     </div>
   </div>
 </div>
 
 <div id="staende">
   <div class="panel">
-    <h2>Waldkarte</h2>
+    <h2 data-i18n="dlg.staende.title">Waldkarte</h2>
     <div id="stand-grid"></div>
-    <p id="stand-voll" class="hidden">Mehr als vier Türme passen nicht. Lösche zuerst einen.</p>
+    <p id="stand-voll" class="hidden" data-i18n="dlg.staende.full">Mehr als vier Türme passen nicht. Lösche zuerst einen.</p>
     <div id="staende-actions">
-      <button id="btn-stand-neu">Neuer Turm</button>
-      <button id="btn-stand-import">Turm einlesen</button>
+      <button id="btn-stand-neu" data-i18n="dlg.staende.new">Neuer Turm</button>
+      <button id="btn-stand-import" data-i18n="dlg.staende.import">Turm einlesen</button>
       <input id="stand-datei" class="hidden" type="file" accept="application/json,.json">
-      <button id="btn-standclose" class="primary">Zu</button>
+      <button id="btn-standclose" class="primary" data-i18n="dlg.close">Zu</button>
     </div>
   </div>
 </div>
 
 <div id="schaufenster">
   <div class="panel">
-    <h2>Wipfkea</h2>
-    <p class="hint">Diese Möbel stehen im Katalog bereit, wenn du eine Wohnung einrichtest.</p>
+    <h2 data-i18n="dlg.schaufenster.title">Wipfkea</h2>
+    <p class="hint" data-i18n="dlg.schaufenster.hint">Diese Möbel stehen im Katalog bereit, wenn du eine Wohnung einrichtest.</p>
     <div id="schaufenster-items"></div>
-    <button id="btn-schaufenster-zu" class="primary">Zu</button>
+    <button id="btn-schaufenster-zu" class="primary" data-i18n="dlg.close">Zu</button>
   </div>
 </div>
 <div id="flash"></div>
 
-<div id="toast-stack"><button id="toast-clear-all" class="hidden">Alle schliessen</button></div>
+<div id="toast-stack"><button id="toast-clear-all" class="hidden" data-i18n="dlg.closeAll">Alle schliessen</button></div>
 <div id="bubble" class="panel"></div>
 
 <div id="intro">
   <div class="panel">
-    <h1>Willi baut den Wipfelkratzer</h1>
-    <p>Hilf Willi Biber, den Wipfelkratzer zu bauen — Stock für Stock, bis ganz oben!</p>
-    <p>Tippe auf ein Stockwerk, um die Wohnung einzurichten. Wenn eine Wohnung schön ist, ziehen Tiere ein — und die haben Wünsche!</p>
-    <p style="font-size:14px; opacity:.8;">Tipp: Möbel antippen, dann mit den Pfeiltasten schieben und mit Bild&uarr;/Bild&darr; drehen. Der Pool wartet im Katalog unter «Dach».</p>
+    <h1 data-i18n="app.title">Willi baut den Wipfelkratzer</h1>
+    <p data-i18n="intro.p1">Hilf Willi Biber, den Wipfelkratzer zu bauen — Stock für Stock, bis ganz oben!</p>
+    <p data-i18n="intro.p2">Tippe auf ein Stockwerk, um die Wohnung einzurichten. Wenn eine Wohnung schön ist, ziehen Tiere ein — und die haben Wünsche!</p>
+    <p style="font-size:14px; opacity:.8;" data-i18n="intro.tip">Tipp: Möbel antippen, dann mit den Pfeiltasten schieben und mit Bild&uarr;/Bild&darr; drehen. Der Pool wartet im Katalog unter «Dach».</p>
     <div id="tower-pick" class="hidden">
-      <p style="margin:0 0 6px; font-weight:700;">Wie hoch soll der Wipfelkratzer werden?</p>
-      <button id="pick-10" class="primary">Kleiner Turm — 10 Stockwerke</button>
-      <button id="pick-20">Hoher Turm — 20 Stockwerke</button>
-      <button id="pick-50">Riesenturm — 50 Stockwerke</button>
+      <p style="margin:0 0 6px; font-weight:700;" data-i18n="intro.towerQuestion">Wie hoch soll der Wipfelkratzer werden?</p>
+      <button id="pick-10" class="primary" data-i18n="intro.tower10">Kleiner Turm — 10 Stockwerke</button>
+      <button id="pick-20" data-i18n="intro.tower20">Hoher Turm — 20 Stockwerke</button>
+      <button id="pick-50" data-i18n="intro.tower50">Riesenturm — 50 Stockwerke</button>
     </div>
-    <button id="btn-start" class="primary">Los geht&rsquo;s!</button>
-    <button id="btn-intro-staende">Meine Türme</button>
+    <button id="btn-start" class="primary" data-i18n="intro.start">Los geht&rsquo;s!</button>
+    <button id="btn-intro-staende" data-i18n="intro.myTowers">Meine Türme</button>
   </div>
 </div>
 
@@ -543,6 +544,7 @@
 <script type="module" src="js/game.js"></script>
 
 <script src="./version.js"></script>
+<script src="./i18n.js"></script>
 <nav id="game-nav" aria-label="Game navigation" style="position:fixed;right:10px;bottom:8px;z-index:2147483647;display:flex;gap:12px;align-items:center;font:600 13px/1.4 system-ui,-apple-system,sans-serif;padding:6px 11px;border-radius:8px;background:rgba(15,17,26,.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);opacity:.55;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.55">
   <span id="version-badge" title="Version" style="color:#5a6072"></span>
   <span style="color:#5a6072" aria-hidden="true">·</span>

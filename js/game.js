@@ -8,6 +8,10 @@ import { MAT, SEASONS, LEAVES, CATALOG, CATS, WALL_ITEMS, WALLS, FLOORS, FURN_CO
 import { zipStore } from './zip.js';
 import * as staende from './staende.js';
 import { baueDatei, dateiName, pruefeDatei, MAX_DATEI } from './standdatei.js';
+/* Als `tr` importiert, nicht `t`: der Rest der Datei benutzt `t` schon vielfach
+   als lokalen Variablennamen (Bewohner, Meshes, Zeit) — ein gleichnamiger
+   Import würde in jenen Funktionen unbemerkt verschattet. */
+import { t as tr, rememberDe, initI18n } from './strings.js';
 
 /* ---------- Konstanten ---------- */
 const PLAT_Y = 2.2, E_H = 2.4, FLOOR_H = 2.0;
@@ -42,7 +46,7 @@ const TENANTS = [
   { name: 'Rita und Claas Haselmaus', animals: ['haselmaus', 'haselmaus'], wish: 'nusskiste', wtext: 'Rita und Claas wünschen sich eine Nusskiste.' },
   { name: 'Piet und Jan Waldfrosch', animals: ['frosch', 'frosch'], wish: 'pool', roofWish: true, wtext: 'Piet und Jan wünschen sich einen Pool auf dem Dach!' },
 ];
-const flLabel = i => i === 0 ? 'E' : String(i);
+const flLabel = i => i === 0 ? tr('fl.ground') : String(i);
 /* Ab Etage 10 gibt es keine handgeschriebenen Bewohner mehr. Sie werden aus
    vier Töpfen zusammengesetzt und mit demselben Hash ausgewürfelt, der schon
    Etagenversatz und Baumpositionen bestimmt (rnd, #47). Damit liefert
@@ -1144,9 +1148,10 @@ function renderToasts() {
   toastClearEl.classList.toggle('hidden', toasts.length < 2);
 }
 toastClearEl.onclick = dismissAllToasts;
-function updateHUD() { $('nuts').textContent = state.nuts; $('floors').textContent = state.floors;
-  $('floors-max').textContent = MAXF;
-  $('btn-build').textContent = state.floors >= MAXF ? 'Fertig gebaut!' : `Stockwerk bauen (${state.floors + 1}/${MAXF})`;
+function updateHUD() {
+  $('nutrow').lastElementChild.textContent = tr('hud.nuts', { n: state.nuts });
+  $('floorinfo').textContent = tr('hud.floors', { n: state.floors, max: MAXF });
+  $('btn-build').textContent = state.floors >= MAXF ? tr('build.done') : tr('build.next', { n: state.floors + 1, max: MAXF });
   $('btn-build').disabled = state.floors >= MAXF || !!edit;
   $('btn-party').classList.toggle('hidden', !(state.floors === MAXF && tenantIn(MAXF)));
   beschrifteExtras();
@@ -1368,7 +1373,7 @@ function applyFronts() {
   const wandWeg = besuch ? besuch.wandWeg : state.cutaway;
   for (let j = 0; j <= MAXF; j++) if (floorGroups[j])
     floorGroups[j].userData.front.visible = !wandWeg && !(edit && edit.k === j);
-  $('btn-cutaway').textContent = wandWeg ? 'Wände hin' : 'Wände weg';
+  $('btn-cutaway').textContent = wandWeg ? tr('toolbar.wallsBack') : tr('toolbar.wallsAway');
 }
 function fitDistance(halfWidth, halfHeight) {
   const vFov = camera.fov * Math.PI / 180;
@@ -1401,7 +1406,7 @@ function editCamFor(k) {
 function setzeEditLeiste(k) {
   const nr = $('edit-nr'), feld = $('edit-name'), bewohner = $('edit-bewohner');
   if (k === 'garten' || k === 'roof') {
-    nr.textContent = k === 'garten' ? 'Spielplatz einrichten' : 'Dachterrasse einrichten';
+    nr.textContent = k === 'garten' ? tr('edit.garten') : tr('edit.roof');
     feld.classList.add('hidden');
     bewohner.classList.add('hidden');
     return;
@@ -1593,7 +1598,7 @@ function exitBesuch() {
 function wohnungAufschrift(k) {
   const bewohner = tenantIn(k) ? (tenantOf(k).unit || tenantOf(k).name) : '';
   const teile = [raumName(k), bewohner].filter(Boolean);
-  return `${flLabel(k)} — ${teile.join(' · ') || 'noch niemand'}`;
+  return tr('edit.flat', { fl: flLabel(k), teile: teile.join(' · ') || tr('edit.flatEmpty') });
 }
 /* Gesperrt statt versteckt: ein Knopf, der verschwindet, verwirrt mehr als
    einer, der grau ist (#44). Nur «Draussen» fehlt ganz, solange es keinen
@@ -1603,9 +1608,9 @@ function renderBesuchbar() {
   if (!besuch) return;
   const k = besuch.k;
   const zahl = typeof k === 'number';
-  $('besuch-titel').textContent = k === 'roof' ? 'Dachterrasse'
-    : k === 'garten' ? 'Spielplatz'
-    : k === 'aussicht' ? 'Aussichtsplattform'
+  $('besuch-titel').textContent = k === 'roof' ? tr('besuch.roofTitle')
+    : k === 'garten' ? tr('besuch.outsideTitle')
+    : k === 'aussicht' ? tr('besuch.viewTitle')
     : wohnungAufschrift(k);
   $('btn-besuch-runter').disabled = !zahl || k <= 0;
   $('btn-besuch-hoch').disabled = !zahl || k >= state.floors;
@@ -2486,7 +2491,7 @@ function applyNight(k) {
   /* Birnen folgen der Tageszeit — applyLampe rechnet mit nightK. */
   for (let i = 0; i <= MAXF; i++) (itemMeshes[i] || []).forEach(m => {
     if (m.userData.pick.entry.id === 'lampe') applyLampe(m, isOn(m.userData.pick.entry), 1); });
-  $('btn-night').textContent = k > 0.5 ? 'Tag' : 'Nacht';
+  $('btn-night').textContent = k > 0.5 ? tr('toolbar.day') : tr('toolbar.night');
 }
 function setNight(on) {
   state.night = on; save();
@@ -2525,7 +2530,7 @@ function applySeason(q) {
   const dl = a.leaf.dl + (b.leaf.dl - a.leaf.dl) * q;
   LEAVES.forEach(e => e.mat.color.setHSL(e.h + dh, Math.min(1, e.s * ks), Math.min(1, e.l + dl)));
   applyNight(nightK);
-  $('btn-season').textContent = (q < 0.5 ? a : b).name;
+  $('btn-season').textContent = tr((q < 0.5 ? a : b).key);
 }
 function setSeason(idx) {
   seasonFrom = seasonTo; seasonTo = idx;
@@ -2687,7 +2692,7 @@ const sfx = {
     [[0, 0.09], [0.16, 0.07], [0.34, 0.05]].forEach(([d, g]) =>
       noiseBurst(t + d, 0.14, 5200, 2600, g)); },
 };
-$('btn-music').onclick = () => { musicOn = !musicOn; $('btn-music').textContent = musicOn ? 'Musik aus' : 'Musik an'; };
+$('btn-music').onclick = () => { musicOn = !musicOn; $('btn-music').textContent = tr(musicOn ? 'toolbar.musicOff' : 'toolbar.musicOn'); };
 
 function tenantTalk(i) {
   const t = tenantOf(i);
@@ -3628,13 +3633,30 @@ window.wipfelkratzer = { THREE, state, floorGroups, roofG, roofStairG, roofGapG,
   BLASE_DAUER, zeigeBlase, verbergeBlase, erzaehle,
   williTalk, damTalk, mokiTalk, tenantTalk,
   get clock() { return clock; },
-  askSplashdown, SPLASHDOWN_URL };
+  askSplashdown, SPLASHDOWN_URL,
+  /* Fuer Playwright-Sonden zur Zweisprachigkeit (#107). */
+  t: tr };
 /* Setzt die Jahreszeit ohne Überblendung (seasonFrom === seasonTo) und ruft am
    Ende applyNight(nightK) — das ersetzt den früheren Erstaufruf von applyNight. */
 applySeason(1);
 applyFronts();
 makeThumbs();
 renderWishes(); renderResidents(); updateHUD();
+
+/* Zieht die vom Spiel selbst gesetzten Beschriftungen nach, wenn die Sprache
+   wechselt — es gibt keine zweite Render-Wahrheit, refreshChrome ruft nur die
+   vorhandenen Aktualisierer erneut auf (#107). */
+for (const s of SEASONS) rememberDe(s.key, s.name);
+function refreshChrome() {
+  updateHUD();
+  applyFronts();
+  $('btn-night').textContent = tr(nightK > 0.5 ? 'toolbar.day' : 'toolbar.night');
+  $('btn-music').textContent = tr(musicOn ? 'toolbar.musicOff' : 'toolbar.musicOn');
+  $('btn-season').textContent = tr(SEASONS[seasonTo].key);
+  if (edit) setzeEditLeiste(edit.k);
+  if (besuch) renderBesuchbar();
+}
+initI18n(refreshChrome);
 
 /* Elses flight logic (#45) */
 function thirstyPool() {
