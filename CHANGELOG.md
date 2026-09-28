@@ -6,6 +6,12 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added
+
+- Neuer Knopf **Aquarell**: Der ganze Wald sieht auf Knopfdruck aus wie
+  gemalt — mit Tuschelinien, Papierkorn und dunklen Rändern. Nochmal
+  drücken, und alles ist wieder wie vorher (#90)
+
 ## [0.12.0] - 2026-09-28
 
 ### Added
