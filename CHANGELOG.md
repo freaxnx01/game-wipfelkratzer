@@ -6,6 +6,11 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-09-29
+
+### Added
+- Fullscreen toggle (⛶) in the game navigation
+
 ## [0.13.0] - 2026-09-28
 
 ### Added
