@@ -9,6 +9,10 @@ All notable changes to this project are documented here, following
 ### Added
 - Hover over the version number to see when the game was last updated, in your own time zone, and how long ago
 
+### Changed
+
+- The jump to **Splashdown** goes straight to its new address **splashdown.freax.games**.
+
 ## [0.14.0] - 2026-09-29
 
 ### Added

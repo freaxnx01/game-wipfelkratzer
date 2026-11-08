@@ -2433,7 +2433,7 @@ $('residents').onclick = e => { if (e.target === $('residents')) $('residents').
    Pfad. Der Rückweg wird als Query-Parameter mitgegeben; Splashdown darf ihn
    heute noch ignorieren — dann führt der Rückweg über die Zurück-Taste und
    den «More Games…»-Link (siehe Spec, Abschnitt «Abhängigkeit»). */
-const SPLASHDOWN_URL = 'https://github.freaxnx01.ch/game-splashdown/';
+const SPLASHDOWN_URL = 'https://splashdown.freax.games/';
 function askSplashdown() { $('splash-ask').classList.add('open'); sfx.pop(); }
 function gotoSplashdown() {
   schreibeStand();   /* NICHT save() — das ist um 300 ms entprellt und stirbt mit dem Dokument */
